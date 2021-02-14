@@ -63,8 +63,7 @@ module Infer =
             | String x ->
                 TString (typExpr (Typed TypString, x))
             | Var ident ->
-                let typeInfo = makeUntyped()
-                TVar (typExpr (typeInfo, {| ident = ident |}))
+                TVar (typExpr (makeUntyped(), {| ident = ident |}))
             | Let (ident, assignment, body) ->
                 let identMap = identMap |> Map.set ident (makeUntyped())
                 TLet (
@@ -88,6 +87,10 @@ module Infer =
                            arg = gen identMap arg |}))
         
         gen identMap expr
+
+
+
+
 
 ///////// Test
 
