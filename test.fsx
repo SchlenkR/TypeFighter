@@ -13,10 +13,10 @@ type Expr =
 // TODO: Bool,Ctor,If
 
 type Typ =
-    | TypInt
-    | TypFloat
-    | TypString
-    | TypFun of Typ * Typ
+    | IntTyp
+    | FloatTyp
+    | StringTyp
+    | FunTyp of Typ * Typ
 
 type TExpr =
     | TInt of TypExpr<int>
@@ -29,8 +29,10 @@ type TExpr =
                    body: TExpr |}>
     | TFun of TypExpr<{| ident: string; body: TExpr |}>
     | TApp of TypExpr<{| target: TExpr; arg: TExpr |}>
-
-and TypExpr<'a> = { typeInfo: TypInfo; value: 'a }
+and TypExpr<'a> =
+    { typeInfo: TypInfo
+      value: 'a
+      identMap: Map<string, TypInfo> }
 and TypInfo =
     | Det of Typ
     | Open of TypVar
@@ -50,8 +52,9 @@ and TypVar = TypVar of int
 
 module Infer =
     
-    // type Constraint =
-    //     { termA:  }
+    type Constraint =
+        { left: TypInfo
+          right: TypInfo }
     
     module private Map =
         let set key value map =
@@ -64,48 +67,54 @@ module Infer =
             typeCounter <- typeCounter + 1
             Open(TypVar typeCounter)
 
-        let typExprVar typeVar value = { typeInfo = typeVar; value = value }
-
-        let typExpr value =
+        let typExpr value identMap =
             { typeInfo = newTypeVar ()
-              value = value }
+              value = value
+              identMap = identMap }
 
         let rec gen (identMap: Map<string, TypInfo>) = function
-            | Int x -> TInt(typExpr x)
-            | Float x -> TFloat(typExpr x)
-            | String x -> TString(typExpr x)
-            | Var ident -> TVar(typExpr {| ident = ident |})
+            | Int x -> TInt(typExpr x identMap)
+            | Float x -> TFloat(typExpr x identMap)
+            | String x -> TString(typExpr x identMap)
+            | Var ident -> TVar(typExpr {| ident = ident |} identMap)
             | Let (ident, assignment, body) ->
                 let identMap =
                     identMap |> Map.set ident (newTypeVar ())
-                TLet
-                    (typExpr
+                TLet (
+                    typExpr
                         {| ident = ident
                            assignment = gen identMap assignment
-                           body = gen identMap body |})
+                           body = gen identMap body |}
+                        identMap)
             | Fun (ident, body) ->
                 let identMap =
                     identMap |> Map.set ident (newTypeVar ())
-                TFun
-                    (typExpr
+                TFun (
+                    typExpr
                         {| ident = ident
-                           body = gen identMap body |})
+                           body = gen identMap body |}
+                        identMap)
             | App (target, arg) ->
-                TApp
-                    (typExpr
+                TApp (
+                    typExpr
                         {| target = gen identMap target
-                           arg = gen identMap arg |})
+                           arg = gen identMap arg |}
+                       identMap)
 
         gen identMap expr
 
-    let genConstraintSet = function
-        | TInt x -> ()
-        | TFloat x -> ()
-        | TString x -> ()
-        | TVar x -> ()
-        | TLet x -> ()
-        | TFun x -> ()
-        | TApp x -> ()        
+    let genConstraintSet (expr: TExpr) =
+        let right =
+            match expr with
+            | TInt x -> Det IntTyp
+            | TFloat x -> Det FloatTyp
+            | TString x -> Det StringTyp
+            | TVar x -> x.identMap.[x.value.ident]
+            | TLet x -> Det IntTyp
+            | TFun x -> Det IntTyp
+            | TApp x -> Det IntTyp
+        { left = expr. }
+       
 
 
 
