@@ -16,27 +16,26 @@ type Typ =
     | IntTyp
     | FloatTyp
     | StringTyp
-    | FunTyp of Typ * Typ
-
-type TExpr =
-    | TInt of TypExpr<int>
-    | TFloat of TypExpr<float>
-    | TString of TypExpr<string>
-    | TVar of TypExpr<{| ident: string |}>
-    | TLet of
-        TypExpr<{| ident: string
-                   assignment: TExpr
-                   body: TExpr |}>
-    | TFun of TypExpr<{| ident: string; body: TExpr |}>
-    | TApp of TypExpr<{| target: TExpr; arg: TExpr |}>
-and TypExpr<'a> =
-    { typeInfo: TypInfo
-      value: 'a
-      identMap: Map<string, TypInfo> }
-and TypInfo =
+    | FunTyp of TypAnno * TypAnno
+and TExpr =
+    | TInt of int
+    | TFloat of float
+    | TString of string
+    | TVar of ident: string
+    | TLet of {| ident: string
+                 assignment: TypExpr
+                 body: TypExpr |}
+    | TFun of {| ident: string
+                 body: TypExpr |}
+    | TApp of {| target: TypExpr
+                 arg: TypExpr |}
+and TypExpr =
+    { expr: TExpr
+      typAnno: TypAnno
+      identMap: Map<string, TypAnno> }
+and TypAnno =
     | Det of Typ
-    | Open of TypVar
-and TypVar = TypVar of int
+    | Open of int
 
 // module Print =
 //     let printTExpr (expr: TExpr) =
@@ -53,69 +52,88 @@ and TypVar = TypVar of int
 module Infer =
     
     type Constraint =
-        { left: TypInfo
-          right: TypInfo }
+        { left: TypAnno
+          right: TypAnno }
     
     module private Map =
         let set key value map =
             map |> Map.change key (fun _ -> Some value)
 
-    let toTypableAst (identMap: Map<string, TypInfo>) (expr: Expr) =
+    let annotate (identMap: Map<string, TypAnno>) (expr: Expr) =
         let mutable typeCounter = -1
 
         let newTypeVar () =
             typeCounter <- typeCounter + 1
-            Open(TypVar typeCounter)
+            Open typeCounter
 
-        let typExpr value identMap =
-            { typeInfo = newTypeVar ()
-              value = value
+        let typExpr expr identMap =
+            { expr = expr
+              typAnno = newTypeVar ()
               identMap = identMap }
 
-        let rec gen (identMap: Map<string, TypInfo>) = function
-            | Int x -> TInt(typExpr x identMap)
-            | Float x -> TFloat(typExpr x identMap)
-            | String x -> TString(typExpr x identMap)
-            | Var ident -> TVar(typExpr {| ident = ident |} identMap)
+        let rec gen (identMap: Map<string, TypAnno>) = function
+            | Int x -> typExpr (TInt x) identMap
+            | Float x -> typExpr (TFloat x) identMap
+            | String x -> typExpr (TString x) identMap
+            | Var ident -> typExpr (TVar ident) identMap
             | Let (ident, assignment, body) ->
-                let identMap =
-                    identMap |> Map.set ident (newTypeVar ())
-                TLet (
-                    typExpr
-                        {| ident = ident
-                           assignment = gen identMap assignment
-                           body = gen identMap body |}
-                        identMap)
+                let identMap = identMap |> Map.set ident (newTypeVar ())
+                typExpr
+                    (TLet {| ident = ident
+                             assignment = gen identMap assignment
+                             body = gen identMap body |})
+                    identMap
             | Fun (ident, body) ->
-                let identMap =
-                    identMap |> Map.set ident (newTypeVar ())
-                TFun (
-                    typExpr
-                        {| ident = ident
-                           body = gen identMap body |}
-                        identMap)
+                let identMap = identMap |> Map.set ident (newTypeVar ())
+                typExpr
+                    (TFun {| ident = ident
+                             body = gen identMap body |})
+                    identMap
             | App (target, arg) ->
-                TApp (
-                    typExpr
-                        {| target = gen identMap target
-                           arg = gen identMap arg |}
-                       identMap)
+                typExpr
+                    (TApp {| target = gen identMap target
+                             arg = gen identMap arg |})
+                   identMap
 
         gen identMap expr
 
-    let genConstraintSet (expr: TExpr) =
-        let right =
-            match expr with
-            | TInt x -> Det IntTyp
-            | TFloat x -> Det FloatTyp
-            | TString x -> Det StringTyp
-            | TVar x -> x.identMap.[x.value.ident]
-            | TLet x -> Det IntTyp
-            | TFun x -> Det IntTyp
-            | TApp x -> Det IntTyp
-        { left = expr. }
-       
-
+    let genConstraintSet (typExpr: TypExpr) =
+        let rec genConstraints (typExpr: TypExpr) =
+            [
+                match typExpr.expr with
+                | TInt _ ->
+                    yield { left = typExpr.typAnno
+                            right = Det IntTyp }
+                | TFloat _ ->
+                    yield { left = typExpr.typAnno
+                            right = Det FloatTyp }
+                | TString _ ->
+                    yield { left = typExpr.typAnno
+                            right = Det StringTyp }
+                | TVar ident ->
+                    yield { left = typExpr.typAnno
+                            right = typExpr.identMap.[ident] }
+                | TLet letExpr ->
+                    yield { left = typExpr.identMap.[letExpr.ident]
+                            right = letExpr.assignment.typAnno }
+                    yield { left = typExpr.typAnno
+                            right = letExpr.body.typAnno }
+                    yield! genConstraints letExpr.assignment
+                    yield! genConstraints letExpr.body
+                | TFun funExpr ->
+                    yield { left = typExpr.typAnno
+                            right = Det(FunTyp(typExpr.identMap.[funExpr.ident], funExpr.body.typAnno )) }
+                    yield! genConstraints funExpr.body
+                | TApp appExpr ->
+                    // res = add 20 -> we know something about "add":
+                    // It is a function that goes from int to whatever 'res' is
+                    yield { left = appExpr.target.typAnno
+                            right = Det(FunTyp(appExpr.arg.typAnno, typExpr.typAnno )) }
+                    yield! genConstraints appExpr.arg
+                    yield! genConstraints appExpr.target
+            ]
+        genConstraints typExpr |> Set.ofList
+        
 
 
 ///////// Test
@@ -135,11 +153,18 @@ let expr3 =
 
 
 
+let intTyp = Det IntTyp
+let floatTyp = Det FloatTyp
+let stringTyp = Det StringTyp
+let funTyp(a, b) = Det (FunTyp(a, b))
 
 let test expr =
     let lib =
-        [ "libcall_add", Det(TypFun(TypInt, TypFun(TypInt, TypInt))) ]
+        [
+            "libcall_add", funTyp(intTyp, funTyp(intTyp, intTyp))
+        ]
 
-    Infer.toTypableAst (lib |> Map.ofList) expr
+    let texpr = Infer.annotate (lib |> Map.ofList) expr
+    Infer.genConstraintSet texpr
 
-test expr3
+let res = test expr3
