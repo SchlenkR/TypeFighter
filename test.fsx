@@ -1,5 +1,5 @@
 ﻿#if INTERACTIVE
-fsi.PrintWidth <- 500
+fsi.PrintWidth <- 250
 #endif
 
 type Expr =
@@ -37,22 +37,12 @@ and TypAnno =
     | Det of Typ
     | Open of int
 
-// module Print =
-//     let printTExpr (expr: TExpr) =
-//         match expr with
-//         | TInt x ->
-//         | TFloat x
-//         | TString x
-//         | TVar of ident: string
-//         | TLet of ident: string * assignment: TypExpr * body: TypExpr
-//         | TFun of ident: string * body: TypExpr
-//         | TApp of target: TypExpr * arg: TypExpr
-
 
 module Infer =
     
     type Constraint =
-        { left: TypAnno
+        { hint: string
+          left: TypAnno
           right: TypAnno }
     
     module private Map =
@@ -102,32 +92,40 @@ module Infer =
             [
                 match typExpr.expr with
                 | TInt _ ->
-                    yield { left = typExpr.typAnno
+                    yield { hint = "TInt"
+                            left = typExpr.typAnno
                             right = Det IntTyp }
                 | TFloat _ ->
-                    yield { left = typExpr.typAnno
+                    yield { hint = "TFloat"
+                            left = typExpr.typAnno
                             right = Det FloatTyp }
                 | TString _ ->
-                    yield { left = typExpr.typAnno
+                    yield { hint = "TString"
+                            left = typExpr.typAnno
                             right = Det StringTyp }
                 | TVar ident ->
-                    yield { left = typExpr.typAnno
+                    yield { hint = $"TVar {ident}"
+                            left = typExpr.typAnno
                             right = typExpr.identMap.[ident] }
                 | TLet letExpr ->
-                    yield { left = typExpr.identMap.[letExpr.ident]
+                    yield { hint = "TLet_ident"
+                            left = typExpr.identMap.[letExpr.ident]
                             right = letExpr.assignment.typAnno }
-                    yield { left = typExpr.typAnno
+                    yield { hint = "TLet_itself"
+                            left = typExpr.typAnno
                             right = letExpr.body.typAnno }
                     yield! genConstraints letExpr.assignment
                     yield! genConstraints letExpr.body
                 | TFun funExpr ->
-                    yield { left = typExpr.typAnno
+                    yield { hint = "TFun"
+                            left = typExpr.typAnno
                             right = Det(FunTyp(typExpr.identMap.[funExpr.ident], funExpr.body.typAnno )) }
                     yield! genConstraints funExpr.body
                 | TApp appExpr ->
                     // res = add 20 -> we know something about "add":
                     // It is a function that goes from int to whatever 'res' is
-                    yield { left = appExpr.target.typAnno
+                    yield { hint = "TApp_target"
+                            left = appExpr.target.typAnno
                             right = Det(FunTyp(appExpr.arg.typAnno, typExpr.typAnno )) }
                     yield! genConstraints appExpr.arg
                     yield! genConstraints appExpr.target
@@ -138,33 +136,63 @@ module Infer =
 
 ///////// Test
 
-let expr1 = Int 42
+[<AutoOpen>]
+module Test =
+    let intTyp = Det IntTyp
+    let floatTyp = Det FloatTyp
+    let stringTyp = Det StringTyp
+    let funTyp(a, b) = Det (FunTyp(a, b))
 
-let expr2 = Let("hurz", Int 43, Int 32)
+    let printTExpr (expr: TypExpr) =
+        let doIndent indent = indent + "    "
+        let rec print (expr: TypExpr) (indent: string) =
+             printf $"{indent}({expr.typAnno}) : "
+             match expr.expr with
+             | TInt x -> printfn "%d" x
+             | TFloat x -> printfn "%f" x
+             | TString x -> printfn "%s" x
+             | TVar x -> printfn "%s" x
+             | TLet letExpr ->
+                 printfn "LET %s [assignment, body]" letExpr.ident
+                 print letExpr.assignment (doIndent indent)
+                 print letExpr.body (doIndent indent)
+             | TFun funExpr ->
+                 printfn "FUN %s [body]" funExpr.ident
+                 print funExpr.body (doIndent indent)
+             | TApp appExpr ->
+                 printfn "APP [target, arg]"
+                 print appExpr.target (doIndent indent)
+                 print appExpr.arg (doIndent indent)
+        print expr ""    
 
-let add =
-    let addA =
-        Fun("a", App(Var "libcall_add", Var "a"))
-
-    Fun("b", App(addA, Var "b"))
-
-let expr3 =
-    Let("hurz", Int 43, Let("f", add, App(App(Var "f", Var "hurz"), Int 99)))
-
-
-
-let intTyp = Det IntTyp
-let floatTyp = Det FloatTyp
-let stringTyp = Det StringTyp
-let funTyp(a, b) = Det (FunTyp(a, b))
-
-let test expr =
+    let printConstraints (constraints: Set<Infer.Constraint>) =
+        for c in constraints |> Set.toList do
+            printfn "%A (%s) = %A" c.left c.hint c.right
+    
     let lib =
         [
             "libcall_add", funTyp(intTyp, funTyp(intTyp, intTyp))
         ]
 
-    let texpr = Infer.annotate (lib |> Map.ofList) expr
-    Infer.genConstraintSet texpr
+    let annotate expr =
+        Infer.annotate (lib |> Map.ofList) expr
+        |> printTExpr
 
-let res = test expr3
+    let constrain expr =
+        Infer.annotate (lib |> Map.ofList) expr
+        |> Infer.genConstraintSet
+        |> printConstraints
+
+        
+let expr1 = Int 42
+let expr2 = Let("hurz", Int 43, Int 32)
+let add =
+    let addA =
+        Fun("a", App(Var "libcall_add", Var "a"))
+    Fun("b", App(addA, Var "b"))
+let expr3 =
+    Let("hurz", Int 43, Let("f", add, App(App(Var "f", Var "hurz"), Int 99)))
+
+
+expr3 |> annotate
+expr3 |> constrain
