@@ -3,38 +3,38 @@ fsi.PrintWidth <- 250
 #endif
 
 type Expr =
-    | Int of int
-    | Float of float
-    | String of string
-    | Var of ident: string
-    | Let of ident: string * assignment: Expr * body: Expr
-    | Fun of ident: string * body: Expr
-    | App of target: Expr * arg: Expr
+    | EInt of int
+    | EFloat of float
+    | EString of string
+    | EVar of ident: string
+    | ELet of ident: string * assignment: Expr * body: Expr
+    | EFun of ident: string * body: Expr
+    | EApp of target: Expr * arg: Expr
 // TODO: Bool,Ctor,If
 
-type Typ =
-    | IntTyp
-    | FloatTyp
-    | StringTyp
-    | FunTyp of TypAnno * TypAnno
-and TExpr =
+type MType =
+    | MInt
+    | MFloat
+    | MString
+    | MFun of TyAnnotation * TyAnnotation
+and TypedExpr =
     | TInt of int
     | TFloat of float
     | TString of string
     | TVar of ident: string
     | TLet of {| ident: string
-                 assignment: TypExpr
-                 body: TypExpr |}
+                 assignment: AnnotatedTy
+                 body: AnnotatedTy |}
     | TFun of {| ident: string
-                 identTypAnno: TypAnno
-                 body: TypExpr |}
-    | TApp of {| target: TypExpr
-                 arg: TypExpr |}
-and TypExpr =
-    { expr: TExpr
-      typAnno: TypAnno }
-and TypAnno =
-    | Det of Typ
+                 identTyAnno: TyAnnotation
+                 body: AnnotatedTy |}
+    | TApp of {| target: AnnotatedTy
+                 arg: AnnotatedTy |}
+and AnnotatedTy =
+    { typedExpr: TypedExpr
+      tyAnno: TyAnnotation }
+and TyAnnotation =
+    | Det of MType
     | Open of int
     | Unresolvable
 
@@ -43,90 +43,84 @@ module Infer =
     
     type Constraint =
         { hint: string
-          left: TypAnno
-          right: TypAnno }
+          left: TyAnnotation
+          right: TyAnnotation }
     
     module private Map =
-        let set (ident: string) (typAnno: TypAnno) map =
+        let set (ident: string) (typAnno: TyAnnotation) map =
             map |> Map.change ident (fun _ -> Some typAnno)
-        let resolveTypAnno (ident: string) (map: Map<string, TypAnno>) =
+        let resolveAnnotation (ident: string) (map: Map<string, TyAnnotation>) =
             match map |> Map.tryFind ident with
             | None -> Unresolvable
             | Some ta -> ta
 
     let annotate (expr: Expr) =
         
-        let mutable typeCounter = -1
-        let newTypeVar () =
-            typeCounter <- typeCounter + 1
-            Open typeCounter
-        let typExpr expr =
-            { expr = expr
-              typAnno = newTypeVar() }
+        let mutable tyCounter = -1
+        let newTyVar () =
+            tyCounter <- tyCounter + 1
+            Open tyCounter
+        let tyExpr expr = { typedExpr = expr; tyAnno = newTyVar() }
 
         let rec gen expr =
             match expr with
-            | Int x ->
-                typExpr (TInt x)
-            | Float x ->
-                typExpr (TFloat x)
-            | String x ->
-                typExpr (TString x)
-            | Var ident ->
-                typExpr (TVar ident)
-            | Let (ident, assignment, body) ->
-                typExpr
+            | EInt x -> tyExpr (TInt x)
+            | EFloat x -> tyExpr (TFloat x)
+            | EString x -> tyExpr (TString x)
+            | EVar ident -> tyExpr (TVar ident)
+            | ELet (ident, assignment, body) ->
+                tyExpr
                     (TLet {| ident = ident
                              assignment = gen assignment
                              body = gen body |})
-            | Fun (ident, body) ->
-                typExpr
+            | EFun (ident, body) ->
+                tyExpr
                     (TFun {| ident = ident
-                             identTypAnno = newTypeVar ()
+                             identTyAnno = newTyVar ()
                              body = gen body |})
-            | App (target, arg) ->
-                typExpr
+            | EApp (target, arg) ->
+                tyExpr
                     (TApp {| target = gen target
                              arg = gen arg |})
         gen expr
 
-    let genConstraintSet (identMap: Map<string, TypAnno>) (typExpr: TypExpr) =
-        let rec genConstraints (typExpr: TypExpr) (identMap: Map<string, TypAnno>) =
+    let genConstraintSet (identMap: Map<string, TyAnnotation>) (typExpr: AnnotatedTy) =
+        let rec genConstraints (typExpr: AnnotatedTy) (identMap: Map<string, TyAnnotation>) =
             [
-                match typExpr.expr with
+                match typExpr.typedExpr with
                 | TInt _ ->
                     yield { hint = "TInt"
-                            left = typExpr.typAnno
-                            right = Det IntTyp }
+                            left = typExpr.tyAnno
+                            right = Det MInt }
                 | TFloat _ ->
                     yield { hint = "TFloat"
-                            left = typExpr.typAnno
-                            right = Det FloatTyp }
+                            left = typExpr.tyAnno
+                            right = Det MFloat }
                 | TString _ ->
                     yield { hint = "TString"
-                            left = typExpr.typAnno
-                            right = Det StringTyp }
+                            left = typExpr.tyAnno
+                            right = Det MString }
                 | TVar ident ->
                     yield { hint = $"TVar {ident}"
-                            left = typExpr.typAnno
-                            right = Map.resolveTypAnno ident identMap }
+                            left = typExpr.tyAnno
+                            right = Map.resolveAnnotation ident identMap }
                 | TLet letExpr ->
                     yield { hint = "TLet"
-                            left = typExpr.typAnno
-                            right = letExpr.body.typAnno }
+                            left = typExpr.tyAnno
+                            right = letExpr.body.tyAnno }
                     yield! genConstraints letExpr.assignment identMap
-                    yield! genConstraints letExpr.body (identMap |> Map.set letExpr.ident letExpr.assignment.typAnno)
+                    yield! genConstraints letExpr.body (identMap |> Map.set letExpr.ident letExpr.assignment.tyAnno)
                 | TFun funExpr ->
                     yield { hint = "TFun"
-                            left = typExpr.typAnno
-                            right = Det(FunTyp(funExpr.identTypAnno, funExpr.body.typAnno )) }
-                    yield! genConstraints funExpr.body (Map.set funExpr.ident funExpr.identTypAnno identMap)
+                            left = typExpr.tyAnno
+                            right = Det(MFun(funExpr.identTyAnno, funExpr.body.tyAnno )) }
+                    yield! genConstraints funExpr.body (Map.set funExpr.ident funExpr.identTyAnno identMap)
                 | TApp appExpr ->
                     // res = add 20 -> we know something about "add":
                     // It is a function that goes from int to whatever 'res' is
                     yield { hint = "TApp_target"
-                            left = appExpr.target.typAnno
-                            right = Det(FunTyp(appExpr.arg.typAnno, typExpr.typAnno )) }
+                            left = appExpr.target.tyAnno
+                            right = Det(MFun(appExpr.arg.tyAnno, typExpr.tyAnno )) }
                     yield! genConstraints appExpr.arg identMap
                     yield! genConstraints appExpr.target identMap
             ]
@@ -139,16 +133,16 @@ module Infer =
 
 [<AutoOpen>]
 module Test =
-    let intTyp = Det IntTyp
-    let floatTyp = Det FloatTyp
-    let stringTyp = Det StringTyp
-    let funTyp(a, b) = Det (FunTyp(a, b))
+    let intTyp = Det MInt
+    let floatTyp = Det MFloat
+    let stringTyp = Det MString
+    let funTyp(a, b) = Det (MFun(a, b))
 
-    let printTExpr (expr: TypExpr) =
+    let printTExpr (expr: AnnotatedTy) =
         let doIndent indent = indent + "    "
-        let rec print (expr: TypExpr) (indent: string) =
-             printf $"{indent}({expr.typAnno}) : "
-             match expr.expr with
+        let rec print (expr: AnnotatedTy) (indent: string) =
+             printf $"{indent}({expr.tyAnno}) : "
+             match expr.typedExpr with
              | TInt x ->
                  printfn "INT %d" x
              | TFloat x ->
@@ -162,7 +156,7 @@ module Test =
                  print letExpr.assignment (doIndent indent)
                  print letExpr.body (doIndent indent)
              | TFun funExpr ->
-                 printfn "FUN %s:(%A) [body]" funExpr.ident funExpr.identTypAnno
+                 printfn "FUN %s:(%A) [body]" funExpr.ident funExpr.identTyAnno
                  print funExpr.body (doIndent indent)
              | TApp appExpr ->
                  printfn "APP [target, arg]"
@@ -189,14 +183,14 @@ module Test =
         |> printConstraints
 
         
-let expr1 = Int 42
-let expr2 = Let("hurz", Int 43, Int 32)
+let expr1 = EInt 42
+let expr2 = ELet("hurz", EInt 43, EInt 32)
 let add =
     let addA =
-        Fun("a", App(Var "libcall_add", Var "a"))
-    Fun("b", App(addA, Var "b"))
+        EFun("a", EApp(EVar "libcall_add", EVar "a"))
+    EFun("b", EApp(addA, EVar "b"))
 let expr3 =
-    Let("hurz", Int 43, Let("f", add, App(App(Var "f", Var "hurz"), Int 99)))
+    ELet("hurz", EInt 43, ELet("f", add, EApp(EApp(EVar "f", EVar "hurz"), EInt 99)))
 
 
 expr3 |> annotate
