@@ -2,10 +2,12 @@
 fsi.PrintWidth <- 250
 #endif
 
+type Lit =
+    | Int of int
+    | Float of float
+    | String of string
 type Expr =
-    | EInt of int
-    | EFloat of float
-    | EString of string
+    | ELit of Lit
     | EVar of ident: string
     | ELet of ident: string * assignment: Expr * body: Expr
     | EFun of ident: string * body: Expr
@@ -18,35 +20,39 @@ type MType =
     | MString
     | MFun of TyAnnotation * TyAnnotation
 and TypedExpr =
-    | TInt of int
-    | TFloat of float
-    | TString of string
+    | TLit of Lit
     | TVar of ident: string
-    | TLet of {| ident: string
+    | TLet of {| ident: string; 
                  assignment: AnnotatedTy
                  body: AnnotatedTy |}
-    | TFun of {| ident: string
-                 identTyAnno: TyAnnotation
+    | TFun of {| ident: Ident
                  body: AnnotatedTy |}
     | TApp of {| target: AnnotatedTy
                  arg: AnnotatedTy |}
-and AnnotatedTy =
-    { typedExpr: TypedExpr
+and Ident =
+    { name: string
       tyAnno: TyAnnotation }
+and Scope = Map<string, TyAnnotation>
+and AnnotatedTy =
+    { expr: TypedExpr
+      annotation: TyAnnotation
+      scope: Scope }
 and TyAnnotation =
     | Det of MType
     | Open of int
     | Unresolvable
 
-
 module Infer =
     
     type Constraint =
-        { hint: string
-          left: TyAnnotation
+        { left: TyAnnotation
           right: TyAnnotation }
+
+    let constrain hint l r =
+        printfn "%-10s    %A = %A" hint l r
+        { left = l; right = r; }
     
-    module private Map =
+    module Map =
         let set (ident: string) (typAnno: TyAnnotation) map =
             map |> Map.change ident (fun _ -> Some typAnno)
         let resolveAnnotation (ident: string) (map: Map<string, TyAnnotation>) =
@@ -54,143 +60,132 @@ module Infer =
             | None -> Unresolvable
             | Some ta -> ta
 
-    let annotate (expr: Expr) =
+    let annotate (scope: Scope) (expr: Expr) =
         
-        let mutable tyCounter = -1
-        let newTyVar () =
-            tyCounter <- tyCounter + 1
-            Open tyCounter
-        let tyExpr expr = { typedExpr = expr; tyAnno = newTyVar() }
+        let newTyVar,tyExpr =
+            let mutable tyCounter = -1
+            let newTyVar (hint1, hint2: obj) =
+                tyCounter <- tyCounter + 1
+                printfn "%-15s %-5d %A" hint1 tyCounter hint2
+                Open tyCounter
+            newTyVar, fun (hint1, hint2: obj) scope expr ->
+                let tyVar = newTyVar (hint1, hint2)
+                { expr = expr; annotation = tyVar; scope = scope }
 
-        let rec gen expr =
+        let rec annotate scope expr =
             match expr with
-            | EInt x -> tyExpr (TInt x)
-            | EFloat x -> tyExpr (TFloat x)
-            | EString x -> tyExpr (TString x)
-            | EVar ident -> tyExpr (TVar ident)
+            | ELit x ->
+                match x with
+                | Int y -> tyExpr ("Int", y) scope (TLit x)
+                | Float y -> tyExpr ("Float", y) scope (TLit x)
+                | String y -> tyExpr ("String", y) scope (TLit x)
+            | EVar ident -> tyExpr ("Var", ident) scope (TVar ident)
             | ELet (ident, assignment, body) ->
-                tyExpr
-                    (TLet {| ident = ident
-                             assignment = gen assignment
-                             body = gen body |})
+                let tyAss = annotate scope assignment
+                let scope = scope |> Map.set ident tyAss.annotation
+                TLet {| ident = ident
+                        assignment = tyAss
+                        body = annotate scope body |}
+                |> tyExpr ("Let", ident) scope
             | EFun (ident, body) ->
-                tyExpr
-                    (TFun {| ident = ident
-                             identTyAnno = newTyVar ()
-                             body = gen body |})
+                let identTyAnno = newTyVar ("FunIdent", ident)
+                let scope = scope |> Map.set ident identTyAnno
+                TFun {| ident = { name = ident; tyAnno = identTyAnno }
+                        body = annotate scope body |}
+                |> tyExpr ("Fun", body) scope
             | EApp (target, arg) ->
-                tyExpr
-                    (TApp {| target = gen target
-                             arg = gen arg |})
-        gen expr
+                TApp {| target = annotate scope target
+                        arg = annotate scope arg |}
+                |> tyExpr ("App", target) scope
+        annotate scope expr
 
-    let genConstraintSet (identMap: Map<string, TyAnnotation>) (typExpr: AnnotatedTy) =
-        let rec genConstraints (typExpr: AnnotatedTy) (identMap: Map<string, TyAnnotation>) =
+    let genConstraintSet (typExpr: AnnotatedTy) =
+        let rec genConstraints (typExpr: AnnotatedTy) =
             [
-                match typExpr.typedExpr with
-                | TInt _ ->
-                    yield { hint = "TInt"
-                            left = typExpr.tyAnno
-                            right = Det MInt }
-                | TFloat _ ->
-                    yield { hint = "TFloat"
-                            left = typExpr.tyAnno
-                            right = Det MFloat }
-                | TString _ ->
-                    yield { hint = "TString"
-                            left = typExpr.tyAnno
-                            right = Det MString }
-                | TVar ident ->
-                    yield { hint = $"TVar {ident}"
-                            left = typExpr.tyAnno
-                            right = Map.resolveAnnotation ident identMap }
-                | TLet letExpr ->
-                    yield { hint = "TLet"
-                            left = typExpr.tyAnno
-                            right = letExpr.body.tyAnno }
-                    yield! genConstraints letExpr.assignment identMap
-                    yield! genConstraints letExpr.body (identMap |> Map.set letExpr.ident letExpr.assignment.tyAnno)
-                | TFun funExpr ->
-                    yield { hint = "TFun"
-                            left = typExpr.tyAnno
-                            right = Det(MFun(funExpr.identTyAnno, funExpr.body.tyAnno )) }
-                    yield! genConstraints funExpr.body (Map.set funExpr.ident funExpr.identTyAnno identMap)
+                match typExpr.expr with
+                | TLit lit ->
+                    match lit with
+                    | Int _ -> yield constrain "Int" typExpr.annotation (Det MInt)
+                    | Float _ -> yield constrain "Float" typExpr.annotation (Det MFloat)
+                    | String _ -> yield constrain "String" typExpr.annotation (Det MString)
+                | TVar var ->
+                    yield constrain "Var" typExpr.annotation (typExpr.scope |> Map.resolveAnnotation var)
                 | TApp appExpr ->
                     // res = add 20 -> we know something about "add":
                     // It is a function that goes from int to whatever 'res' is
-                    yield { hint = "TApp_target"
-                            left = appExpr.target.tyAnno
-                            right = Det(MFun(appExpr.arg.tyAnno, typExpr.tyAnno )) }
-                    yield! genConstraints appExpr.arg identMap
-                    yield! genConstraints appExpr.target identMap
+                    yield constrain "App   " appExpr.target.annotation (Det(MFun(appExpr.arg.annotation, typExpr.annotation)))
+                    yield! genConstraints appExpr.arg
+                    yield! genConstraints appExpr.target
+                | TFun funExpr ->
+                    yield constrain "Fun" typExpr.annotation (Det(MFun(funExpr.ident.tyAnno, funExpr.body.annotation)))
+                    yield! genConstraints funExpr.body
+                | TLet letExpr ->
+                    yield constrain "Let" typExpr.annotation (letExpr.body.annotation)
+                    yield! genConstraints letExpr.assignment
+                    yield! genConstraints letExpr.body
             ]
 
-        genConstraints typExpr identMap |> Set.ofList
+        genConstraints typExpr |> Set.ofList
         
 
 
 ///////// Test
 
-[<AutoOpen>]
-module Test =
-    let intTyp = Det MInt
-    let floatTyp = Det MFloat
-    let stringTyp = Det MString
-    let funTyp(a, b) = Det (MFun(a, b))
+let intTyp = Det MInt
+let floatTyp = Det MFloat
+let stringTyp = Det MString
+let funTyp(a, b) = Det (MFun(a, b))
 
-    let printTExpr (expr: AnnotatedTy) =
-        let doIndent indent = indent + "    "
-        let rec print (expr: AnnotatedTy) (indent: string) =
-             printf $"{indent}({expr.tyAnno}) : "
-             match expr.typedExpr with
-             | TInt x ->
-                 printfn "INT %d" x
-             | TFloat x ->
-                 printfn "FLOAT %f" x
-             | TString x ->
-                 printfn "STRING %s" x
-             | TVar x ->
-                 printfn "VAR %s" x
-             | TLet letExpr ->
-                 printfn "LET %s [assignment, body]" letExpr.ident
-                 print letExpr.assignment (doIndent indent)
-                 print letExpr.body (doIndent indent)
-             | TFun funExpr ->
-                 printfn "FUN %s:(%A) [body]" funExpr.ident funExpr.identTyAnno
-                 print funExpr.body (doIndent indent)
-             | TApp appExpr ->
-                 printfn "APP [target, arg]"
-                 print appExpr.target (doIndent indent)
-                 print appExpr.arg (doIndent indent)
-        print expr ""    
+let printTExpr (expr: AnnotatedTy) =
+    let doIndent indent = indent + "    "
+    let doIndent2 indent = indent + indent + "    "
+    let newline indent = "\n" + indent + indent
+    let rec print (expr: AnnotatedTy) (indent: string) =
+         match expr.expr with
+         | TLit lit ->
+             match lit with
+             | Int x -> $"{x}"
+             | Float x -> $"{x}"
+             | String x -> $"{x}"
+         | TVar x ->
+            $"{x}"
+         | TLet letExpr ->
+             $"let ({letExpr.ident}:{expr.scope |> Infer.Map.resolveAnnotation letExpr.ident}) = ({print letExpr.assignment indent}) in ({print letExpr.body indent})"
+         | TFun funExpr ->
+             $"fun ({funExpr.ident.name}[{funExpr.ident.tyAnno}] -> ({print funExpr.body indent})"
+         | TApp appExpr ->
+             $"{print appExpr.target System.String.Empty} {print appExpr.arg (doIndent indent)}"
+    print expr ""
 
+let lib =
+    [
+        "libcall_add", funTyp(intTyp, funTyp(intTyp, intTyp))
+    ]
+    |> Map.ofList
+
+let annotate expr =
+    Infer.annotate lib expr
+    |> printTExpr
+
+let constrain expr =
     let printConstraints (constraints: Set<Infer.Constraint>) =
         for c in constraints |> Set.toList do
-            printfn "%A (%s) = %A" c.left c.hint c.right
+            printfn "%A = %A" c.left c.right
     
-    let lib =
-        [
-            "libcall_add", funTyp(intTyp, funTyp(intTyp, intTyp))
-        ]
-
-    let annotate expr =
-        Infer.annotate expr
-        |> printTExpr
-
-    let constrain expr =
-        Infer.annotate expr
-        |> Infer.genConstraintSet (Map.ofList lib)
-        |> printConstraints
+    Infer.annotate lib expr
+    |> Infer.genConstraintSet
+    // |> printConstraints
+    |> ignore
 
         
-let expr1 = EInt 42
-let expr2 = ELet("hurz", EInt 43, EInt 32)
+let expr1 = Int 42
+let expr2 = ELet("hurz", ELit(Int 43), ELit(Int 32))
 let add =
     let addA =
         EFun("a", EApp(EVar "libcall_add", EVar "a"))
     EFun("b", EApp(addA, EVar "b"))
 let expr3 =
-    ELet("hurz", EInt 43, ELet("f", add, EApp(EApp(EVar "f", EVar "hurz"), EInt 99)))
+    ELet("hurz", ELit(Int 43), ELet("f", add, EApp(EApp(EVar "f", EVar "hurz"), ELit(Int 99))))
 
 
 expr3 |> annotate
@@ -202,10 +197,8 @@ module X =
     let libcall_add a b = a + b
     let app f x = f x
     
-    let hurz = 43 in
-        let f =
-            fun b ->
-                (fun a -> app (app libcall_add a) b) in
-                    app (app f hurz) 99
+    let hurz = 43
+    let f = fun b -> fun a -> (libcall_add a) b
+    (f hurz) 99
 
 
