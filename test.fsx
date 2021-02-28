@@ -2,12 +2,12 @@
 fsi.PrintWidth <- 250
 #endif
 
-type Lit
-    = LInt of int
+type Lit =
+    | LInt of int
     | LFloat of float
     | LString of string
-type Exp
-    = ELit of Lit
+type Exp =
+    | ELit of Lit
     | EVar of string
     | EApp of Exp * Exp
     | EFun of string * Exp
@@ -15,66 +15,76 @@ type Exp
 
 type ErrorMsg = string
 
-type MType
-    = MInt
+type MType =
+    | MInt
     | MFloat
     | MString
     | MFun of TVar * TVar
-and TVar
-    = Free of int
-    | Det of MType
+and TVar =
     | Unresolvable of ErrorMsg
-and TExp
-    = TLit of Lit
-    | TVar of ident: string
-    | TLet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
-    | TFun of {| ident: Ident; body: TExpAnno |}
+    | Det of MType
+    | Free of int
+and TExp =
+    | TLit of Lit
+    | TVar of string
     | TApp of {| target: TExpAnno; arg: TExpAnno |}
+    | TFun of {| ident: Ident; body: TExpAnno |}
+    | TLet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
+and TExpAnno = { exp: TExp; annotation: TVar; env: Env }
 and Ident = { name: string; tvar: TVar }
-and TExpAnno = { expr: TExp; annotation: TVar; env: Env }
+
 and Env = Map<string, TVar>
 
+type Equation = { desc: string; left: TVar; right: TVar }
+
+let emptyEnv: Env = Map.empty
 
 module Infer =
-    
-    type Equation = { left: TVar;  right: TVar }
-    
-    type ConstraintTableEntry = { desc: string; constr: Equation }
-    type VarTableEntry = { desc: string; nr: int; value: obj }
+
+    type VarTableEntry = { desc: string; nr: int }
 
     type TVarGen() =
         let mutable tyCounter = -1
         let table = ResizeArray<VarTableEntry>()
         member this.newTVar(desc, value) =
             tyCounter <- tyCounter + 1
-            let entry = { desc = desc; nr = tyCounter; value = value }
+            let entry = { desc = desc; nr = tyCounter; }
             do table.Add entry
             Free tyCounter
-        member this.newTyExpAnno(desc, value: obj, env, expr) =
+        member this.newTyExpAnno(desc, value: obj, env, exp) =
             let tvar = this.newTVar(desc, value)
-            { expr = expr; annotation = tvar; env = env }
+            { exp = exp; annotation = tvar; env = env }
         member this.Table = table |> Seq.toList
         
     type ConstrGen() =
-        let table = ResizeArray<ConstraintTableEntry>()
+        let table = ResizeArray<Equation>()
         member this.constrain(desc, l, r) =
-            let c = { left = l; right = r; }
-            let ce = { desc = desc; constr = c }
-            table.Add ce
+            let c = { desc = desc; left = l; right = r; }
+            table.Add c
             c
         member this.Table = table |> Seq.toList
 
-    let annotate (env: Env) (expr: Exp) =
+    let annotate (env: Env) (exp: Exp) =
         let tvarGen = TVarGen()
 
-        let rec annotate env expr =
-            match expr with
+        let rec annotate env exp =
+            match exp with
             | ELit x ->
                 match x with
                 | LInt y -> tvarGen.newTyExpAnno("Int", y, env, TLit x)
                 | LFloat y -> tvarGen.newTyExpAnno("Float", y, env, TLit x)
                 | LString y -> tvarGen.newTyExpAnno("String", y, env, TLit x)
             | EVar ident -> tvarGen.newTyExpAnno("Var", ident, env, TVar ident)
+            | EApp (target, arg) ->
+                let texp = TApp {| target = annotate env target
+                                   arg = annotate env arg |}
+                tvarGen.newTyExpAnno("App", target, env, texp)
+            | EFun (ident, body) ->
+                let tvar = tvarGen.newTVar("FunIdent", ident)
+                let env = env |> Map.change ident (fun _ -> Some tvar)
+                let texp = TFun {| ident = { name = ident; tvar = tvar }
+                                   body = annotate env body |}
+                tvarGen.newTyExpAnno("Fun", body, env, texp)
             | ELet (ident, assignment, body) ->
                 let tyAss = annotate env assignment
                 let env = env |> Map.change ident (fun _ -> Some tyAss.annotation)
@@ -82,110 +92,167 @@ module Infer =
                                    assignment = tyAss
                                    body = annotate env body |}
                 tvarGen.newTyExpAnno("Let", ident, env, texp)
-            | EFun (ident, body) ->
-                let tvar = tvarGen.newTVar("FunIdent", ident)
-                let env = env |> Map.change ident (fun _ -> Some tvar)
-                let texp = TFun {| ident = { name = ident; tvar = tvar }
-                                   body = annotate env body |}
-                tvarGen.newTyExpAnno("Fun", body, env, texp)
-            | EApp (target, arg) ->
-                let texp = TApp {| target = annotate env target
-                                   arg = annotate env arg |}
-                tvarGen.newTyExpAnno("App", target, env, texp)
+
         
-        let res = annotate env expr
+        let res = annotate env exp
         (res, tvarGen.Table)
 
-    let genConstraints (typExpr: TExpAnno) =
+    let genConstraints (typExpAnno: TExpAnno) =
         let cgen = ConstrGen()
         
-        let rec genConstraints (typExpr: TExpAnno) =
+        let rec genConstraints (typExpAnno: TExpAnno) =
             [
-                match typExpr.expr with
-                | TLit lit ->
-                    match lit with
-                    | LInt x -> yield cgen.constrain($"Int {x}", typExpr.annotation, Det MInt)
-                    | LFloat x -> yield cgen.constrain($"Float {x}", typExpr.annotation, Det MFloat)
-                    | LString x -> yield cgen.constrain($"String {x}", typExpr.annotation, Det MString)
-                | TVar var ->
+                match typExpAnno.exp with
+                | TLit tlit ->
+                    match tlit with
+                    | LInt x -> yield cgen.constrain($"Int {x}", typExpAnno.annotation, Det MInt)
+                    | LFloat x -> yield cgen.constrain($"Float {x}", typExpAnno.annotation, Det MFloat)
+                    | LString x -> yield cgen.constrain($"String {x}", typExpAnno.annotation, Det MString)
+                | TVar tvar ->
                     let newEnv =
-                        match typExpr.env |> Map.tryFind var with
-                        | None -> Unresolvable $"Identifier {var} is undefined."
+                        match typExpAnno.env |> Map.tryFind tvar with
+                        | None -> Unresolvable $"Identifier {tvar} is undefined."
                         | Some ta -> ta
-                    yield cgen.constrain($"Var {var}", typExpr.annotation, newEnv)
-                | TApp appExpr ->
+                    yield cgen.constrain($"Var {tvar}", typExpAnno.annotation, newEnv)
+                | TApp tapp ->
                     // res = add 20 -> we know something about "add":
                     // It is a function that goes from int to whatever 'res' is
-                    yield cgen.constrain("App", appExpr.target.annotation, Det(MFun(appExpr.arg.annotation, typExpr.annotation)))
-                    yield! genConstraints appExpr.arg
-                    yield! genConstraints appExpr.target
-                | TFun funExpr ->
-                    yield cgen.constrain("Fun", typExpr.annotation, Det(MFun(funExpr.ident.tvar, funExpr.body.annotation)))
-                    yield! genConstraints funExpr.body
-                | TLet letExpr ->
-                    yield cgen.constrain($"Let {letExpr.ident}", typExpr.annotation, letExpr.body.annotation)
-                    yield! genConstraints letExpr.assignment
-                    yield! genConstraints letExpr.body
+                    yield cgen.constrain("App", tapp.target.annotation, Det(MFun(tapp.arg.annotation, typExpAnno.annotation)))
+                    yield! genConstraints tapp.arg
+                    yield! genConstraints tapp.target
+                | TFun tfun ->
+                    yield cgen.constrain("Fun", typExpAnno.annotation, Det(MFun(tfun.ident.tvar, tfun.body.annotation)))
+                    yield! genConstraints tfun.body
+                | TLet tlet ->
+                    yield cgen.constrain($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
+                    yield! genConstraints tlet.assignment
+                    yield! genConstraints tlet.body
             ]
-        let res = genConstraints typExpr
-        (res, cgen.Table)
+        genConstraints typExpAnno
 
-    let constrain lib expr =
-        let a,_ = annotate lib expr
-        let c,d = genConstraints a
-        (c,d)
+    let constrain lib exp =
+        let a,_ = annotate lib exp
+        genConstraints a
 
     let solveEquations (eqs: Equation list) =
-        let rec solve (eqs: Equation list) (solution: Equation list) =
-            let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
-                let substTerm (tvar: TVar) =
-                    let rec subst (tvar: TVar) =
-                        match tvar with
-                        | Free i when i = varNr -> dest
-                        | Det typ ->
-                            match typ with
-                            | MInt | MFloat | MString -> tvar
-                            | MFun (m, n) -> Det (MFun (subst m, subst n))
+        let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
+            let substTerm (tvar: TVar) =
+                let rec subst (tvar: TVar) =
+                    match tvar with
+                    | Free i when i =
+                        varNr -> dest
+                    | Det typ ->
+                        match typ with
+                        | MFun (m, n) -> Det (MFun (subst m, subst n))
                         | _ -> tvar
-                    subst tvar
-                eqs |> List.map (fun eq -> { left = substTerm eq.left; right = substTerm eq.right })
-            
+                    | _ -> tvar
+                subst tvar
+            eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
+
+        let unify a b =
+            match a,b with
+            | MFun (m,n), MFun (o,p) ->
+                let unify x y =
+                    match x,y with
+                    | Free _, _
+                    | _, Free _ ->
+                        { desc = "TODO"; left = x; right = y }
+                    | Det _, Det _ ->
+                        { desc = "TODO"; left = x; right = y }
+                    | _ ->
+                        failwith "TODO: type error"
+                [
+                    yield unify m o
+                    yield unify n p
+                ]
+            | a,b when a = b ->
+                []
+            | _ ->
+                failwith $"type error: expedted: {b}, given: {a}"
+
+        let rec solve (eqs: Equation list) (solution: Equation list) =            
             match eqs with
             | [] -> solution
             | eq :: eqs ->
                 match eq.left, eq.right with
                 | Free a, x
                 | x, Free a ->
+                    // substitute
                     let newEqs = subst eqs a x
-                    let newSolution = subst (eq :: solution) a x
+                    let newSolution = subst solution a x
+                    solve newEqs (eq :: newSolution)
+                | Det a, Det b ->
+                    // gen new constraints and solve
+                    let newConstraints = unify a b
+                    let newEqs = eqs @ newConstraints
+                    let newSolution = solution
                     solve newEqs newSolution
-                | Det a, Det b -> solution
-                | _ -> solution
-        solve eqs
+                | _ ->
+                    failwith "TODO: Unresolvable"
+        
+        solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
-    let solve lib expr =
-        constrain lib expr
-        |> fst
-        |> solveEquations
+    let solve lib exp =
+        let annotatedAst = annotate lib exp |> fst
+        let constraintSet = genConstraints annotatedAst
+        let solutionMap = solveEquations constraintSet
+        let typedAst =
+            let find var =
+                // TODO: err can happen
+                solutionMap
+                |> List.choose (fun x ->
+                    match x.left, x.right with
+                    | a,b
+                    | b,a when a = var -> Some b
+                    | _ -> None)
+                |> List.exactlyOne
+            let rec applySolution (texp: TExpAnno) =
+                let finalExp =
+                    match texp.exp with
+                    | TLit _
+                    | TVar _ ->
+                        texp.exp
+                    | TApp tapp ->
+                        TApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
+                    | TFun tfun ->
+                        TFun {| tfun with body = applySolution tfun.body |}
+                    | TLet tlet ->
+                        TLet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
+                { exp = finalExp
+                  annotation = find texp.annotation
+                  env = emptyEnv }
+            applySolution annotatedAst
+        typedAst
 
 
-module Helper =
-    let printVarTable (_, table: Infer.VarTableEntry list) =
+module Debug =
+    let printVarTable (table: Infer.VarTableEntry list) =
         for e in table |> List.sortByDescending (fun e -> e.nr) do
-            printfn "%-15s %-5d %A" e.desc e.nr e.value
-    
-    let printConstrTable (_, table: Infer.ConstraintTableEntry list) =
-        for e in table |> List.sortByDescending (fun e -> e.constr.left) do
-            printfn "%-20s    %A = %A" e.desc e.constr.left e.constr.right
+            printfn "%-15s %-5d" e.desc e.nr
+
+    let printEquations (eqs: Equation list) =
+        for e in eqs |> List.sortByDescending (fun e -> e.left) do
+            printfn "%-20s    %A = %A" e.desc e.left e.right
 
 
 
 ///////// Test
 
-let intTyp = Det MInt
-let floatTyp = Det MFloat
-let stringTyp = Det MString
-let funTyp(a, b) = Det (MFun(a, b))
+module Dsl =
+    let intTyp = Det MInt
+    let floatTyp = Det MFloat
+    let stringTyp = Det MString
+    let funTyp(a, b) = Det (MFun(a, b))
+
+    let xint x = ELit(LInt x)
+    let xfloat x = ELit(LFloat x)
+    let xstr x = ELit(LString x)
+    let xvar ident = EVar(ident)
+    let xlet ident e1 e2 = ELet(ident, e1, e2)
+    let xfun ident e = EFun(ident, e)
+    let xapp e1 e2 = EApp(e1, e2)
+
+open Dsl
 
 let lib =
     [
@@ -194,23 +261,30 @@ let lib =
     |> Map.ofList
     
         
-let expr1 = LInt 42
-let expr2 = ELet("hurz", ELit(LInt 43), ELit(LInt 32))
+let expr1 = xint 42
+let expr2 = xlet "hurz" (xint 43) (xint 32)
 let add =
     let addA =
-        EFun("a", EApp(EVar "libcall_add", EVar "a"))
-    EFun("b", EApp(addA, EVar "b"))
+        xfun "a" (xapp (xvar "libcall_add") (xvar "a"))
+    xfun "b" (xapp addA (xvar "b"))
 let expr3 =
-    ELet("hurz", ELit(LInt 43), ELet("f", add, EApp(EApp(EVar "f", EVar "hurz"), ELit(LInt 99))))
+    xlet "hurz" (xint 43) (xlet "f" add (xapp (xapp (xvar "f") (xvar "hurz")) (xint 99)))
 
 
-expr3 |> Infer.annotate lib |> Helper.printVarTable
-expr3 |> Infer.constrain lib |> Helper.printConstrTable
-expr3 |> Infer.solve lib |> Helper.printConstrTable
+expr3 |> Infer.annotate lib |> snd |> Debug.printVarTable
+expr3 |> Infer.constrain lib |> Debug.printEquations
 
+let solve = Infer.solve lib >> fun x -> x.annotation
+solve expr3
+solve expr1
+solve expr2
+solve <| xlet "hurz" (xint 43) (xstr "sss")
+solve <| xfun "x" (xvar "x")
+solve <| xfun "x" (xstr "klököl")
+solve <| xapp (xfun "x" (xvar "x")) (xint 2)
+solve <| xapp (xfun "x" (xvar "x")) (xstr "Hello")
+solve <| xapp (xvar "libcall_add") (xstr "lklö")
 
-// expr3 |> Infer.constrain lib |> fst |> Infer.traceVar 3
-// Infer.collectFreeVars (Det (MFun (Free 13, Free 14)))
 
 
 // module X =
