@@ -32,7 +32,6 @@ and TExp =
     | TLet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
 and TExpAnno = { exp: TExp; annotation: TVar; env: Env }
 and Ident = { name: string; tvar: TVar }
-
 and Env = Map<string, TVar>
 
 type Equation = { desc: string; left: TVar; right: TVar }
@@ -46,24 +45,16 @@ module Infer =
     type TVarGen() =
         let mutable tyCounter = -1
         let table = ResizeArray<VarTableEntry>()
-        member this.newTVar(desc, value) =
+        member this.newTVar(desc) =
             tyCounter <- tyCounter + 1
             let entry = { desc = desc; nr = tyCounter; }
             do table.Add entry
             Free tyCounter
-        member this.newTyExpAnno(desc, value: obj, env, exp) =
-            let tvar = this.newTVar(desc, value)
+        member this.newTyExpAnno(desc, env, exp) =
+            let tvar = this.newTVar(desc)
             { exp = exp; annotation = tvar; env = env }
         member this.Table = table |> Seq.toList
         
-    type ConstrGen() =
-        let table = ResizeArray<Equation>()
-        member this.constrain(desc, l, r) =
-            let c = { desc = desc; left = l; right = r; }
-            table.Add c
-            c
-        member this.Table = table |> Seq.toList
-
     let annotate (env: Env) (exp: Exp) =
         let tvarGen = TVarGen()
 
@@ -71,60 +62,60 @@ module Infer =
             match exp with
             | ELit x ->
                 match x with
-                | LInt y -> tvarGen.newTyExpAnno("Int", y, env, TLit x)
-                | LFloat y -> tvarGen.newTyExpAnno("Float", y, env, TLit x)
-                | LString y -> tvarGen.newTyExpAnno("String", y, env, TLit x)
-            | EVar ident -> tvarGen.newTyExpAnno("Var", ident, env, TVar ident)
+                | LInt _ -> tvarGen.newTyExpAnno("Int", env, TLit x)
+                | LFloat _ -> tvarGen.newTyExpAnno("Float", env, TLit x)
+                | LString _ -> tvarGen.newTyExpAnno("String", env, TLit x)
+            | EVar ident -> tvarGen.newTyExpAnno("Var", env, TVar ident)
             | EApp (target, arg) ->
                 let texp = TApp {| target = annotate env target
                                    arg = annotate env arg |}
-                tvarGen.newTyExpAnno("App", target, env, texp)
+                tvarGen.newTyExpAnno("App", env, texp)
             | EFun (ident, body) ->
-                let tvar = tvarGen.newTVar("FunIdent", ident)
+                let tvar = tvarGen.newTVar("FunIdent")
                 let env = env |> Map.change ident (fun _ -> Some tvar)
                 let texp = TFun {| ident = { name = ident; tvar = tvar }
                                    body = annotate env body |}
-                tvarGen.newTyExpAnno("Fun", body, env, texp)
+                tvarGen.newTyExpAnno("Fun", env, texp)
             | ELet (ident, assignment, body) ->
                 let tyAss = annotate env assignment
                 let env = env |> Map.change ident (fun _ -> Some tyAss.annotation)
                 let texp = TLet {| ident = ident
                                    assignment = tyAss
                                    body = annotate env body |}
-                tvarGen.newTyExpAnno("Let", ident, env, texp)
+                tvarGen.newTyExpAnno("Let", env, texp)
 
         
         let res = annotate env exp
         (res, tvarGen.Table)
 
     let genConstraints (typExpAnno: TExpAnno) =
-        let cgen = ConstrGen()
+        let constrain(desc, l, r) = { desc = desc; left = l; right = r; }
         
         let rec genConstraints (typExpAnno: TExpAnno) =
             [
                 match typExpAnno.exp with
                 | TLit tlit ->
                     match tlit with
-                    | LInt x -> yield cgen.constrain($"Int {x}", typExpAnno.annotation, Det MInt)
-                    | LFloat x -> yield cgen.constrain($"Float {x}", typExpAnno.annotation, Det MFloat)
-                    | LString x -> yield cgen.constrain($"String {x}", typExpAnno.annotation, Det MString)
+                    | LInt x -> yield constrain($"Int {x}", typExpAnno.annotation, Det MInt)
+                    | LFloat x -> yield constrain($"Float {x}", typExpAnno.annotation, Det MFloat)
+                    | LString x -> yield constrain($"String {x}", typExpAnno.annotation, Det MString)
                 | TVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
                         | None -> Unresolvable $"Identifier {tvar} is undefined."
                         | Some ta -> ta
-                    yield cgen.constrain($"Var {tvar}", typExpAnno.annotation, newEnv)
+                    yield constrain($"Var {tvar}", typExpAnno.annotation, newEnv)
                 | TApp tapp ->
                     // res = add 20 -> we know something about "add":
                     // It is a function that goes from int to whatever 'res' is
-                    yield cgen.constrain("App", tapp.target.annotation, Det(MFun(tapp.arg.annotation, typExpAnno.annotation)))
+                    yield constrain("App", tapp.target.annotation, Det(MFun(tapp.arg.annotation, typExpAnno.annotation)))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TFun tfun ->
-                    yield cgen.constrain("Fun", typExpAnno.annotation, Det(MFun(tfun.ident.tvar, tfun.body.annotation)))
+                    yield constrain("Fun", typExpAnno.annotation, Det(MFun(tfun.ident.tvar, tfun.body.annotation)))
                     yield! genConstraints tfun.body
                 | TLet tlet ->
-                    yield cgen.constrain($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
+                    yield constrain($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
@@ -275,6 +266,7 @@ expr3 |> Infer.annotate lib |> snd |> Debug.printVarTable
 expr3 |> Infer.constrain lib |> Debug.printEquations
 
 let solve = Infer.solve lib >> fun x -> x.annotation
+
 solve expr3
 solve expr1
 solve expr2
@@ -283,7 +275,9 @@ solve <| xfun "x" (xvar "x")
 solve <| xfun "x" (xstr "klököl")
 solve <| xapp (xfun "x" (xvar "x")) (xint 2)
 solve <| xapp (xfun "x" (xvar "x")) (xstr "Hello")
-solve <| xapp (xvar "libcall_add") (xstr "lklö")
+
+// Error
+//solve <| xapp (xvar "libcall_add") (xstr "lklö")
 
 
 
