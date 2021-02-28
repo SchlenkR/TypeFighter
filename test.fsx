@@ -118,8 +118,7 @@ module Infer =
         genConstraints typExpAnno
 
     let constrain lib exp =
-        let a,_ = annotate lib exp
-        genConstraints a
+        annotate lib exp |> fst |>  genConstraints
 
     let solveEquations (eqs: Equation list) =
         let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
