@@ -42,7 +42,7 @@ module Infer =
     type ConstraintTableEntry = { desc: string; constr: Equation }
     type VarTableEntry = { desc: string; nr: int; value: obj }
 
-    type private TVarGen() =
+    type TVarGen() =
         let mutable tyCounter = -1
         let table = ResizeArray<VarTableEntry>()
         member this.newTVar(desc, value) =
@@ -55,7 +55,7 @@ module Infer =
             { expr = expr; annotation = tvar; env = env }
         member this.Table = table |> Seq.toList
         
-    type private ConstrGen() =
+    type ConstrGen() =
         let table = ResizeArray<ConstraintTableEntry>()
         member this.constrain(desc, l, r) =
             let c = { left = l; right = r; }
@@ -63,14 +63,6 @@ module Infer =
             table.Add ce
             c
         member this.Table = table |> Seq.toList
-
-    module Map =
-        let set (ident: string) (typAnno: TVar) map =
-            map |> Map.change ident (fun _ -> Some typAnno)
-        let resolveAnnotation (ident: string) (map: Map<string, TVar>) =
-            match map |> Map.tryFind ident with
-            | None -> Unresolvable $"Identifier {ident} is undefined."
-            | Some ta -> ta
 
     let annotate (env: Env) (expr: Exp) =
         let tvarGen = TVarGen()
@@ -85,14 +77,14 @@ module Infer =
             | EVar ident -> tvarGen.newTyExpAnno("Var", ident, env, TVar ident)
             | ELet (ident, assignment, body) ->
                 let tyAss = annotate env assignment
-                let env = env |> Map.set ident tyAss.annotation
+                let env = env |> Map.change ident (fun _ -> Some tyAss.annotation)
                 let texp = TLet {| ident = ident
                                    assignment = tyAss
                                    body = annotate env body |}
                 tvarGen.newTyExpAnno("Let", ident, env, texp)
             | EFun (ident, body) ->
                 let tvar = tvarGen.newTVar("FunIdent", ident)
-                let env = env |> Map.set ident tvar
+                let env = env |> Map.change ident (fun _ -> Some tvar)
                 let texp = TFun {| ident = { name = ident; tvar = tvar }
                                    body = annotate env body |}
                 tvarGen.newTyExpAnno("Fun", body, env, texp)
@@ -104,7 +96,7 @@ module Infer =
         let res = annotate env expr
         (res, tvarGen.Table)
 
-    let private genConstraintSet (typExpr: TExpAnno) =
+    let genConstraints (typExpr: TExpAnno) =
         let cgen = ConstrGen()
         
         let rec genConstraints (typExpr: TExpAnno) =
@@ -116,7 +108,11 @@ module Infer =
                     | LFloat x -> yield cgen.constrain($"Float {x}", typExpr.annotation, Det MFloat)
                     | LString x -> yield cgen.constrain($"String {x}", typExpr.annotation, Det MString)
                 | TVar var ->
-                    yield cgen.constrain($"Var {var}", typExpr.annotation, typExpr.env |> Map.resolveAnnotation var)
+                    let newEnv =
+                        match typExpr.env |> Map.tryFind var with
+                        | None -> Unresolvable $"Identifier {var} is undefined."
+                        | Some ta -> ta
+                    yield cgen.constrain($"Var {var}", typExpr.annotation, newEnv)
                 | TApp appExpr ->
                     // res = add 20 -> we know something about "add":
                     // It is a function that goes from int to whatever 'res' is
@@ -136,45 +132,42 @@ module Infer =
 
     let constrain lib expr =
         let a,_ = annotate lib expr
-        let c,d = genConstraintSet a
+        let c,d = genConstraints a
         (c,d)
 
-    type TraceResult
-        = Cycle
-        | Resolved of MType
-        | NotFound
-        | Inherited
-
-    type VarTreeNode = { var: int; result: TraceResult; children: VarTreeNode list }
-
-    let rec collectFreeVars (t: TVar) =
-        match t with
-        | Det m ->
-            match m with
-            | MInt | MFloat | MString -> []
-            | MFun (m, n) ->
-                [ yield! collectFreeVars m
-                  yield! collectFreeVars n ]
-        | Free x -> [ x ]
-        | Unresolvable msg -> failwith $"Unresolvable: {msg}"
-        
-    let traceVar (var: int) (equations: Equation list)  =
-        let rec doTraceVar (var: int) (visited: Set<int>) =
-            let findEq i = equations |> List.tryFind (fun eq -> match eq.left with | Free x -> x = i | _ -> false)
+    let solveEquations (eqs: Equation list) =
+        let rec solve (eqs: Equation list) (solution: Equation list) =
+            let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
+                let substTerm (tvar: TVar) =
+                    let rec subst (tvar: TVar) =
+                        match tvar with
+                        | Free i when i = varNr -> dest
+                        | Det typ ->
+                            match typ with
+                            | MInt | MFloat | MString -> tvar
+                            | MFun (m, n) -> Det (MFun (subst m, subst n))
+                        | _ -> tvar
+                    subst tvar
+                eqs |> List.map (fun eq -> { left = substTerm eq.left; right = substTerm eq.right })
             
-            match Set.contains var visited with
-            | true -> { var = var; result = Cycle; children = [] }
-            | false ->
-                match findEq var with
-                | None -> { var = var; result = NotFound; children = [] }
-                | Some v ->
-                    let newVisited = Set.add var visited
-                    let res =
-                        collectFreeVars v.right
-                        |> List.map (fun v -> doTraceVar v newVisited)
-                    { var = var; result = Inherited; children = res }
-        doTraceVar var Set.empty
-        
+            match eqs with
+            | [] -> solution
+            | eq :: eqs ->
+                match eq.left, eq.right with
+                | Free a, x
+                | x, Free a ->
+                    let newEqs = subst eqs a x
+                    let newSolution = subst (eq :: solution) a x
+                    solve newEqs newSolution
+                | Det a, Det b -> solution
+                | _ -> solution
+        solve eqs
+    
+    let solve lib expr =
+        constrain lib expr
+        |> fst
+        |> solveEquations
+
 
 module Helper =
     let printVarTable (_, table: Infer.VarTableEntry list) =
@@ -213,10 +206,12 @@ let expr3 =
 
 expr3 |> Infer.annotate lib |> Helper.printVarTable
 expr3 |> Infer.constrain lib |> Helper.printConstrTable
-expr3 |> Infer.constrain lib |> fst |> Infer.traceVar 3
+expr3 |> Infer.solve lib |> Helper.printConstrTable
 
 
-Infer.collectFreeVars (Det (MFun (Free 13, Free 14)))
+// expr3 |> Infer.constrain lib |> fst |> Infer.traceVar 3
+// Infer.collectFreeVars (Det (MFun (Free 13, Free 14)))
+
 
 // module X =
 //     
