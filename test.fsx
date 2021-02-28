@@ -67,21 +67,17 @@ module Infer =
                 | LString _ -> tvarGen.newTyExpAnno("String", env, TLit x)
             | EVar ident -> tvarGen.newTyExpAnno("Var", env, TVar ident)
             | EApp (target, arg) ->
-                let texp = TApp {| target = annotate env target
-                                   arg = annotate env arg |}
+                let texp = TApp {| target = annotate env target; arg = annotate env arg |}
                 tvarGen.newTyExpAnno("App", env, texp)
             | EFun (ident, body) ->
                 let tvar = tvarGen.newTVar("FunIdent")
                 let env = env |> Map.change ident (fun _ -> Some tvar)
-                let texp = TFun {| ident = { name = ident; tvar = tvar }
-                                   body = annotate env body |}
+                let texp = TFun {| ident = { name = ident; tvar = tvar }; body = annotate env body |}
                 tvarGen.newTyExpAnno("Fun", env, texp)
             | ELet (ident, assignment, body) ->
                 let tyAss = annotate env assignment
                 let env = env |> Map.change ident (fun _ -> Some tyAss.annotation)
-                let texp = TLet {| ident = ident
-                                   assignment = tyAss
-                                   body = annotate env body |}
+                let texp = TLet {| ident = ident; assignment = tyAss; body = annotate env body |}
                 tvarGen.newTyExpAnno("Let", env, texp)
 
         
@@ -130,8 +126,8 @@ module Infer =
             let substTerm (tvar: TVar) =
                 let rec subst (tvar: TVar) =
                     match tvar with
-                    | Free i when i =
-                        varNr -> dest
+                    | Free i when i = varNr ->
+                        dest
                     | Det typ ->
                         match typ with
                         | MFun (m, n) -> Det (MFun (subst m, subst n))
@@ -146,12 +142,9 @@ module Infer =
                 let unify x y =
                     match x,y with
                     | Free _, _
-                    | _, Free _ ->
-                        { desc = "TODO"; left = x; right = y }
-                    | Det _, Det _ ->
-                        { desc = "TODO"; left = x; right = y }
-                    | _ ->
-                        failwith "TODO: type error"
+                    | _, Free _ -> { desc = "unified"; left = x; right = y }
+                    | Det _, Det _ -> { desc = "unified"; left = x; right = y }
+                    | _ -> failwith "TODO: type error"
                 [
                     yield unify m o
                     yield unify n p
