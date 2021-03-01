@@ -40,20 +40,13 @@ let emptyEnv: Env = Map.empty
 
 module Infer =
 
-    type VarTableEntry = { desc: string; nr: int }
-
-    type TVarGen() =
+    type private TVarGen() =
         let mutable tyCounter = -1
-        let table = ResizeArray<VarTableEntry>()
-        member this.newTVar(desc) =
+        member this.newTVar() =
             tyCounter <- tyCounter + 1
-            let entry = { desc = desc; nr = tyCounter; }
-            do table.Add entry
             Free tyCounter
-        member this.newTyExpAnno(desc, env, exp) =
-            let tvar = this.newTVar(desc)
-            { exp = exp; annotation = tvar; env = env }
-        member this.Table = table |> Seq.toList
+        member this.newTyExpAnno(env, exp) =
+            { exp = exp; annotation = this.newTVar(); env = env }
         
     let annotate (env: Env) (exp: Exp) =
         let tvarGen = TVarGen()
@@ -62,27 +55,24 @@ module Infer =
             match exp with
             | ELit x ->
                 match x with
-                | LInt _ -> tvarGen.newTyExpAnno("Int", env, TLit x)
-                | LFloat _ -> tvarGen.newTyExpAnno("Float", env, TLit x)
-                | LString _ -> tvarGen.newTyExpAnno("String", env, TLit x)
-            | EVar ident -> tvarGen.newTyExpAnno("Var", env, TVar ident)
+                | LInt _ -> tvarGen.newTyExpAnno(env, TLit x)
+                | LFloat _ -> tvarGen.newTyExpAnno(env, TLit x)
+                | LString _ -> tvarGen.newTyExpAnno(env, TLit x)
+            | EVar ident -> tvarGen.newTyExpAnno(env, TVar ident)
             | EApp (target, arg) ->
                 let texp = TApp {| target = annotate env target; arg = annotate env arg |}
-                tvarGen.newTyExpAnno("App", env, texp)
+                tvarGen.newTyExpAnno(env, texp)
             | EFun (ident, body) ->
-                let tvar = tvarGen.newTVar("FunIdent")
+                let tvar = tvarGen.newTVar()
                 let env = env |> Map.change ident (fun _ -> Some tvar)
                 let texp = TFun {| ident = { name = ident; tvar = tvar }; body = annotate env body |}
-                tvarGen.newTyExpAnno("Fun", env, texp)
+                tvarGen.newTyExpAnno(env, texp)
             | ELet (ident, assignment, body) ->
                 let tyAss = annotate env assignment
                 let env = env |> Map.change ident (fun _ -> Some tyAss.annotation)
                 let texp = TLet {| ident = ident; assignment = tyAss; body = annotate env body |}
-                tvarGen.newTyExpAnno("Let", env, texp)
-
-        
-        let res = annotate env exp
-        (res, tvarGen.Table)
+                tvarGen.newTyExpAnno(env, texp)
+        annotate env exp
 
     let genConstraints (typExpAnno: TExpAnno) =
         let constrain(desc, l, r) = { desc = desc; left = l; right = r; }
@@ -117,8 +107,7 @@ module Infer =
             ]
         genConstraints typExpAnno
 
-    let constrain lib exp =
-        annotate lib exp |> fst |>  genConstraints
+    let constrain lib exp = annotate lib exp |> genConstraints
 
     let solveEquations (eqs: Equation list) =
         let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
@@ -176,7 +165,7 @@ module Infer =
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
     let solve lib exp =
-        let annotatedAst = annotate lib exp |> fst
+        let annotatedAst = annotate lib exp
         let constraintSet = genConstraints annotatedAst
         let solutionMap = solveEquations constraintSet
         let typedAst =
@@ -209,10 +198,6 @@ module Infer =
 
 
 module Debug =
-    let printVarTable (table: Infer.VarTableEntry list) =
-        for e in table |> List.sortByDescending (fun e -> e.nr) do
-            printfn "%-15s %-5d" e.desc e.nr
-
     let printEquations (eqs: Equation list) =
         for e in eqs |> List.sortByDescending (fun e -> e.left) do
             printfn "%-20s    %A = %A" e.desc e.left e.right
@@ -254,7 +239,6 @@ let expr3 =
     xlet "hurz" (xint 43) (xlet "f" add (xapp (xapp (xvar "f") (xvar "hurz")) (xint 99)))
 
 
-expr3 |> Infer.annotate lib |> snd |> Debug.printVarTable
 expr3 |> Infer.constrain lib |> Debug.printEquations
 
 let solve = Infer.solve lib >> fun x -> x.annotation
