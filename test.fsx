@@ -14,32 +14,28 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
-type Mono<'TypeVar> =
+type Mono =
     | MBase of string
-    | MFun of 'TypeVar * 'TypeVar
+    | MFun of Mono * Mono
+    | Var of int
+    | TypeError of string
 
 // type Poly<'TypeVar> =
 //     | MBase of string
 //     | MFun of 'TypeVar * 'TypeVar
 
-type Type =
-    | TypeError of string
-    | Constr of Mono<Type>
-    | Var of int
-
-type Env = Map<string, Type>
-
-type TExpAnno<'Exp> = { texp: 'Exp; annotation: Type; env: Env }
+type Env = Map<string, Mono>
 
 type TExp =
     | TELit of Lit
     | TEVar of string
-    | TEApp of {| target: TExpAnno<TExp>; arg: TExpAnno<TExp> |}
-    | TEFun of {| ident: Ident; body: TExpAnno<TExp> |}
-    | TELet of {| ident: string; assignment: TExpAnno<TExp>; body: TExpAnno<TExp> |}
-and Ident = { name: string; tvar: Type }
+    | TEApp of {| target: TExpAnno; arg: TExpAnno |}
+    | TEFun of {| ident: Ident; body: TExpAnno |}
+    | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
+and TExpAnno = { texp: TExp; annotation: Mono; env: Env }
+and Ident = { name: string; tvar: Mono }
 
-type Equation = { desc: string; left: Type; right: Type }
+type Equation = { desc: string; left: Mono; right: Mono }
 
 let knownBaseTypes =
     {| int = "Int"
@@ -79,17 +75,17 @@ module Infer =
             { texp = texp; annotation = newTVar(); env = env }
         annotate env exp
 
-    let constrain (typExpAnno: TExpAnno<TExp>) =
+    let constrain (typExpAnno: TExpAnno) =
         let genc(desc, l, r) = { desc = desc; left = l; right = r; }
         
-        let rec genConstraints (typExpAnno: TExpAnno<TExp>) =
+        let rec genConstraints (typExpAnno: TExpAnno) =
             [
                 match typExpAnno.texp with
                 | TELit tlit ->
                     match tlit with
-                    | LInt x -> yield genc($"Int {x}", typExpAnno.annotation, Constr (MBase knownBaseTypes.int))
-                    | LFloat x -> yield genc($"Float {x}", typExpAnno.annotation, Constr (MBase knownBaseTypes.float))
-                    | LString x -> yield genc($"String {x}", typExpAnno.annotation, Constr (MBase knownBaseTypes.string))
+                    | LInt x -> yield genc($"Int {x}", typExpAnno.annotation, MBase knownBaseTypes.int)
+                    | LFloat x -> yield genc($"Float {x}", typExpAnno.annotation, MBase knownBaseTypes.float)
+                    | LString x -> yield genc($"String {x}", typExpAnno.annotation, MBase knownBaseTypes.string)
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
@@ -97,11 +93,11 @@ module Infer =
                         | Some ta -> ta
                     yield genc($"Var {tvar}", typExpAnno.annotation, newEnv)
                 | TEApp tapp ->
-                    yield genc("App", tapp.target.annotation, Constr(MFun(tapp.arg.annotation, typExpAnno.annotation)))
+                    yield genc("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
-                    yield genc("Fun", typExpAnno.annotation, Constr(MFun(tfun.ident.tvar, tfun.body.annotation)))
+                    yield genc("Fun", typExpAnno.annotation, MFun(tfun.ident.tvar, tfun.body.annotation))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
                     yield genc($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
@@ -113,39 +109,31 @@ module Infer =
 
     let solve (eqs: Equation list) =
         
-        let subst (eqs: Equation list) (varNr: int) (dest: Type) =
-            let substTerm (tvar: Type) =
-                let rec subst (tvar: Type) =
+        let subst (eqs: Equation list) (varNr: int) (dest: Mono) =
+            let substTerm (tvar: Mono) =
+                let rec subst (tvar: Mono) =
                     match tvar with
                     | Var i when i = varNr ->
                         dest
-                    | Constr typ ->
-                        match typ with
-                        | MFun (m, n) -> Constr (MFun (subst m, subst n))
-                        | _ -> tvar
+                    | MFun (m, n) -> MFun (subst m, subst n)
                     | _ -> tvar
                 subst tvar
             eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
 
         //  TODO: Is this MGU?
-        /// unifies 2 types
-        let unifyT t1 t2 =
-            match t1,t2 with
-            | Var _, _
-            | _, Var _ -> { desc = "unification"; left = t1; right = t2 }
-            | Constr _, Constr _ -> { desc = "unification"; left = t1; right = t2 }
-            | _ -> failwith "TODO: type error"
-
-        //  TODO: Is this MGU?
-        /// unifies 2 mono types
-        let unifyM m1 m2 =
+        let rec unify m1 m2 =
             match m1,m2 with
             | MFun (l,r), MFun (l',r') ->
                 [
-                    yield unifyT l l'
-                    yield unifyT r r'
+                    yield! unify l l'
+                    yield! unify r r'
                 ]
-            | a,b when a = b -> []
+            | Var _, _ ->
+                [ { desc = "unification"; left = m1; right = m2 } ]
+            | _, Var _ ->
+                [ { desc = "unification"; left = m2; right = m1 } ]
+            | a,b when a = b ->
+                []
             | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
 
         let rec solve (eqs: Equation list) (solution: Equation list) =            
@@ -153,20 +141,21 @@ module Infer =
             | [] -> solution
             | eq :: eqs ->
                 match eq.left, eq.right with
+                | TypeError _, _
+                | _, TypeError _ ->
+                    failwith "TODO: Unresolvable"
                 | Var a, x
                 | x, Var a ->
                     // substitute
                     let newEqs = subst eqs a x
                     let newSolution = subst solution a x
                     solve newEqs (eq :: newSolution)
-                | Constr a, Constr b ->
+                | a, b ->
                     // gen new constraints and solve
-                    let newConstraints = unifyM a b
+                    let newConstraints = unify a b
                     let newEqs = eqs @ newConstraints
                     let newSolution = solution
                     solve newEqs newSolution
-                | _ ->
-                    failwith "TODO: Unresolvable"
         
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
@@ -214,11 +203,10 @@ module Debug =
 ///////// Test
 
 module Dsl =
-    let baseType s = Constr (MBase s)
-    let tint = baseType knownBaseTypes.int
-    let tfloat = baseType knownBaseTypes.float
-    let tstring = baseType knownBaseTypes.string
-    let tfun(a, b) = Constr (MFun(a, b))
+    let tint = MBase knownBaseTypes.int
+    let tfloat = MBase knownBaseTypes.float
+    let tstring = MBase knownBaseTypes.string
+    let tfun(a, b) = MFun(a, b)
 
     let xint x = ELit(LInt x)
     let xfloat x = ELit(LFloat x)
