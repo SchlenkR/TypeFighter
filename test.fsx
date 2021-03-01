@@ -122,19 +122,18 @@ module Infer =
 
         //  TODO: Is this MGU?
         let rec unify m1 m2 =
-            match m1,m2 with
-            | MFun (l,r), MFun (l',r') ->
-                [
+            [
+                match m1,m2 with
+                | MFun (l,r), MFun (l',r') ->
                     yield! unify l l'
                     yield! unify r r'
-                ]
-            | Var _, _ ->
-                [ { desc = "unification"; left = m1; right = m2 } ]
-            | _, Var _ ->
-                [ { desc = "unification"; left = m2; right = m1 } ]
-            | a,b when a = b ->
-                []
-            | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
+                | Var _, _ ->
+                    yield { desc = "unification"; left = m1; right = m2 }
+                | _, Var _ ->
+                    yield { desc = "unification"; left = m2; right = m1 }
+                | a,b when a = b -> ()
+                | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
+            ]
 
         let rec solve (eqs: Equation list) (solution: Equation list) =            
             match eqs with
@@ -172,7 +171,7 @@ module Infer =
                     | l,r | r,l when l = var -> Some r
                     | _ -> None)
                 |> List.exactlyOne
-            let rec applySolution (texp: TExpAnno<TExp>) =
+            let rec applySolution (texp: TExpAnno) =
                 let finalExp =
                     match texp.texp with
                     | TELit _ | TEVar _ -> texp.texp
