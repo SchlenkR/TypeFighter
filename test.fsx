@@ -122,24 +122,26 @@ module Infer =
                 subst tvar
             eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
 
+        //  TODO: Is this MGU?
         /// unifies 2 types
-        let unifyT tx ty =
-            match tx,ty with
+        let unifyT t1 t2 =
+            match t1,t2 with
             | Var _, _
-            | _, Var _ -> { desc = "unification"; left = tx; right = ty }
-            | Constr _, Constr _ -> { desc = "unification"; left = tx; right = ty }
+            | _, Var _ -> { desc = "unification"; left = t1; right = t2 }
+            | Constr _, Constr _ -> { desc = "unification"; left = t1; right = t2 }
             | _ -> failwith "TODO: type error"
 
+        //  TODO: Is this MGU?
         /// unifies 2 mono types
-        let unifyM ma mb =
-            match ma,mb with
-            | MFun (m,n), MFun (o,p) ->
+        let unifyM m1 m2 =
+            match m1,m2 with
+            | MFun (l,r), MFun (l',r') ->
                 [
-                    yield unifyT m o
-                    yield unifyT n p
+                    yield unifyT l l'
+                    yield unifyT r r'
                 ]
             | a,b when a = b -> []
-            | _ -> failwith $"type error: expedted: {mb}, given: {ma}"
+            | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
 
         let rec solve (eqs: Equation list) (solution: Equation list) =            
             match eqs with
@@ -173,8 +175,7 @@ module Infer =
                 solutionMap
                 |> List.choose (fun x ->
                     match x.left, x.right with
-                    | a,b
-                    | b,a when a = var -> Some b
+                    | l,r | r,l when l = var -> Some r
                     | _ -> None)
                 |> List.exactlyOne
             let rec applySolution (texp: TExpAnno<TExp>) =
@@ -192,8 +193,16 @@ module Infer =
 module Debug =
 
     let printEquations (eqs: Equation list) =
-        for e in eqs |> List.sortByDescending (fun e -> e.left) do
-            printfn "%-20s    %A = %A" e.desc e.left e.right
+        eqs
+        |> List.map (fun e ->
+            let l,r =
+                match e.left,e.right with
+                | Var a,x
+                | x, Var a -> Var a,x
+                | x, y -> x,y
+            l, r, e.desc)
+        |> List.sortBy (fun (x,_,_) -> x)
+        |> List.iter (fun (l,r,desc) -> printfn "%-20s    %A = %A" desc l r)
 
 
 
@@ -231,17 +240,21 @@ let add =
 let expr3 =
     xlet "hurz" (xint 43) (xlet "f" add (xapp (xapp (xvar "f") (xvar "hurz")) (xint 99)))
 
+let idExp = xfun "x" (xvar "x")
 
-expr3 |> Infer.annotate lib |> Infer.constrain |> Debug.printEquations
-expr3 |> Infer.annotate lib |> Infer.constrain |> Infer.solve |> Debug.printEquations
-
+let printConstraints = Infer.annotate lib >> Infer.constrain >> Debug.printEquations
+let printSolution = Infer.annotate lib >> Infer.constrain >> Infer.solve >> Debug.printEquations
 let solve = Infer.typeAst lib >> fun x -> x.annotation
+
+
+printConstraints expr3
+printSolution idExp
 
 solve expr3
 solve expr1
 solve expr2
 solve <| xlet "hurz" (xint 43) (xstr "sss")
-solve <| xfun "x" (xvar "x")
+solve <| idExp
 solve <| xfun "x" (xstr "klököl")
 solve <| xapp (xfun "x" (xvar "x")) (xint 2)
 solve <| xapp (xfun "x" (xvar "x")) (xstr "Hello")
