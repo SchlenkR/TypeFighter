@@ -54,6 +54,7 @@ module Infer =
             Var tyCounter            
 
         let rec annotate env exp =
+            let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
             let texp =
                 match exp with
                 | ELit x ->
@@ -66,12 +67,12 @@ module Infer =
                     TEApp {| target = annotate env target; arg = annotate env arg |}
                 | EFun (ident, body) ->
                     let tvar = newTVar()
-                    let newEnv = env |> Map.change ident (fun _ -> Some tvar)
+                    let newEnv = env |> addToEnv ident tvar
                     TEFun {| ident = { name = ident; tvar = tvar }; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
-                    let env = env |> Map.change ident (fun _ -> Some tyanno.annotation)
-                    TELet {| ident = ident; assignment = tyanno; body = annotate env body |}
+                    let newEnv = env |> addToEnv ident tyanno.annotation
+                    TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
             { texp = texp; annotation = newTVar(); env = env }
         annotate env exp
 
