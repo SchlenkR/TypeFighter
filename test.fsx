@@ -17,9 +17,7 @@ type Exp =
 type TypeError = string
 
 type Mono<'TypeVar> =
-    | MInt
-    | MFloat
-    | MString
+    | MBase of string
     | MFun of 'TypeVar * 'TypeVar
 
 type Type =
@@ -41,8 +39,13 @@ and Ident = { name: string; tvar: Type }
 
 type Equation = { desc: string; left: Type; right: Type }
 
-module Infer =
+let knownBaseTypes =
+    {| int = "Int"
+       float = "Float"
+       string = "String" |}
 
+module Infer =
+        
     let emptyEnv: Env = Map.empty
         
     let annotate (env: Env) (exp: Exp) =
@@ -82,9 +85,9 @@ module Infer =
                 match typExpAnno.texp with
                 | TELit tlit ->
                     match tlit with
-                    | LInt x -> yield genc($"Int {x}", typExpAnno.annotation, Constr MInt)
-                    | LFloat x -> yield genc($"Float {x}", typExpAnno.annotation, Constr MFloat)
-                    | LString x -> yield genc($"String {x}", typExpAnno.annotation, Constr MString)
+                    | LInt x -> yield genc($"Int {x}", typExpAnno.annotation, Constr (MBase knownBaseTypes.int))
+                    | LFloat x -> yield genc($"Float {x}", typExpAnno.annotation, Constr (MBase knownBaseTypes.float))
+                    | LString x -> yield genc($"String {x}", typExpAnno.annotation, Constr (MBase knownBaseTypes.string))
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
@@ -165,8 +168,8 @@ module Infer =
         
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
-    let typeAst lib exp =
-        let annotatedAst = annotate lib exp
+    let typeAst env exp =
+        let annotatedAst = annotate env exp
         let constraintSet = constrain annotatedAst
         let solutionMap = solve constraintSet
         let typedAst =
@@ -209,10 +212,11 @@ module Debug =
 ///////// Test
 
 module Dsl =
-    let intTyp = Constr MInt
-    let floatTyp = Constr MFloat
-    let stringTyp = Constr MString
-    let funTyp(a, b) = Constr (MFun(a, b))
+    let baseType s = Constr (MBase s)
+    let tint = baseType knownBaseTypes.int
+    let tfloat = baseType knownBaseTypes.float
+    let tstring = baseType knownBaseTypes.string
+    let tfun(a, b) = Constr (MFun(a, b))
 
     let xint x = ELit(LInt x)
     let xfloat x = ELit(LFloat x)
@@ -224,9 +228,9 @@ module Dsl =
 
 open Dsl
 
-let lib =
+let env =
     [
-        "libcall_add", funTyp(intTyp, funTyp(intTyp, intTyp))
+        "libcall_add", tfun(tint, tfun(tint, tint))
     ]
     |> Map.ofList
     
@@ -242,9 +246,9 @@ let expr3 =
 
 let idExp = xfun "x" (xvar "x")
 
-let printConstraints = Infer.annotate lib >> Infer.constrain >> Debug.printEquations
-let printSolution = Infer.annotate lib >> Infer.constrain >> Infer.solve >> Debug.printEquations
-let solve = Infer.typeAst lib >> fun x -> x.annotation
+let printConstraints = Infer.annotate env >> Infer.constrain >> Debug.printEquations
+let printSolution = Infer.annotate env >> Infer.constrain >> Infer.solve >> Debug.printEquations
+let solve = Infer.typeAst env >> fun x -> x.annotation
 
 
 printConstraints expr3
