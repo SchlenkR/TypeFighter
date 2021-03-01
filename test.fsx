@@ -140,9 +140,9 @@ module Infer =
             | [] -> solution
             | eq :: eqs ->
                 match eq.left, eq.right with
+                // TODO: What does this mean?When do we finally check this? 
                 | TypeError _, _
-                | _, TypeError _ ->
-                    failwith "TODO: Unresolvable"
+                | _, TypeError _ -> [ eq ]
                 | Var a, x
                 | x, Var a ->
                     // substitute
