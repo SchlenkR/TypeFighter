@@ -16,67 +16,62 @@ type Exp =
 
 type TypeError = string
 
-type MType<'TypeVar> =
+type Mono<'TypeVar> =
     | MInt
     | MFloat
     | MString
     | MFun of 'TypeVar * 'TypeVar
 
-type TVar =
+type Type =
     | Unresolvable of TypeError
-    | Det of MType<TVar>
-    | Free of int
+    | Constr of Mono<Type>
+    | Var of int
 
-type Env = Map<string, TVar>
+type Env = Map<string, Type>
 
-type TExpAnno<'Exp> = { exp: 'Exp; annotation: TVar; env: Env }
+type TExpAnno<'Exp> = { texp: 'Exp; annotation: Type; env: Env }
 
 type TExp =
-    | TLit of Lit
-    | TVar of string
-    | TApp of {| target: TExpAnno<TExp>; arg: TExpAnno<TExp> |}
-    | TFun of {| ident: Ident; body: TExpAnno<TExp> |}
-    | TLet of {| ident: string; assignment: TExpAnno<TExp>; body: TExpAnno<TExp> |}
-and Ident = { name: string; tvar: TVar }
+    | TELit of Lit
+    | TEVar of string
+    | TEApp of {| target: TExpAnno<TExp>; arg: TExpAnno<TExp> |}
+    | TEFun of {| ident: Ident; body: TExpAnno<TExp> |}
+    | TELet of {| ident: string; assignment: TExpAnno<TExp>; body: TExpAnno<TExp> |}
+and Ident = { name: string; tvar: Type }
 
-type Equation = { desc: string; left: TVar; right: TVar }
+type Equation = { desc: string; left: Type; right: Type }
 
 module Infer =
 
     let emptyEnv: Env = Map.empty
-
-    type private TVarGen() =
-        let mutable tyCounter = -1
-        member this.newTVar() =
-            tyCounter <- tyCounter + 1
-            Free tyCounter
-        member this.newTyExpAnno(env, exp) =
-            { exp = exp; annotation = this.newTVar(); env = env }
         
     let annotate (env: Env) (exp: Exp) =
-        let tvarGen = TVarGen()
+        
+        let mutable tyCounter = -1
+        let newTVar() =
+            tyCounter <- tyCounter + 1
+            Var tyCounter            
 
         let rec annotate env exp =
-            match exp with
-            | ELit x ->
-                match x with
-                | LInt _ -> tvarGen.newTyExpAnno(env, TLit x)
-                | LFloat _ -> tvarGen.newTyExpAnno(env, TLit x)
-                | LString _ -> tvarGen.newTyExpAnno(env, TLit x)
-            | EVar ident -> tvarGen.newTyExpAnno(env, TVar ident)
-            | EApp (target, arg) ->
-                let texp = TApp {| target = annotate env target; arg = annotate env arg |}
-                tvarGen.newTyExpAnno(env, texp)
-            | EFun (ident, body) ->
-                let tvar = tvarGen.newTVar()
-                let env = env |> Map.change ident (fun _ -> Some tvar)
-                let texp = TFun {| ident = { name = ident; tvar = tvar }; body = annotate env body |}
-                tvarGen.newTyExpAnno(env, texp)
-            | ELet (ident, assignment, body) ->
-                let tyAss = annotate env assignment
-                let env = env |> Map.change ident (fun _ -> Some tyAss.annotation)
-                let texp = TLet {| ident = ident; assignment = tyAss; body = annotate env body |}
-                tvarGen.newTyExpAnno(env, texp)
+            let texp =
+                match exp with
+                | ELit x ->
+                    match x with
+                    | LInt _ -> TELit x
+                    | LFloat _ -> TELit x
+                    | LString _ -> TELit x
+                | EVar ident -> TEVar ident
+                | EApp (target, arg) ->
+                    TEApp {| target = annotate env target; arg = annotate env arg |}
+                | EFun (ident, body) ->
+                    let tvar = newTVar()
+                    let newEnv = env |> Map.change ident (fun _ -> Some tvar)
+                    TEFun {| ident = { name = ident; tvar = tvar }; body = annotate newEnv body |}
+                | ELet (ident, assignment, body) ->
+                    let tyanno = annotate env assignment
+                    let env = env |> Map.change ident (fun _ -> Some tyanno.annotation)
+                    TELet {| ident = ident; assignment = tyanno; body = annotate env body |}
+            { texp = texp; annotation = newTVar(); env = env }
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno<TExp>) =
@@ -84,28 +79,26 @@ module Infer =
             let constrain(desc, l, r) = { desc = desc; left = l; right = r; }
             
             [
-                match typExpAnno.exp with
-                | TLit tlit ->
+                match typExpAnno.texp with
+                | TELit tlit ->
                     match tlit with
-                    | LInt x -> yield constrain($"Int {x}", typExpAnno.annotation, Det MInt)
-                    | LFloat x -> yield constrain($"Float {x}", typExpAnno.annotation, Det MFloat)
-                    | LString x -> yield constrain($"String {x}", typExpAnno.annotation, Det MString)
-                | TVar tvar ->
+                    | LInt x -> yield constrain($"Int {x}", typExpAnno.annotation, Constr MInt)
+                    | LFloat x -> yield constrain($"Float {x}", typExpAnno.annotation, Constr MFloat)
+                    | LString x -> yield constrain($"String {x}", typExpAnno.annotation, Constr MString)
+                | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
                         | None -> Unresolvable $"Identifier {tvar} is undefined."
                         | Some ta -> ta
                     yield constrain($"Var {tvar}", typExpAnno.annotation, newEnv)
-                | TApp tapp ->
-                    // res = add 20 -> we know something about "add":
-                    // It is a function that goes from int to whatever 'res' is
-                    yield constrain("App", tapp.target.annotation, Det(MFun(tapp.arg.annotation, typExpAnno.annotation)))
+                | TEApp tapp ->
+                    yield constrain("App", tapp.target.annotation, Constr(MFun(tapp.arg.annotation, typExpAnno.annotation)))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
-                | TFun tfun ->
-                    yield constrain("Fun", typExpAnno.annotation, Det(MFun(tfun.ident.tvar, tfun.body.annotation)))
+                | TEFun tfun ->
+                    yield constrain("Fun", typExpAnno.annotation, Constr(MFun(tfun.ident.tvar, tfun.body.annotation)))
                     yield! genConstraints tfun.body
-                | TLet tlet ->
+                | TELet tlet ->
                     yield constrain($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
@@ -114,52 +107,53 @@ module Infer =
 
     let solve (eqs: Equation list) =
         
-        let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
-            let substTerm (tvar: TVar) =
-                let rec subst (tvar: TVar) =
+        let subst (eqs: Equation list) (varNr: int) (dest: Type) =
+            let substTerm (tvar: Type) =
+                let rec subst (tvar: Type) =
                     match tvar with
-                    | Free i when i = varNr ->
+                    | Var i when i = varNr ->
                         dest
-                    | Det typ ->
+                    | Constr typ ->
                         match typ with
-                        | MFun (m, n) -> Det (MFun (subst m, subst n))
+                        | MFun (m, n) -> Constr (MFun (subst m, subst n))
                         | _ -> tvar
                     | _ -> tvar
                 subst tvar
             eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
 
-        let unify a b =
-            match a,b with
+        /// unifies 2 types
+        let unifyT tx ty =
+            match tx,ty with
+            | Var _, _
+            | _, Var _ -> { desc = "unification"; left = tx; right = ty }
+            | Constr _, Constr _ -> { desc = "unification"; left = tx; right = ty }
+            | _ -> failwith "TODO: type error"
+
+        /// unifies 2 mono types
+        let unifyM ma mb =
+            match ma,mb with
             | MFun (m,n), MFun (o,p) ->
-                let unify x y =
-                    match x,y with
-                    | Free _, _
-                    | _, Free _ -> { desc = "unification"; left = x; right = y }
-                    | Det _, Det _ -> { desc = "unification"; left = x; right = y }
-                    | _ -> failwith "TODO: type error"
                 [
-                    yield unify m o
-                    yield unify n p
+                    yield unifyT m o
+                    yield unifyT n p
                 ]
-            | a,b when a = b ->
-                []
-            | _ ->
-                failwith $"type error: expedted: {b}, given: {a}"
+            | a,b when a = b -> []
+            | _ -> failwith $"type error: expedted: {mb}, given: {ma}"
 
         let rec solve (eqs: Equation list) (solution: Equation list) =            
             match eqs with
             | [] -> solution
             | eq :: eqs ->
                 match eq.left, eq.right with
-                | Free a, x
-                | x, Free a ->
+                | Var a, x
+                | x, Var a ->
                     // substitute
                     let newEqs = subst eqs a x
                     let newSolution = subst solution a x
                     solve newEqs (eq :: newSolution)
-                | Det a, Det b ->
+                | Constr a, Constr b ->
                     // gen new constraints and solve
-                    let newConstraints = unify a b
+                    let newConstraints = unifyM a b
                     let newEqs = eqs @ newConstraints
                     let newSolution = solution
                     solve newEqs newSolution
@@ -184,12 +178,12 @@ module Infer =
                 |> List.exactlyOne
             let rec applySolution (texp: TExpAnno<TExp>) =
                 let finalExp =
-                    match texp.exp with
-                    | TLit _ | TVar _ -> texp.exp
-                    | TApp tapp -> TApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
-                    | TFun tfun -> TFun {| tfun with body = applySolution tfun.body |}
-                    | TLet tlet -> TLet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
-                { exp = finalExp; annotation = find texp.annotation; env = emptyEnv }
+                    match texp.texp with
+                    | TELit _ | TEVar _ -> texp.texp
+                    | TEApp tapp -> TEApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
+                    | TEFun tfun -> TEFun {| tfun with body = applySolution tfun.body |}
+                    | TELet tlet -> TELet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
+                { texp = finalExp; annotation = find texp.annotation; env = emptyEnv }
             applySolution annotatedAst
         typedAst
 
@@ -205,10 +199,10 @@ module Debug =
 ///////// Test
 
 module Dsl =
-    let intTyp = Det MInt
-    let floatTyp = Det MFloat
-    let stringTyp = Det MString
-    let funTyp(a, b) = Det (MFun(a, b))
+    let intTyp = Constr MInt
+    let floatTyp = Constr MFloat
+    let stringTyp = Constr MString
+    let funTyp(a, b) = Constr (MFun(a, b))
 
     let xint x = ELit(LInt x)
     let xfloat x = ELit(LFloat x)
