@@ -6,6 +6,7 @@ type Lit =
     | LInt of int
     | LFloat of float
     | LString of string
+    
 type Exp =
     | ELit of Lit
     | EVar of string
@@ -13,32 +14,36 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
-type ErrorMsg = string
+type TypeError = string
 
-type MType =
+type MType<'TypeVar> =
     | MInt
     | MFloat
     | MString
-    | MFun of TVar * TVar
-and TVar =
-    | Unresolvable of ErrorMsg
-    | Det of MType
+    | MFun of 'TypeVar * 'TypeVar
+
+type TVar =
+    | Unresolvable of TypeError
+    | Det of MType<TVar>
     | Free of int
-and TExp =
+
+type Env = Map<string, TVar>
+
+type TExpAnno<'Exp> = { exp: 'Exp; annotation: TVar; env: Env }
+
+type TExp =
     | TLit of Lit
     | TVar of string
-    | TApp of {| target: TExpAnno; arg: TExpAnno |}
-    | TFun of {| ident: Ident; body: TExpAnno |}
-    | TLet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
-and TExpAnno = { exp: TExp; annotation: TVar; env: Env }
+    | TApp of {| target: TExpAnno<TExp>; arg: TExpAnno<TExp> |}
+    | TFun of {| ident: Ident; body: TExpAnno<TExp> |}
+    | TLet of {| ident: string; assignment: TExpAnno<TExp>; body: TExpAnno<TExp> |}
 and Ident = { name: string; tvar: TVar }
-and Env = Map<string, TVar>
 
 type Equation = { desc: string; left: TVar; right: TVar }
 
-let emptyEnv: Env = Map.empty
-
 module Infer =
+
+    let emptyEnv: Env = Map.empty
 
     type private TVarGen() =
         let mutable tyCounter = -1
@@ -74,10 +79,10 @@ module Infer =
                 tvarGen.newTyExpAnno(env, texp)
         annotate env exp
 
-    let genConstraints (typExpAnno: TExpAnno) =
-        let constrain(desc, l, r) = { desc = desc; left = l; right = r; }
-        
-        let rec genConstraints (typExpAnno: TExpAnno) =
+    let constrain (typExpAnno: TExpAnno<TExp>) =
+        let rec genConstraints (typExpAnno: TExpAnno<TExp>) =
+            let constrain(desc, l, r) = { desc = desc; left = l; right = r; }
+            
             [
                 match typExpAnno.exp with
                 | TLit tlit ->
@@ -107,9 +112,8 @@ module Infer =
             ]
         genConstraints typExpAnno
 
-    let constrain lib exp = annotate lib exp |> genConstraints
-
-    let solveEquations (eqs: Equation list) =
+    let solve (eqs: Equation list) =
+        
         let subst (eqs: Equation list) (varNr: int) (dest: TVar) =
             let substTerm (tvar: TVar) =
                 let rec subst (tvar: TVar) =
@@ -130,8 +134,8 @@ module Infer =
                 let unify x y =
                     match x,y with
                     | Free _, _
-                    | _, Free _ -> { desc = "unified"; left = x; right = y }
-                    | Det _, Det _ -> { desc = "unified"; left = x; right = y }
+                    | _, Free _ -> { desc = "unification"; left = x; right = y }
+                    | Det _, Det _ -> { desc = "unification"; left = x; right = y }
                     | _ -> failwith "TODO: type error"
                 [
                     yield unify m o
@@ -164,10 +168,10 @@ module Infer =
         
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
-    let solve lib exp =
+    let typeAst lib exp =
         let annotatedAst = annotate lib exp
-        let constraintSet = genConstraints annotatedAst
-        let solutionMap = solveEquations constraintSet
+        let constraintSet = constrain annotatedAst
+        let solutionMap = solve constraintSet
         let typedAst =
             let find var =
                 // TODO: err can happen
@@ -178,26 +182,20 @@ module Infer =
                     | b,a when a = var -> Some b
                     | _ -> None)
                 |> List.exactlyOne
-            let rec applySolution (texp: TExpAnno) =
+            let rec applySolution (texp: TExpAnno<TExp>) =
                 let finalExp =
                     match texp.exp with
-                    | TLit _
-                    | TVar _ ->
-                        texp.exp
-                    | TApp tapp ->
-                        TApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
-                    | TFun tfun ->
-                        TFun {| tfun with body = applySolution tfun.body |}
-                    | TLet tlet ->
-                        TLet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
-                { exp = finalExp
-                  annotation = find texp.annotation
-                  env = emptyEnv }
+                    | TLit _ | TVar _ -> texp.exp
+                    | TApp tapp -> TApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
+                    | TFun tfun -> TFun {| tfun with body = applySolution tfun.body |}
+                    | TLet tlet -> TLet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
+                { exp = finalExp; annotation = find texp.annotation; env = emptyEnv }
             applySolution annotatedAst
         typedAst
 
 
 module Debug =
+
     let printEquations (eqs: Equation list) =
         for e in eqs |> List.sortByDescending (fun e -> e.left) do
             printfn "%-20s    %A = %A" e.desc e.left e.right
@@ -239,9 +237,10 @@ let expr3 =
     xlet "hurz" (xint 43) (xlet "f" add (xapp (xapp (xvar "f") (xvar "hurz")) (xint 99)))
 
 
-expr3 |> Infer.constrain lib |> Debug.printEquations
+expr3 |> Infer.annotate lib |> Infer.constrain |> Debug.printEquations
+expr3 |> Infer.annotate lib |> Infer.constrain |> Infer.solve |> Debug.printEquations
 
-let solve = Infer.solve lib >> fun x -> x.annotation
+let solve = Infer.typeAst lib >> fun x -> x.annotation
 
 solve expr3
 solve expr1
