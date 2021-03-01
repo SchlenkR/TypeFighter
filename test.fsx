@@ -75,34 +75,35 @@ module Infer =
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno<TExp>) =
+        let genc(desc, l, r) = { desc = desc; left = l; right = r; }
+        
         let rec genConstraints (typExpAnno: TExpAnno<TExp>) =
-            let constrain(desc, l, r) = { desc = desc; left = l; right = r; }
-            
             [
                 match typExpAnno.texp with
                 | TELit tlit ->
                     match tlit with
-                    | LInt x -> yield constrain($"Int {x}", typExpAnno.annotation, Constr MInt)
-                    | LFloat x -> yield constrain($"Float {x}", typExpAnno.annotation, Constr MFloat)
-                    | LString x -> yield constrain($"String {x}", typExpAnno.annotation, Constr MString)
+                    | LInt x -> yield genc($"Int {x}", typExpAnno.annotation, Constr MInt)
+                    | LFloat x -> yield genc($"Float {x}", typExpAnno.annotation, Constr MFloat)
+                    | LString x -> yield genc($"String {x}", typExpAnno.annotation, Constr MString)
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
                         | None -> Unresolvable $"Identifier {tvar} is undefined."
                         | Some ta -> ta
-                    yield constrain($"Var {tvar}", typExpAnno.annotation, newEnv)
+                    yield genc($"Var {tvar}", typExpAnno.annotation, newEnv)
                 | TEApp tapp ->
-                    yield constrain("App", tapp.target.annotation, Constr(MFun(tapp.arg.annotation, typExpAnno.annotation)))
+                    yield genc("App", tapp.target.annotation, Constr(MFun(tapp.arg.annotation, typExpAnno.annotation)))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
-                    yield constrain("Fun", typExpAnno.annotation, Constr(MFun(tfun.ident.tvar, tfun.body.annotation)))
+                    yield genc("Fun", typExpAnno.annotation, Constr(MFun(tfun.ident.tvar, tfun.body.annotation)))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield constrain($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
+                    yield genc($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
+
         genConstraints typExpAnno
 
     let solve (eqs: Equation list) =
