@@ -14,14 +14,16 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
-type TypeError = string
-
 type Mono<'TypeVar> =
     | MBase of string
     | MFun of 'TypeVar * 'TypeVar
 
+// type Poly<'TypeVar> =
+//     | MBase of string
+//     | MFun of 'TypeVar * 'TypeVar
+
 type Type =
-    | Unresolvable of TypeError
+    | TypeError of string
     | Constr of Mono<Type>
     | Var of int
 
@@ -91,7 +93,7 @@ module Infer =
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
-                        | None -> Unresolvable $"Identifier {tvar} is undefined."
+                        | None -> TypeError $"Identifier {tvar} is undefined."
                         | Some ta -> ta
                     yield genc($"Var {tvar}", typExpAnno.annotation, newEnv)
                 | TEApp tapp ->
