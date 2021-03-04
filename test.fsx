@@ -26,8 +26,9 @@ type TExp =
     | TEFun of {| ident: string; body: TExpAnno |}
     | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
 
-and TExpAnno = { texp: TExp; annotation: Mono; env: Env }
+and TExpAnno = { texp: TExp; nr: int; annotation: Mono; env: Env }
 
+// TODO: Das muss eigentlich sein: int -> Mono
 type Equation = { desc: string; left: Mono; right: Mono }
 
 module Infer =
@@ -37,7 +38,7 @@ module Infer =
         let mutable varCounter = -1
         let newVar() =
             varCounter <- varCounter + 1
-            MVar varCounter            
+            MVar varCounter, varCounter
 
         let rec annotate env exp =
             let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
@@ -48,17 +49,19 @@ module Infer =
                 | EApp (target, arg) ->
                     TEApp {| target = annotate env target; arg = annotate env arg |}
                 | EFun (ident, body) ->
-                    let tvar = newVar()
+                    let tvar = newVar() |> fst
                     let newEnv = env |> addToEnv ident tvar
                     TEFun {| ident = ident; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
                     let newEnv = env |> addToEnv ident tyanno.annotation
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
-            { texp = texp; annotation = newVar(); env = env }
+            let mvar,nr = newVar()
+            { texp = texp; nr = nr; annotation = mvar; env = env }
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno) =
+
         let createEq(desc, l, r) = { desc = desc; left = l; right = r; }
 
         let resolveVar env tvar =
@@ -143,7 +146,7 @@ module Infer =
         let constraintSet = constrain annotatedAst
         let solutionMap = solve constraintSet
         let typedAst =
-            let find var =
+            let findVar var =
                 // TODO: err can happen
                 let res =
                     solutionMap
@@ -165,7 +168,7 @@ module Infer =
                     | TEApp tapp -> TEApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
                     | TEFun tfun -> TEFun {| tfun with body = applySolution tfun.body |}
                     | TELet tlet -> TELet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
-                { texp = finalExp; annotation = find texp.annotation; env = Map.empty }
+                { texp with texp = finalExp; annotation = findVar texp.annotation }
             applySolution annotatedAst
         typedAst
 
@@ -251,21 +254,10 @@ solve <| xlet "k" (xfun "x" (xlet "f" (xfun "y" (xvar "x")) (xvar "f"))) (xvar "
 
 
 
-// Error
-//solve <| xapp (xvar "libcall_add") (xstr "lklö")
-
-
-
-
-// module X =
-//     
-//     let libcall_add a b = a + b
-//     let app f x = f x
-//     
-//     let hurz = 43
-//     let f = fun b -> fun a -> (libcall_add a) b
-//     (f hurz) 99
-//
+// Errors
+(*
+solve <| xapp (xvar "libcall_add") (xstr "lklö")
+*)
 
 let f = fun x -> 34
 f 99
