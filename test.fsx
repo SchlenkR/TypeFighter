@@ -17,6 +17,10 @@ type Mono =
     | MVar of int
     | TypeError of string
 
+type Poly =
+    { variables: string list
+      mono: Mono }
+
 type Env = Map<string, Mono>
 
 type TExp =
@@ -254,15 +258,20 @@ infer <| xfun "x" (xfun "y" (xvar "x"))
 solve <| xlet "k" (xfun "x" (xlet "f" (xfun "y" (xvar "x")) (xvar "f"))) (xvar "k")
 
 
+solve <| xlet "k" (xint 43) (xlet "k" (xstr "sss") (xvar "k"))
+
+
 
 // Errors
 (*
 solve <| xapp (xvar "libcall_add") (xstr "lklö")
 *)
 
+
+(*
 // Der Typ von "f" ist _kein_ Polytyp
 (fun f -> f "as", f 99) id
 
 // Der Typ von "f" ist ein Polytyp
 let f = id in f "as", f 99
-
+*)
