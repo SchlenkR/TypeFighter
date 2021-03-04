@@ -17,7 +17,7 @@ type Exp =
 type Mono =
     | MBase of string
     | MFun of Mono * Mono
-    | Var of int
+    | MVar of int
     | TypeError of string
 
 // type Poly<'TypeVar> =
@@ -43,15 +43,13 @@ let knownBaseTypes =
        string = "String" |}
 
 module Infer =
-        
-    let emptyEnv: Env = Map.empty
-        
+               
     let annotate (env: Env) (exp: Exp) =
         
-        let mutable tyCounter = -1
-        let newTVar() =
-            tyCounter <- tyCounter + 1
-            Var tyCounter            
+        let mutable varCounter = -1
+        let newVar() =
+            varCounter <- varCounter + 1
+            MVar varCounter            
 
         let rec annotate env exp =
             let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
@@ -66,14 +64,14 @@ module Infer =
                 | EApp (target, arg) ->
                     TEApp {| target = annotate env target; arg = annotate env arg |}
                 | EFun (ident, body) ->
-                    let tvar = newTVar()
+                    let tvar = newVar()
                     let newEnv = env |> addToEnv ident tvar
                     TEFun {| ident = { name = ident; tvar = tvar }; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
                     let newEnv = env |> addToEnv ident tyanno.annotation
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
-            { texp = texp; annotation = newTVar(); env = env }
+            { texp = texp; annotation = newVar(); env = env }
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno) =
@@ -114,7 +112,7 @@ module Infer =
             let substTerm (tvar: Mono) =
                 let rec subst (tvar: Mono) =
                     match tvar with
-                    | Var i when i = varNr ->
+                    | MVar i when i = varNr ->
                         dest
                     | MFun (m, n) -> MFun (subst m, subst n)
                     | _ -> tvar
@@ -128,9 +126,9 @@ module Infer =
                 | MFun (l,r), MFun (l',r') ->
                     yield! unify l l'
                     yield! unify r r'
-                | Var _, _ ->
+                | MVar _, _ ->
                     yield { desc = "unification"; left = m1; right = m2 }
-                | _, Var _ ->
+                | _, MVar _ ->
                     yield { desc = "unification"; left = m2; right = m1 }
                 | a,b when a = b -> ()
                 | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
@@ -144,8 +142,8 @@ module Infer =
                 // TODO: What does this mean?When do we finally check this? 
                 | TypeError _, _
                 | _, TypeError _ -> [ eq ]
-                | Var a, x
-                | x, Var a ->
+                | MVar a, x
+                | x, MVar a ->
                     // substitute
                     let newEqs = subst eqs a x
                     let newSolution = subst solution a x
@@ -159,7 +157,7 @@ module Infer =
         
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
-    let typeAst env exp =
+    let typeExp env exp =
         let annotatedAst = annotate env exp
         let constraintSet = constrain annotatedAst
         let solutionMap = solve constraintSet
@@ -179,7 +177,7 @@ module Infer =
                     | TEApp tapp -> TEApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
                     | TEFun tfun -> TEFun {| tfun with body = applySolution tfun.body |}
                     | TELet tlet -> TELet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
-                { texp = finalExp; annotation = find texp.annotation; env = emptyEnv }
+                { texp = finalExp; annotation = find texp.annotation; env = Map.empty }
             applySolution annotatedAst
         typedAst
 
@@ -191,8 +189,8 @@ module Debug =
         |> List.map (fun e ->
             let l,r =
                 match e.left,e.right with
-                | Var a,x
-                | x, Var a -> Var a,x
+                | MVar a,x
+                | x, MVar a -> MVar a,x
                 | x, y -> x,y
             l, r, e.desc)
         |> List.sortBy (fun (x,_,_) -> x)
@@ -238,7 +236,7 @@ let idExp = xfun "x" (xvar "x")
 
 let printConstraints = Infer.annotate env >> Infer.constrain >> Debug.printEquations
 let printSolution = Infer.annotate env >> Infer.constrain >> Infer.solve >> Debug.printEquations
-let solve = Infer.typeAst env >> fun x -> x.annotation
+let solve = Infer.typeExp env >> fun x -> x.annotation
 
 
 printConstraints expr3
@@ -253,8 +251,14 @@ solve <| xfun "x" (xstr "klököl")
 solve <| xapp (xfun "x" (xvar "x")) (xint 2)
 solve <| xapp (xfun "x" (xvar "x")) (xstr "Hello")
 
+solve <| xfun "x" (xfun "y" (xvar "x"))
+solve <| xlet "k" (xfun "x" (xlet "f" (xfun "y" (xvar "x")) (xvar "f"))) (xvar "k")
+
+
+
 // Error
 //solve <| xapp (xvar "libcall_add") (xstr "lklö")
+
 
 
 
