@@ -14,10 +14,12 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
+type TypeVariable = TypeVariable of int
+
 type Mono =
     | MBase of string
     | MFun of Mono * Mono
-    | MVar of int
+    | MVar of TypeVariable
     | TypeError of string
 
 // type Poly<'TypeVar> =
@@ -49,7 +51,7 @@ module Infer =
         let mutable varCounter = -1
         let newVar() =
             varCounter <- varCounter + 1
-            MVar varCounter            
+            MVar (TypeVariable varCounter)            
 
         let rec annotate env exp =
             let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
@@ -112,8 +114,7 @@ module Infer =
             let substTerm (tvar: Mono) =
                 let rec subst (tvar: Mono) =
                     match tvar with
-                    | MVar i when i = varNr ->
-                        dest
+                    | MVar (TypeVariable i) when i = varNr -> dest
                     | MFun (m, n) -> MFun (subst m, subst n)
                     | _ -> tvar
                 subst tvar
@@ -142,8 +143,8 @@ module Infer =
                 // TODO: What does this mean?When do we finally check this? 
                 | TypeError _, _
                 | _, TypeError _ -> [ eq ]
-                | MVar a, x
-                | x, MVar a ->
+                | MVar (TypeVariable a), x
+                | x, MVar (TypeVariable a) ->
                     // substitute
                     let newEqs = subst eqs a x
                     let newSolution = subst solution a x
