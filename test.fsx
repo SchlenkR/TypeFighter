@@ -2,11 +2,7 @@
 fsi.PrintWidth <- 250
 #endif
 
-type Lit =
-    | LInt of int
-    | LFloat of float
-    | LString of string
-    
+type Lit = { typeName: string; value: string }
 type Exp =
     | ELit of Lit
     | EVar of string
@@ -37,16 +33,11 @@ and Ident = { name: string; tvar: Mono }
 
 type Equation = { desc: string; left: Mono; right: Mono }
 
-let knownBaseTypes =
-    {| int = "Int"
-       float = "Float"
-       string = "String" |}
-
 module Equation =
     let create(desc, l, r) = { desc = desc; left = l; right = r; }
 
 module Infer =
-               
+
     let annotate (env: Env) (exp: Exp) =
         
         let mutable varCounter = -1
@@ -58,11 +49,7 @@ module Infer =
             let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
             let texp =
                 match exp with
-                | ELit x ->
-                    match x with
-                    | LInt _ -> TELit x
-                    | LFloat _ -> TELit x
-                    | LString _ -> TELit x
+                | ELit x -> TELit x
                 | EVar ident -> TEVar ident
                 | EApp (target, arg) ->
                     TEApp {| target = annotate env target; arg = annotate env arg |}
@@ -81,11 +68,7 @@ module Infer =
         let rec genConstraints (typExpAnno: TExpAnno) =
             [
                 match typExpAnno.texp with
-                | TELit tlit ->
-                    match tlit with
-                    | LInt x -> yield Equation.create($"Int {x}", typExpAnno.annotation, MBase knownBaseTypes.int)
-                    | LFloat x -> yield Equation.create($"Float {x}", typExpAnno.annotation, MBase knownBaseTypes.float)
-                    | LString x -> yield Equation.create($"String {x}", typExpAnno.annotation, MBase knownBaseTypes.string)
+                | TELit x -> yield Equation.create($"Lit {x.typeName}", typExpAnno.annotation, MBase x.typeName)
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
@@ -113,8 +96,7 @@ module Infer =
             let substTerm (tvar: Mono) =
                 let rec subst (tvar: Mono) =
                     match tvar with
-                    | MVar i when i = varNr ->
-                        dest
+                    | MVar i when i = varNr -> dest
                     | MFun (m, n) -> MFun (subst m, subst n)
                     | _ -> tvar
                 subst tvar
@@ -167,13 +149,15 @@ module Infer =
                 solutionMap
                 |> List.choose (fun x ->
                     match x.left, x.right with
-                    | l,r | r,l when l = var -> Some r
+                    | l,r
+                    | r,l when l = var -> Some r
                     | _ -> None)
                 |> List.exactlyOne
             let rec applySolution (texp: TExpAnno) =
                 let finalExp =
                     match texp.texp with
-                    | TELit _ | TEVar _ -> texp.texp
+                    | TELit _
+                    | TEVar _ -> texp.texp
                     | TEApp tapp -> TEApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
                     | TEFun tfun -> TEFun {| tfun with body = applySolution tfun.body |}
                     | TELet tlet -> TELet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
@@ -201,18 +185,24 @@ module Debug =
 ///////// Test
 
 module Dsl =
+    
+    let knownBaseTypes =
+        {| int = "Int"
+           float = "Float"
+           string = "String" |}
+           
     let tint = MBase knownBaseTypes.int
     let tfloat = MBase knownBaseTypes.float
     let tstring = MBase knownBaseTypes.string
     let tfun(a, b) = MFun(a, b)
 
-    let xint x = ELit(LInt x)
-    let xfloat x = ELit(LFloat x)
-    let xstr x = ELit(LString x)
-    let xvar ident = EVar(ident)
-    let xlet ident e1 e2 = ELet(ident, e1, e2)
-    let xfun ident e = EFun(ident, e)
-    let xapp e1 e2 = EApp(e1, e2)
+    let xint (x: int) = ELit { typeName = knownBaseTypes.int; value = string x }
+    let xfloat (x: float) = ELit { typeName = knownBaseTypes.float; value = string x }
+    let xstr (x: string) = ELit { typeName = knownBaseTypes.string; value = x }
+    let xvar ident = EVar (ident)
+    let xlet ident e1 e2 = ELet (ident, e1, e2)
+    let xfun ident e = EFun (ident, e)
+    let xapp e1 e2 = EApp (e1, e2)
 
 open Dsl
 
