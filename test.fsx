@@ -17,22 +17,16 @@ type Mono =
     | MVar of int
     | TypeError of string
 
-// type Poly<'TypeVar> =
-//     | MBase of string
-//     | MFun of 'TypeVar * 'TypeVar
-
 type Env = Map<string, Mono>
 
 type TExp =
     | TELit of Lit
     | TEVar of string
     | TEApp of {| target: TExpAnno; arg: TExpAnno |}
-    | TEFun of {| ident: Ident; body: TExpAnno |}
+    | TEFun of {| ident: string; body: TExpAnno |}
     | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
 
 and TExpAnno = { texp: TExp; annotation: Mono; env: Env }
-
-and Ident = { name: string; tvar: Mono }
 
 type Equation = { desc: string; left: Mono; right: Mono }
 
@@ -56,7 +50,7 @@ module Infer =
                 | EFun (ident, body) ->
                     let tvar = newVar()
                     let newEnv = env |> addToEnv ident tvar
-                    TEFun {| ident = { name = ident; tvar = tvar }; body = annotate newEnv body |}
+                    TEFun {| ident = ident; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
                     let newEnv = env |> addToEnv ident tyanno.annotation
@@ -66,23 +60,26 @@ module Infer =
 
     let constrain (typExpAnno: TExpAnno) =
         let createEq(desc, l, r) = { desc = desc; left = l; right = r; }
+
+        let resolveVar env tvar =
+            match env |> Map.tryFind tvar with
+                | None -> TypeError $"Identifier {tvar} is undefined."
+                | Some ta -> ta
         
         let rec genConstraints (typExpAnno: TExpAnno) =
             [
                 match typExpAnno.texp with
                 | TELit x -> yield createEq($"Lit {x.typeName}", typExpAnno.annotation, MBase x.typeName)
                 | TEVar tvar ->
-                    let newEnv =
-                        match typExpAnno.env |> Map.tryFind tvar with
-                        | None -> TypeError $"Identifier {tvar} is undefined."
-                        | Some ta -> ta
-                    yield createEq($"Var {tvar}", typExpAnno.annotation, newEnv)
+                    let varType = resolveVar typExpAnno.env tvar
+                    yield createEq($"Var {tvar}", typExpAnno.annotation, varType)
                 | TEApp tapp ->
                     yield createEq("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
-                    yield createEq("Fun", typExpAnno.annotation, MFun(tfun.ident.tvar, tfun.body.annotation))
+                    let varType = resolveVar tfun.body.env tfun.ident
+                    yield createEq("Fun", typExpAnno.annotation, MFun(varType, tfun.body.annotation))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
                     yield createEq($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
@@ -148,13 +145,18 @@ module Infer =
         let typedAst =
             let find var =
                 // TODO: err can happen
-                solutionMap
-                |> List.choose (fun x ->
-                    match x.left, x.right with
-                    | l,r
-                    | r,l when l = var -> Some r
-                    | _ -> None)
-                |> List.exactlyOne
+                let res =
+                    solutionMap
+                    |> List.choose (fun x ->
+                        match x.left, x.right with
+                        | l,r
+                        | r,l when l = var -> Some r
+                        | _ -> None)
+                    |> List.tryExactlyOne
+                match res with
+                | Some x -> x
+                | None -> failwith $"Var not found: {var}"
+                
             let rec applySolution (texp: TExpAnno) =
                 let finalExp =
                     match texp.texp with
@@ -233,6 +235,7 @@ let solve = Infer.infer env >> fun x -> x.annotation
 
 printConstraints expr3
 printSolution idExp
+printSolution expr3
 
 solve expr3
 solve expr1
@@ -263,4 +266,8 @@ solve <| xlet "k" (xfun "x" (xlet "f" (xfun "y" (xvar "x")) (xvar "f"))) (xvar "
 //     let f = fun b -> fun a -> (libcall_add a) b
 //     (f hurz) 99
 //
+
+let f = fun x -> 34
+f 99
+f "99"
 
