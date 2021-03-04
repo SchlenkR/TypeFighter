@@ -222,17 +222,15 @@ let env =
         
 let expr1 = xint 42
 let expr2 = xlet "hurz" (xint 43) (xint 32)
-let add =
-    let addA =
-        xfun "a" (xapp (xvar "libcall_add") (xvar "a"))
-    xfun "b" (xapp addA (xvar "b"))
-let expr3 =
-    xlet "hurz" (xint 43) (xlet "f" add (xapp (xapp (xvar "f") (xvar "hurz")) (xint 99)))
+let addA = xfun "a" (xapp (xvar "libcall_add") (xvar "a"))
+let addB = xfun "b" (xapp addA (xvar "b"))
+let expr3 = xlet "hurz" (xint 43) (xlet "f" addB (xapp (xapp (xvar "f") (xvar "hurz")) (xint 99)))
 
 let idExp = xfun "x" (xvar "x")
 
 let printConstraints = Infer.annotate env >> Infer.constrain >> Debug.printEquations
 let printSolution = Infer.annotate env >> Infer.constrain >> Infer.solve >> Debug.printEquations
+let infer = Infer.infer env
 let solve = Infer.infer env >> fun x -> x.annotation
 
 
@@ -240,7 +238,8 @@ printConstraints expr3
 printSolution idExp
 printSolution expr3
 
-solve expr3
+
+infer expr3
 solve expr1
 solve expr2
 solve <| xlet "hurz" (xint 43) (xstr "sss")
@@ -249,7 +248,9 @@ solve <| xfun "x" (xstr "klököl")
 solve <| xapp (xfun "x" (xvar "x")) (xint 2)
 solve <| xapp (xfun "x" (xvar "x")) (xstr "Hello")
 
-solve <| xfun "x" (xfun "y" (xvar "x"))
+// unbound var "y":
+infer <| xfun "x" (xfun "y" (xvar "x"))
+
 solve <| xlet "k" (xfun "x" (xlet "f" (xfun "y" (xvar "x")) (xvar "f"))) (xvar "k")
 
 
@@ -259,7 +260,9 @@ solve <| xlet "k" (xfun "x" (xlet "f" (xfun "y" (xvar "x")) (xvar "f"))) (xvar "
 solve <| xapp (xvar "libcall_add") (xstr "lklö")
 *)
 
-let f = fun x -> 34
-f 99
-f "99"
+// Der Typ von "f" ist _kein_ Polytyp
+(fun f -> f "as", f 99) id
+
+// Der Typ von "f" ist ein Polytyp
+let f = id in f "as", f 99
 
