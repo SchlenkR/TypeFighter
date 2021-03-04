@@ -3,6 +3,7 @@ fsi.PrintWidth <- 250
 #endif
 
 type Lit = { typeName: string; value: string }
+
 type Exp =
     | ELit of Lit
     | EVar of string
@@ -28,13 +29,12 @@ type TExp =
     | TEApp of {| target: TExpAnno; arg: TExpAnno |}
     | TEFun of {| ident: Ident; body: TExpAnno |}
     | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
+
 and TExpAnno = { texp: TExp; annotation: Mono; env: Env }
+
 and Ident = { name: string; tvar: Mono }
 
 type Equation = { desc: string; left: Mono; right: Mono }
-
-module Equation =
-    let create(desc, l, r) = { desc = desc; left = l; right = r; }
 
 module Infer =
 
@@ -64,26 +64,28 @@ module Infer =
             { texp = texp; annotation = newVar(); env = env }
         annotate env exp
 
-    let constrain (typExpAnno: TExpAnno) =        
+    let constrain (typExpAnno: TExpAnno) =
+        let createEq(desc, l, r) = { desc = desc; left = l; right = r; }
+        
         let rec genConstraints (typExpAnno: TExpAnno) =
             [
                 match typExpAnno.texp with
-                | TELit x -> yield Equation.create($"Lit {x.typeName}", typExpAnno.annotation, MBase x.typeName)
+                | TELit x -> yield createEq($"Lit {x.typeName}", typExpAnno.annotation, MBase x.typeName)
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
                         | None -> TypeError $"Identifier {tvar} is undefined."
                         | Some ta -> ta
-                    yield Equation.create($"Var {tvar}", typExpAnno.annotation, newEnv)
+                    yield createEq($"Var {tvar}", typExpAnno.annotation, newEnv)
                 | TEApp tapp ->
-                    yield Equation.create("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
+                    yield createEq("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
-                    yield Equation.create("Fun", typExpAnno.annotation, MFun(tfun.ident.tvar, tfun.body.annotation))
+                    yield createEq("Fun", typExpAnno.annotation, MFun(tfun.ident.tvar, tfun.body.annotation))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield Equation.create($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
+                    yield createEq($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
