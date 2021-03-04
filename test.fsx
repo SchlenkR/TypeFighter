@@ -14,12 +14,10 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
-type TypeVariable = TypeVariable of int
-
 type Mono =
     | MBase of string
     | MFun of Mono * Mono
-    | MVar of TypeVariable
+    | MVar of int
     | TypeError of string
 
 // type Poly<'TypeVar> =
@@ -44,6 +42,9 @@ let knownBaseTypes =
        float = "Float"
        string = "String" |}
 
+module Equation =
+    let create(desc, l, r) = { desc = desc; left = l; right = r; }
+
 module Infer =
                
     let annotate (env: Env) (exp: Exp) =
@@ -51,7 +52,7 @@ module Infer =
         let mutable varCounter = -1
         let newVar() =
             varCounter <- varCounter + 1
-            MVar (TypeVariable varCounter)            
+            MVar varCounter            
 
         let rec annotate env exp =
             let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
@@ -76,32 +77,30 @@ module Infer =
             { texp = texp; annotation = newVar(); env = env }
         annotate env exp
 
-    let constrain (typExpAnno: TExpAnno) =
-        let genc(desc, l, r) = { desc = desc; left = l; right = r; }
-        
+    let constrain (typExpAnno: TExpAnno) =        
         let rec genConstraints (typExpAnno: TExpAnno) =
             [
                 match typExpAnno.texp with
                 | TELit tlit ->
                     match tlit with
-                    | LInt x -> yield genc($"Int {x}", typExpAnno.annotation, MBase knownBaseTypes.int)
-                    | LFloat x -> yield genc($"Float {x}", typExpAnno.annotation, MBase knownBaseTypes.float)
-                    | LString x -> yield genc($"String {x}", typExpAnno.annotation, MBase knownBaseTypes.string)
+                    | LInt x -> yield Equation.create($"Int {x}", typExpAnno.annotation, MBase knownBaseTypes.int)
+                    | LFloat x -> yield Equation.create($"Float {x}", typExpAnno.annotation, MBase knownBaseTypes.float)
+                    | LString x -> yield Equation.create($"String {x}", typExpAnno.annotation, MBase knownBaseTypes.string)
                 | TEVar tvar ->
                     let newEnv =
                         match typExpAnno.env |> Map.tryFind tvar with
                         | None -> TypeError $"Identifier {tvar} is undefined."
                         | Some ta -> ta
-                    yield genc($"Var {tvar}", typExpAnno.annotation, newEnv)
+                    yield Equation.create($"Var {tvar}", typExpAnno.annotation, newEnv)
                 | TEApp tapp ->
-                    yield genc("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
+                    yield Equation.create("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
-                    yield genc("Fun", typExpAnno.annotation, MFun(tfun.ident.tvar, tfun.body.annotation))
+                    yield Equation.create("Fun", typExpAnno.annotation, MFun(tfun.ident.tvar, tfun.body.annotation))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield genc($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
+                    yield Equation.create($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
@@ -110,18 +109,18 @@ module Infer =
 
     let solve (eqs: Equation list) =
         
-        let subst (eqs: Equation list) (varNr: int) (dest: Mono) =
+        let subst (eqs: Equation list) (varNr: int) (dest: Mono) : Equation list =
             let substTerm (tvar: Mono) =
                 let rec subst (tvar: Mono) =
                     match tvar with
-                    | MVar (TypeVariable i) when i = varNr -> dest
+                    | MVar i when i = varNr ->
+                        dest
                     | MFun (m, n) -> MFun (subst m, subst n)
                     | _ -> tvar
                 subst tvar
             eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
 
-        //  TODO: Is this MGU?
-        let rec unify m1 m2 =
+        let rec unify (m1: Mono) (m2: Mono) : Equation list =
             [
                 match m1,m2 with
                 | MFun (l,r), MFun (l',r') ->
@@ -135,16 +134,16 @@ module Infer =
                 | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
             ]
 
-        let rec solve (eqs: Equation list) (solution: Equation list) =            
+        let rec solve (eqs: Equation list) (solution: Equation list) : Equation list =            
             match eqs with
             | [] -> solution
             | eq :: eqs ->
                 match eq.left, eq.right with
-                // TODO: What does this mean?When do we finally check this? 
+                // TODO: What does this mean? When do we finally check this? 
                 | TypeError _, _
                 | _, TypeError _ -> [ eq ]
-                | MVar (TypeVariable a), x
-                | x, MVar (TypeVariable a) ->
+                | MVar a, x
+                | x, MVar a ->
                     // substitute
                     let newEqs = subst eqs a x
                     let newSolution = subst solution a x
@@ -158,7 +157,7 @@ module Infer =
         
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
-    let typeExp env exp =
+    let infer env exp =
         let annotatedAst = annotate env exp
         let constraintSet = constrain annotatedAst
         let solutionMap = solve constraintSet
@@ -237,7 +236,7 @@ let idExp = xfun "x" (xvar "x")
 
 let printConstraints = Infer.annotate env >> Infer.constrain >> Debug.printEquations
 let printSolution = Infer.annotate env >> Infer.constrain >> Infer.solve >> Debug.printEquations
-let solve = Infer.typeExp env >> fun x -> x.annotation
+let solve = Infer.infer env >> fun x -> x.annotation
 
 
 printConstraints expr3
