@@ -32,11 +32,18 @@ type TExp =
     | TEFun of {| ident: string; body: TExpAnno |}
     | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
 
-and TExpAnno = { texp: TExp; annotation: Mono; env: Env }
+and TExpAnno = { texp: TExp; tvar: TypeVar; annotation: Mono; env: Env }
 
-type Subst = { desc: string; left: Mono; right: Mono }
+type Subst = { desc: string; tvar: TypeVar; right: Mono }
 
-type Equation = { desc: string; left: Mono; right: Mono }
+type Unifyable = { left: Mono; right: Mono }
+
+module Subst =
+    let create(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
+
+module Unifyable =
+    let create(l, r) = { left = l; right = r; }
+
 
 module Infer =
 
@@ -63,67 +70,65 @@ module Infer =
                     let tyanno = annotate env assignment
                     let newEnv = env |> addToEnv ident tyanno.annotation
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
-            let mvar = MVar (newVar())
-            { texp = texp; annotation = mvar; env = env }
+            let tvar = newVar()
+            let annotation = MVar tvar
+            { texp = texp; tvar = tvar; annotation = annotation; env = env }
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno) =
-
-        let createEq(desc, l, r) = { desc = desc; left = l; right = r; }
 
         let resolveVar env tvar =
             match env |> Map.tryFind tvar with
                 | None -> TypeError $"Identifier {tvar} is undefined."
                 | Some ta -> ta
         
-        let rec genConstraints (typExpAnno: TExpAnno) =
+        let rec genConstraints typExpAnno =
             [
                 match typExpAnno.texp with
-                | TELit x -> yield createEq($"Lit {x.typeName}", typExpAnno.annotation, MBase x.typeName)
+                | TELit x -> yield Subst.create($"Lit {x.typeName}", typExpAnno.tvar, MBase x.typeName)
                 | TEVar tvar ->
                     let varType = resolveVar typExpAnno.env tvar
-                    yield createEq($"Var {tvar}", typExpAnno.annotation, varType)
+                    yield Subst.create($"Var {tvar}", typExpAnno.tvar, varType)
                 | TEApp tapp ->
-                    yield createEq("App", tapp.target.annotation, MFun(tapp.arg.annotation, typExpAnno.annotation))
+                    yield Subst.create("App", tapp.target.tvar, MFun(tapp.arg.annotation, typExpAnno.annotation))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
                     let varType = resolveVar tfun.body.env tfun.ident
-                    yield createEq("Fun", typExpAnno.annotation, MFun(varType, tfun.body.annotation))
+                    yield Subst.create("Fun", typExpAnno.tvar, MFun(varType, tfun.body.annotation))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield createEq($"Let {tlet.ident}", typExpAnno.annotation, tlet.body.annotation)
+                    yield Subst.create($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.annotation)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
 
         genConstraints typExpAnno
 
-    let solve (eqs: Equation list) =
-        
-        let subst (eqs: Equation list) (tvar: TypeVar) (dest: Mono) : Equation list =
-            let substTerm (tvar: Mono) =
-                let rec subst (tvar: Mono) =
-                    match tvar with
-                    | MVar i when i = tvar -> dest
-                    | MFun (m, n) -> MFun (subst m, subst n)
-                    | _ -> tvar
-                subst tvar
-            eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
+    let solve (eqs: Subst list) =
 
-        let rec unify (m1: Mono) (m2: Mono) : Equation list =
+        let rec unify (m1: Mono) (m2: Mono) : Subst list =
             [
                 match m1,m2 with
                 | MFun (l,r), MFun (l',r') ->
                     yield! unify l l'
                     yield! unify r r'
-                | MVar _, _ ->
-                    yield { desc = "unification"; left = m1; right = m2 }
-                | _, MVar _ ->
-                    yield { desc = "unification"; left = m2; right = m1 }
+                | MVar tvar, _
+                | _, MVar tvar ->
+                    yield Subst.create("unification", tvar, m2)
                 | a,b when a = b -> ()
                 | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
             ]
+        
+        let substTerm (tvar: Mono) =
+            let rec subst (tvar: Mono) =
+                match tvar with
+                | MVar i when i = tvar -> dest
+                | MFun (m, n) -> MFun (subst m, subst n)
+                | _ -> tvar
+            subst tvar
+        let subst (eqs: Equation list) (tvar: TypeVar) (dest: Mono) : Equation list =
+            eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
 
         let rec solve (eqs: Equation list) (solution: Equation list) : Equation list =            
             match eqs with
