@@ -19,26 +19,30 @@ type Mono =
     | MVar of TypeVar
     | TypeError of string
 
-//type Poly =
-//    { variables: string list
-//      mono: Mono }
+type Poly =
+    { variables: string list
+      mono: Mono }
 
 type Env = Map<string, Mono>
 
 type TExp =
     | TELit of Lit
     | TEVar of string
-    | TEApp of {| target: TExpAnno; arg: TExpAnno |}
-    | TEFun of {| ident: string; body: TExpAnno |}
-    | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
+    | TEApp of {| target: TAnno; arg: TAnno |}
+    | TEFun of {| ident: string; body: TAnno |}
+    | TELet of {| ident: string; assignment: TAnno; body: TAnno |}
+and TAnno =
+    {  texp: TExp
+       tvar: TypeVar
+       t: Mono
+       env: Env }
 
-and TExpAnno = { texp: TExp; tvar: TypeVar; typ: Mono; env: Env }
+type Subst =
+    { desc: string
+      tvar: TypeVar
+      right: Mono }
 
-type Subst = { desc: string; tvar: TypeVar; right: Mono }
 type Unifyable = { left: Mono; right: Mono }
-
-module Subst =
-    let create(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
 
 module Infer =
 
@@ -63,14 +67,14 @@ module Infer =
                     TEFun {| ident = ident; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
-                    let newEnv = env |> addToEnv ident tyanno.typ
+                    let newEnv = env |> addToEnv ident tyanno.t
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
             let tvar = newVar()
             let annotation = MVar tvar
-            { texp = texp; tvar = tvar; typ = annotation; env = env }
+            { texp = texp; tvar = tvar; t = annotation; env = env }
         annotate env exp
 
-    let constrain (typExpAnno: TExpAnno) =
+    let constrain (typExpAnno: TAnno) =
         let resolveVar env tvar =
             match env |> Map.tryFind tvar with
             | None -> TypeError $"Identifier {tvar} is undefined."
@@ -78,21 +82,23 @@ module Infer =
         
         let rec genConstraints typExpAnno =
             [
+                let createSubst(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
+
                 match typExpAnno.texp with
-                | TELit x -> yield Subst.create($"Lit {x.typeName}", typExpAnno.tvar, MBase x.typeName)
+                | TELit x -> yield createSubst($"Lit {x.typeName}", typExpAnno.tvar, MBase x.typeName)
                 | TEVar tvar ->
                     let varType = resolveVar typExpAnno.env tvar
-                    yield Subst.create($"Var {tvar}", typExpAnno.tvar, varType)
+                    yield createSubst($"Var {tvar}", typExpAnno.tvar, varType)
                 | TEApp tapp ->
-                    yield Subst.create("App", tapp.target.tvar, MFun(tapp.arg.typ, typExpAnno.typ))
+                    yield createSubst("App", tapp.target.tvar, MFun(tapp.arg.t, typExpAnno.t))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
                     let varType = resolveVar tfun.body.env tfun.ident
-                    yield Subst.create("Fun", typExpAnno.tvar, MFun(varType, tfun.body.typ))
+                    yield createSubst("Fun", typExpAnno.tvar, MFun(varType, tfun.body.t))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield Subst.create($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.typ)
+                    yield createSubst($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.t)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
@@ -185,7 +191,7 @@ module Infer =
                 | Some x -> x
                 | None -> failwith $"Var not found: {var}"
                 
-            let rec applySolution (texp: TExpAnno) =
+            let rec applySolution (texp: TAnno) =
                 let finalExp =
                     match texp.texp with
                     | TELit _
@@ -193,7 +199,7 @@ module Infer =
                     | TEApp tapp -> TEApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
                     | TEFun tfun -> TEFun {| tfun with body = applySolution tfun.body |}
                     | TELet tlet -> TELet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
-                { texp with texp = finalExp; typ = findVar texp.tvar }
+                { texp with texp = finalExp; t = findVar texp.tvar }
             applySolution annotatedAst
         typedAst
 
@@ -249,7 +255,7 @@ let idExp = xfun "x" (xvar "x")
 let printConstraints = Infer.annotate env >> Infer.constrain >> Debug.printEquations
 let printSolution = Infer.annotate env >> Infer.constrain >> Infer.solve >> Debug.printEquations
 let infer = Infer.infer env
-let solve = Infer.infer env >> fun x -> x.typ
+let solve = Infer.infer env >> fun x -> x.t
 
 
 solve <| idExp
