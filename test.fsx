@@ -19,9 +19,9 @@ type Mono =
     | MVar of TypeVar
     | TypeError of string
 
-type Poly =
-    { variables: string list
-      mono: Mono }
+//type Poly =
+//    { variables: string list
+//      mono: Mono }
 
 type Env = Map<string, Mono>
 
@@ -35,13 +35,10 @@ type TExp =
 and TExpAnno = { texp: TExp; tvar: TypeVar; typ: Mono; env: Env }
 
 type Subst = { desc: string; tvar: TypeVar; right: Mono }
-
 type Unifyable = { left: Mono; right: Mono }
 
 module Subst =
     let create(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
-    let toUnifyable (s: Subst) = { left = MVar s.tvar; right = s.right }
-
 
 module Infer =
 
@@ -104,12 +101,6 @@ module Infer =
 
     let solve (eqs: Subst list) =
 
-        // let rec subst (lookFor: Subst) (t: Mono) : Mono =
-        //     match t with
-        //     | MVar i when i = lookFor.tvar -> lookFor.right
-        //     | MFun (m, n) -> MFun (subst lookFor m, subst lookFor n)
-        //     | x -> x
-
         let rec unify (m1: Mono) (m2: Mono) : Subst list =
             [
                 match m1,m2 with
@@ -130,34 +121,44 @@ module Infer =
             | MFun (m, n) -> MFun (subst m varNr dest, subst n varNr dest)
             | _ -> t
 
-        let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Subst list =
-            eqs |> List.collect (fun eq ->
-                let right = subst eq.right varNr dest
-                if eq.tvar = varNr then
-                    let left = dest
-                    let res = unify left right
-                    res
-                else
-                    [ { eq with right = right } ]
-            )
+        //let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Subst list =
+        //    [
+        //        for eq in eqs do
+        //            let right = subst eq.right varNr dest
+        //            if eq.tvar = varNr then
+        //                yield! unify dest right
+        //            else
+        //                yield { eq with right = right }
+        //    ]
+
+        let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Unifyable list =
+            [
+                for eq in eqs do
+                    let right = subst eq.right varNr dest
+                    if eq.tvar = varNr then
+                        yield! unify dest right
+                    else
+                        yield { eq with right = right }
+            ]
         
         // TODO: Subst list mit Errors anreichern
         let rec solve (eqs: Subst list) (solution: Subst list) : Subst list =            
             match eqs with
             | [] -> solution
-            | eq :: eqs ->
+            | eq :: tailEqs ->
+                // we have to replace every location where "eq.tvar" occurs with eq.right in the tailEqs
                 match eq.right with
                 | TypeError e ->
                     failwith $"TODO: Type error: {e}"
                 | MBase _ ->
-                    let newEqs = substMany eqs eq.tvar eq.right
+                    let newEqs = substMany tailEqs eq.tvar eq.right
                     let newSolution = eq :: solution
                     solve newEqs newSolution
                 | _ ->
                     // substitute
-                    let newEqs = substMany eqs eq.tvar eq.right
+                    let newEqs = substMany tailEqs eq.tvar eq.right
                     let newSolution = solution
-                    solve (eq :: newEqs) newSolution
+                    solve (tailEqs @ newEqs @ [eq]) newSolution
         
         solve (eqs |> List.sortByDescending (fun e -> e.tvar)) []
     
@@ -246,6 +247,11 @@ let infer = Infer.infer env
 let solve = Infer.infer env >> fun x -> x.typ
 
 
+solve <| idExp
+
+
+(*
+
 printConstraints expr3
 printSolution idExp
 printSolution expr3
@@ -283,4 +289,5 @@ solve <| xapp (xvar "libcall_add") (xstr "lklö")
 
 // Der Typ von "f" ist ein Polytyp
 let f = id in f "as", f 99
+*)
 *)
