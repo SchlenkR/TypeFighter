@@ -11,10 +11,12 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
+type TypeVar = int
+
 type Mono =
     | MBase of string
     | MFun of Mono * Mono
-    | MVar of int
+    | MVar of TypeVar
     | TypeError of string
 
 type Poly =
@@ -30,9 +32,10 @@ type TExp =
     | TEFun of {| ident: string; body: TExpAnno |}
     | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
 
-and TExpAnno = { texp: TExp; nr: int; annotation: Mono; env: Env }
+and TExpAnno = { texp: TExp; annotation: Mono; env: Env }
 
-// TODO: Das muss eigentlich sein: int -> Mono
+type Subst = { desc: string; left: Mono; right: Mono }
+
 type Equation = { desc: string; left: Mono; right: Mono }
 
 module Infer =
@@ -42,7 +45,7 @@ module Infer =
         let mutable varCounter = -1
         let newVar() =
             varCounter <- varCounter + 1
-            MVar varCounter, varCounter
+            varCounter
 
         let rec annotate env exp =
             let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
@@ -53,15 +56,15 @@ module Infer =
                 | EApp (target, arg) ->
                     TEApp {| target = annotate env target; arg = annotate env arg |}
                 | EFun (ident, body) ->
-                    let tvar = newVar() |> fst
+                    let tvar = MVar (newVar())
                     let newEnv = env |> addToEnv ident tvar
                     TEFun {| ident = ident; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
                     let newEnv = env |> addToEnv ident tyanno.annotation
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
-            let mvar,nr = newVar()
-            { texp = texp; nr = nr; annotation = mvar; env = env }
+            let mvar = MVar (newVar())
+            { texp = texp; annotation = mvar; env = env }
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno) =
@@ -98,11 +101,11 @@ module Infer =
 
     let solve (eqs: Equation list) =
         
-        let subst (eqs: Equation list) (varNr: int) (dest: Mono) : Equation list =
+        let subst (eqs: Equation list) (tvar: TypeVar) (dest: Mono) : Equation list =
             let substTerm (tvar: Mono) =
                 let rec subst (tvar: Mono) =
                     match tvar with
-                    | MVar i when i = varNr -> dest
+                    | MVar i when i = tvar -> dest
                     | MFun (m, n) -> MFun (subst m, subst n)
                     | _ -> tvar
                 subst tvar
