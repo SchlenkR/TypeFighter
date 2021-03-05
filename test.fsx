@@ -105,7 +105,8 @@ module Infer =
 
         annotate env exp
 
-    let generalize (env: Env) (t: Mono) = Mono.ftv(t) - Env.ftv(env)
+    let generalize (env: Env) (t: Mono) =
+        Poly.poly t ((Mono.ftv(t) - Env.ftv(env)) |> Set.toList)
 
     let constrain (typExpAnno: TAnno) =
         let instanciate (t: Poly) : Mono = failwith "Bitch"
