@@ -120,39 +120,42 @@ module Infer =
                 | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
             ]
         
-        let subst (eqs: Subst list) (tvar: TypeVar) (dest: Mono) : Subst list =
-            let rec subst (t: Mono) =
-                match t with
-                | MVar i when i = tvar -> dest
-                | MFun (m, n) -> MFun (subst m, subst n)
-                | _ -> t
-                
-            [
-                for eq in eqs do
-                    
-            ]
-            eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
+        let rec subst (lookFor: Subst) (t: Mono) : Mono =
+            match t with
+            | MVar i when i = lookFor.tvar -> lookFor.right
+            | MFun (m, n) -> MFun (subst lookFor m, subst lookFor n)
+            | x -> x
 
-        let rec solve (eqs: Equation list) (solution: Equation list) : Equation list =            
-            match eqs with
-            | [] -> solution
-            | eq :: eqs ->
-                match eq.left, eq.right with
-                // TODO: What does this mean? When do we finally check this? 
-                | TypeError _, _
-                | _, TypeError _ -> [ eq ]
-                | MVar a, x
-                | x, MVar a ->
-                    // substitute
-                    let newEqs = subst eqs a x
-                    let newSolution = subst solution a x
-                    solve newEqs (eq :: newSolution)
-                | a, b ->
-                    // gen new constraints and solve
-                    let newConstraints = unify a b
-                    let newEqs = eqs @ newConstraints
-                    let newSolution = solution
-                    solve newEqs newSolution
+        let rec solve (unsolved: Subst list) (currentSolution: Subst list) : Subst list =            
+            match unsolved with
+            | [] -> currentSolution
+            | eq :: unsolved ->
+                match eq.right with
+                | TypeError e -> failwith $"TypeError: {e}" // TODO: we don't have to failo - we can propagate
+                | MBase typeName ->
+                    let newSolution = eq @ currentSolution
+                    solve unsolved newSolution
+                | MVar x -> // TODO: when x =
+                    
+                
+                //
+                // match eq.right with
+                // | TypeError e -> failwith $"TypeError: {e}"
+                // | MVar a
+                //     // substitute
+                //     let newEqs =
+                //         [
+                //             for otherEq in eqs do
+                //                 yield! subst eq otherEq
+                //         ]
+                //     let newSolution = subst solution a x
+                //     solve newEqs (eq :: newSolution)
+                // | a, b ->
+                //     // gen new constraints and solve
+                //     let newConstraints = unify a b
+                //     let newEqs = eqs @ newConstraints
+                //     let newSolution = currentSolution
+                //     solve newEqs newSolution
         
         solve (eqs |> List.sortByDescending (fun e -> e.left)) []
     
