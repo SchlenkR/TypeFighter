@@ -73,8 +73,8 @@ module Infer =
     let constrain (typExpAnno: TExpAnno) =
         let resolveVar env tvar =
             match env |> Map.tryFind tvar with
-                | None -> TypeError $"Identifier {tvar} is undefined."
-                | Some ta -> ta
+            | None -> TypeError $"Identifier {tvar} is undefined."
+            | Some ta -> ta
         
         let rec genConstraints typExpAnno =
             [
@@ -100,7 +100,6 @@ module Infer =
         genConstraints typExpAnno
 
     let solve (eqs: Subst list) =
-
         let rec unify (m1: Mono) (m2: Mono) : Unifyable list =
             [
                 match m1,m2 with
@@ -111,8 +110,10 @@ module Infer =
                     yield { left = m1; right = m2 }
                 | _, MVar _ ->
                     yield { left = m2; right = m1 }
-                | a,b when a = b -> ()
-                | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
+                | a,b when a = b ->
+                    ()
+                | _ ->
+                    failwith $"type error: expedted: {m2}, given: {m1}"
             ]
 
         let rec subst (t: Mono) (tvar: TypeVar) (dest: Mono) =
@@ -122,11 +123,9 @@ module Infer =
             | _ -> t
 
         let substMany (eqs: Unifyable list) (tvar: TypeVar) (dest: Mono) : Unifyable list =
-            [
-                for eq in eqs do
-                    { left = subst eq.left tvar dest
-                      right = subst eq.right tvar dest }
-            ]
+            eqs |> List.map (fun eq ->
+                { left = subst eq.left tvar dest
+                  right = subst eq.right tvar dest } )
 
         let rec solve (eqs: Unifyable list) (solution: Unifyable list) : Unifyable list =            
             match eqs with
@@ -134,7 +133,8 @@ module Infer =
             | eq :: eqs ->
                 match eq.left, eq.right with
                 | TypeError e, _
-                | _, TypeError e -> failwith $"TODO: TypeError {e}"
+                | _, TypeError e ->
+                    failwith $"TODO: TypeError {e}"
                 | MVar tvar, t
                 | t, MVar tvar ->
                     // substitute
