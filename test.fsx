@@ -120,14 +120,17 @@ module Infer =
                 | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
             ]
         
-        let substTerm (tvar: Mono) =
-            let rec subst (tvar: Mono) =
-                match tvar with
+        let subst (eqs: Subst list) (tvar: TypeVar) (dest: Mono) : Subst list =
+            let rec subst (t: Mono) =
+                match t with
                 | MVar i when i = tvar -> dest
                 | MFun (m, n) -> MFun (subst m, subst n)
-                | _ -> tvar
-            subst tvar
-        let subst (eqs: Equation list) (tvar: TypeVar) (dest: Mono) : Equation list =
+                | _ -> t
+                
+            [
+                for eq in eqs do
+                    
+            ]
             eqs |> List.map (fun eq -> { eq with left = substTerm eq.left; right = substTerm eq.right })
 
         let rec solve (eqs: Equation list) (solution: Equation list) : Equation list =            
