@@ -134,9 +134,14 @@ module Infer =
 
         let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Subst list =
             eqs |> List.collect (fun eq ->
-                let left = if eq.tvar = varNr then dest else MVar eq.tvar
                 let right = subst eq.right varNr dest
-                unify left right)
+                if eq.tvar = varNr then
+                    let left = dest
+                    let res = unify left right
+                    res
+                else
+                    [ { eq with right = right } ]
+            )
         
         // TODO: Subst list mit Errors anreichern
         let rec solve (eqs: Subst list) (solution: Subst list) : Subst list =            
@@ -146,7 +151,7 @@ module Infer =
                 match eq.right with
                 | TypeError e ->
                     failwith $"TODO: Type error: {e}"
-                | MBase typeName ->
+                | MBase _ ->
                     let newEqs = substMany eqs eq.tvar eq.right
                     let newSolution = eq :: solution
                     solve newEqs newSolution
@@ -228,7 +233,7 @@ let env =
     ]
     |> Map.ofList
     
-        
+
 let expr1 = xint 42
 let expr2 = xlet "hurz" (xint 43) (xint 32)
 let addA = xfun "a" (xapp (xvar "libcall_add") (xvar "a"))
