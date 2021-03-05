@@ -12,37 +12,64 @@ type Exp =
     | ELet of string * Exp * Exp
 
 type TypeVar = int
+type Ident = string
 
 type Mono =
+    | MVar of TypeVar
     | MBase of string
     | MFun of Mono * Mono
-    | MVar of TypeVar
-    | TypeError of string
+and Poly = Mono * TypeVar list
 
-type Poly =
-    { variables: string list
-      mono: Mono }
-
-type Env = Map<string, Mono>
+type Env = Map<Ident, Poly>
 
 type TExp =
     | TELit of Lit
-    | TEVar of string
+    | TEVar of Ident
     | TEApp of {| target: TAnno; arg: TAnno |}
-    | TEFun of {| ident: string; body: TAnno |}
-    | TELet of {| ident: string; assignment: TAnno; body: TAnno |}
+    | TEFun of {| ident: Ident; body: TAnno |}
+    | TELet of {| ident: Ident; assignment: TAnno; body: TAnno |}
+
 and TAnno =
     {  texp: TExp
        tvar: TypeVar
-       t: Mono
+       t: Poly
        env: Env }
 
 type Subst =
     { desc: string
       tvar: TypeVar
-      right: Mono }
+      right: Poly }
 
-type Unifyable = { left: Mono; right: Mono }
+type Unifyable =
+    { left: Poly
+      right: Poly }
+
+module Mono =
+    let rec ftv (t: Mono) =
+        match t with
+        | MBase _ -> Set.empty
+        | MVar varName -> Set.singleton varName
+        | MFun (t1, t2) -> ftv t1 + ftv t2
+
+module Poly =
+    let poly domain targs : Poly = domain,targs
+    let mono domain = poly domain []
+    let ftv ((t,vars): Poly) = Mono.ftv t - Set.ofList vars
+
+module Env =
+    let bind ident x (env: Env) = env |> Map.change ident (fun _ -> Some x)
+    let resolve varName (env: Env) =
+        match env |> Map.tryFind varName with
+        | None -> failwith $"Variable '{varName}' is unbound."
+        | Some t -> t
+    let ftv (env: Env) =
+        Map.toList env
+        |> List.map snd
+        |> List.map Poly.ftv
+        |> List.fold (fun x state -> Set.union x state) Set.empty
+
+module Subst =
+    let create(desc, tvar, r) = { desc = desc; tvar = tvar; right = r; }
 
 module Infer =
 
@@ -54,72 +81,78 @@ module Infer =
             varCounter
 
         let rec annotate env exp =
-            let addToEnv ident x env = env |> Map.change ident (fun _ -> Some x)
             let texp =
                 match exp with
-                | ELit x -> TELit x
-                | EVar ident -> TEVar ident
+                | ELit x ->
+                    TELit x
+                | EVar ident ->
+                    TEVar ident
                 | EApp (target, arg) ->
                     TEApp {| target = annotate env target; arg = annotate env arg |}
                 | EFun (ident, body) ->
-                    let tvar = MVar (newVar())
-                    let newEnv = env |> addToEnv ident tvar
+                    let tvar = Poly.mono (MVar (newVar()))
+                    let newEnv = Env.bind ident tvar env
                     TEFun {| ident = ident; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
-                    let newEnv = env |> addToEnv ident tyanno.t
+                    let newEnv = Env.bind ident tyanno.t env
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
             let tvar = newVar()
-            let annotation = MVar tvar
-            { texp = texp; tvar = tvar; t = annotation; env = env }
+            { texp = texp
+              tvar = tvar
+              t = Poly.mono (MVar tvar)
+              env = env }
+
         annotate env exp
 
+    let generalize (env: Env) (t: Mono) = Mono.ftv(t) - Env.ftv(env)
+
     let constrain (typExpAnno: TAnno) =
-        let resolveVar env tvar =
-            match env |> Map.tryFind tvar with
-            | None -> TypeError $"Identifier {tvar} is undefined."
-            | Some ta -> ta
-        
+        let instanciate (t: Poly) : Mono = failwith "Bitch"
+       
         let rec genConstraints typExpAnno =
             [
-                let createSubst(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
-
                 match typExpAnno.texp with
-                | TELit x -> yield createSubst($"Lit {x.typeName}", typExpAnno.tvar, MBase x.typeName)
-                | TEVar tvar ->
-                    let varType = resolveVar typExpAnno.env tvar
-                    yield createSubst($"Var {tvar}", typExpAnno.tvar, varType)
+                | TELit x ->
+                    yield Subst.create($"Lit {x.typeName}", typExpAnno.tvar, Poly.mono (MBase x.typeName))
+                | TEVar varName ->
+                    let varType = Env.resolve varName typExpAnno.env
+                    yield Subst.create($"Var {varName}", typExpAnno.tvar, varType)
                 | TEApp tapp ->
-                    yield createSubst("App", tapp.target.tvar, MFun(tapp.arg.t, typExpAnno.t))
+                    let t1 = instanciate tapp.arg.t
+                    let t2 = instanciate typExpAnno.t
+                    yield Subst.create("App", tapp.target.tvar, Poly.mono (MFun(t1, t2)))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
-                    let varType = resolveVar tfun.body.env tfun.ident
-                    yield createSubst("Fun", typExpAnno.tvar, MFun(varType, tfun.body.t))
+                    let identType = Env.resolve tfun.ident tfun.body.env
+                    let t1 = instanciate identType
+                    let t2 = instanciate tfun.body.t
+                    yield Subst.create("Fun", typExpAnno.tvar, Poly.mono (MFun(t1, t2)))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield createSubst($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.t)
+                    yield Subst.create($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.t)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
-
         genConstraints typExpAnno
 
     let solve (eqs: Subst list) =
-        let rec unify (m1: Mono) (m2: Mono) : Unifyable list =
+        let rec unify (t1: Poly) (t2: Poly) : Unifyable list =
             [
-                match m1,m2 with
-                | MFun (l,r), MFun (l',r') ->
+                match t1, t2 with
+                | (MFun (l,r), targs1), (MFun (l',r'), targs2)
+                  when targs1.Length = targs2.Length ->
                     yield! unify l l'
                     yield! unify r r'
                 | MVar _, _ ->
-                    yield { left = m1; right = m2 }
+                    yield { left = t1; right = t2 }
                 | _, MVar _ ->
-                    yield { left = m2; right = m1 }
+                    yield { left = t2; right = t1 }
                 | a,b when a = b ->
                     ()
                 | _ ->
-                    failwith $"type error: expedted: {m2}, given: {m1}"
+                    failwith $"type error: expedted: {t2}, given: {t1}"
             ]
 
         let rec subst (t: Mono) (tvar: TypeVar) (dest: Mono) =
@@ -138,9 +171,6 @@ module Infer =
             | [] -> solution
             | eq :: eqs ->
                 match eq.left, eq.right with
-                | TypeError e, _
-                | _, TypeError e ->
-                    failwith $"TODO: TypeError {e}"
                 | MVar tvar, t
                 | t, MVar tvar ->
                     // substitute
@@ -162,9 +192,6 @@ module Infer =
         solve unifiedEqs []
         |> List.map (fun s ->
             match s.left, s.right with
-            | TypeError e, _
-            | _, TypeError e ->
-                failwith $"TODO: TypeError {e}"
             | MVar tvar, t
             | t, MVar tvar ->
                 { desc = "solution"; tvar = tvar; right = t }
