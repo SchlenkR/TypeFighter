@@ -101,66 +101,71 @@ module Infer =
 
     let solve (eqs: Subst list) =
 
-        let rec unify (m1: Mono) (m2: Mono) : Subst list =
+        let rec unify (m1: Mono) (m2: Mono) : Unifyable list =
             [
                 match m1,m2 with
                 | MFun (l,r), MFun (l',r') ->
                     yield! unify l l'
                     yield! unify r r'
-                | MVar v, x
-                | x, MVar v ->
-                    yield { desc = "unified"; tvar = v; right = x }
+                | MVar _, _ ->
+                    yield { left = m1; right = m2 }
+                | _, MVar _ ->
+                    yield { left = m2; right = m1 }
                 | a,b when a = b -> ()
-                | _ ->
-                    failwith $"unification error: expedted: {m2}, given: {m1}"
+                | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
             ]
 
-        let rec subst (t: Mono) (varNr: TypeVar) (dest: Mono) =
+        let rec subst (t: Mono) (tvar: TypeVar) (dest: Mono) =
             match t with
-            | MVar i when i = varNr -> dest
-            | MFun (m, n) -> MFun (subst m varNr dest, subst n varNr dest)
+            | MVar i when i = tvar -> dest
+            | MFun (m, n) -> MFun (subst m tvar dest, subst n tvar dest)
             | _ -> t
 
-        //let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Subst list =
-        //    [
-        //        for eq in eqs do
-        //            let right = subst eq.right varNr dest
-        //            if eq.tvar = varNr then
-        //                yield! unify dest right
-        //            else
-        //                yield { eq with right = right }
-        //    ]
-
-        let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Unifyable list =
+        let substMany (eqs: Unifyable list) (tvar: TypeVar) (dest: Mono) : Unifyable list =
             [
                 for eq in eqs do
-                    let right = subst eq.right varNr dest
-                    if eq.tvar = varNr then
-                        yield! unify dest right
-                    else
-                        yield { eq with right = right }
+                    { left = subst eq.left tvar dest
+                      right = subst eq.right tvar dest }
             ]
-        
-        // TODO: Subst list mit Errors anreichern
-        let rec solve (eqs: Subst list) (solution: Subst list) : Subst list =            
+
+        let rec solve (eqs: Unifyable list) (solution: Unifyable list) : Unifyable list =            
             match eqs with
             | [] -> solution
-            | eq :: tailEqs ->
-                // we have to replace every location where "eq.tvar" occurs with eq.right in the tailEqs
-                match eq.right with
-                | TypeError e ->
-                    failwith $"TODO: Type error: {e}"
-                | MBase _ ->
-                    let newEqs = substMany tailEqs eq.tvar eq.right
-                    let newSolution = eq :: solution
-                    solve newEqs newSolution
-                | _ ->
+            | eq :: eqs ->
+                match eq.left, eq.right with
+                | TypeError e, _
+                | _, TypeError e -> failwith $"TODO: TypeError {e}"
+                | MVar tvar, t
+                | t, MVar tvar ->
                     // substitute
-                    let newEqs = substMany tailEqs eq.tvar eq.right
+                    let newEqs = substMany eqs tvar t
+                    let newSolution = substMany solution tvar t
+                    solve newEqs (eq :: newSolution)
+                | t1, t2 ->
+                    // gen new constraints and solve
+                    let newConstraints = unify t1 t2
+                    let newEqs = eqs @ newConstraints
                     let newSolution = solution
-                    solve (tailEqs @ newEqs @ [eq]) newSolution
+                    solve newEqs newSolution
+
+        let unifiedEqs =
+            eqs
+            |> List.map (fun eq -> { left = MVar eq.tvar; right = eq.right })
+            |> List.sortByDescending (fun e -> e.left)
         
-        solve (eqs |> List.sortByDescending (fun e -> e.tvar)) []
+        solve unifiedEqs []
+        |> List.map (fun s ->
+            match s.left, s.right with
+            | TypeError e, _
+            | _, TypeError e ->
+                failwith $"TODO: TypeError {e}"
+            | MVar tvar, t
+            | t, MVar tvar ->
+                { desc = "solution"; tvar = tvar; right = t }
+            | _ ->
+                failwith $"TODO: Unsolvable: {s.left} != {s.right}"
+        )
+    
     
     let infer env exp =
         let annotatedAst = annotate env exp
