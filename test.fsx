@@ -41,7 +41,6 @@ type Unifyable = { left: Mono; right: Mono }
 module Subst =
     let create(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
     let toUnifyable (s: Subst) = { left = MVar s.tvar; right = s.right }
-    let toUnifyables s = List.map toUnifyable s
 
 
 module Infer =
@@ -75,7 +74,6 @@ module Infer =
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno) =
-
         let resolveVar env tvar =
             match env |> Map.tryFind tvar with
                 | None -> TypeError $"Identifier {tvar} is undefined."
@@ -158,8 +156,8 @@ module Infer =
                 | _ ->
                     // substitute
                     let newEqs = substMany eqs eq.tvar eq.right
-                    let newSolution = eq :: solution
-                    solve newEqs newSolution
+                    let newSolution = solution
+                    solve (eq :: newEqs) newSolution
         
         solve (eqs |> List.sortByDescending (fun e -> e.tvar)) []
     
