@@ -32,7 +32,7 @@ type TExp =
     | TEFun of {| ident: string; body: TExpAnno |}
     | TELet of {| ident: string; assignment: TExpAnno; body: TExpAnno |}
 
-and TExpAnno = { texp: TExp; tvar: TypeVar; annotation: Mono; env: Env }
+and TExpAnno = { texp: TExp; tvar: TypeVar; typ: Mono; env: Env }
 
 type Subst = { desc: string; tvar: TypeVar; right: Mono }
 
@@ -40,9 +40,8 @@ type Unifyable = { left: Mono; right: Mono }
 
 module Subst =
     let create(desc, tvar: TypeVar, r: Mono) = { desc = desc; tvar = tvar; right = r; }
-
-module Unifyable =
-    let create(l, r) = { left = l; right = r; }
+    let toUnifyable (s: Subst) = { left = MVar s.tvar; right = s.right }
+    let toUnifyables s = List.map toUnifyable s
 
 
 module Infer =
@@ -68,11 +67,11 @@ module Infer =
                     TEFun {| ident = ident; body = annotate newEnv body |}
                 | ELet (ident, assignment, body) ->
                     let tyanno = annotate env assignment
-                    let newEnv = env |> addToEnv ident tyanno.annotation
+                    let newEnv = env |> addToEnv ident tyanno.typ
                     TELet {| ident = ident; assignment = tyanno; body = annotate newEnv body |}
             let tvar = newVar()
             let annotation = MVar tvar
-            { texp = texp; tvar = tvar; annotation = annotation; env = env }
+            { texp = texp; tvar = tvar; typ = annotation; env = env }
         annotate env exp
 
     let constrain (typExpAnno: TExpAnno) =
@@ -90,15 +89,15 @@ module Infer =
                     let varType = resolveVar typExpAnno.env tvar
                     yield Subst.create($"Var {tvar}", typExpAnno.tvar, varType)
                 | TEApp tapp ->
-                    yield Subst.create("App", tapp.target.tvar, MFun(tapp.arg.annotation, typExpAnno.annotation))
+                    yield Subst.create("App", tapp.target.tvar, MFun(tapp.arg.typ, typExpAnno.typ))
                     yield! genConstraints tapp.arg
                     yield! genConstraints tapp.target
                 | TEFun tfun ->
                     let varType = resolveVar tfun.body.env tfun.ident
-                    yield Subst.create("Fun", typExpAnno.tvar, MFun(varType, tfun.body.annotation))
+                    yield Subst.create("Fun", typExpAnno.tvar, MFun(varType, tfun.body.typ))
                     yield! genConstraints tfun.body
                 | TELet tlet ->
-                    yield Subst.create($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.annotation)
+                    yield Subst.create($"Let {tlet.ident}", typExpAnno.tvar, tlet.body.typ)
                     yield! genConstraints tlet.assignment
                     yield! genConstraints tlet.body
             ]
@@ -107,57 +106,57 @@ module Infer =
 
     let solve (eqs: Subst list) =
 
+        // let rec subst (lookFor: Subst) (t: Mono) : Mono =
+        //     match t with
+        //     | MVar i when i = lookFor.tvar -> lookFor.right
+        //     | MFun (m, n) -> MFun (subst lookFor m, subst lookFor n)
+        //     | x -> x
+
         let rec unify (m1: Mono) (m2: Mono) : Subst list =
             [
                 match m1,m2 with
                 | MFun (l,r), MFun (l',r') ->
                     yield! unify l l'
                     yield! unify r r'
-                | MVar tvar, _
-                | _, MVar tvar ->
-                    yield Subst.create("unification", tvar, m2)
+                | MVar v, x
+                | x, MVar v ->
+                    yield { desc = "unified"; tvar = v; right = x }
                 | a,b when a = b -> ()
-                | _ -> failwith $"type error: expedted: {m2}, given: {m1}"
+                | _ ->
+                    failwith $"unification error: expedted: {m2}, given: {m1}"
             ]
-        
-        let rec subst (lookFor: Subst) (t: Mono) : Mono =
-            match t with
-            | MVar i when i = lookFor.tvar -> lookFor.right
-            | MFun (m, n) -> MFun (subst lookFor m, subst lookFor n)
-            | x -> x
 
-        let rec solve (unsolved: Subst list) (currentSolution: Subst list) : Subst list =            
-            match unsolved with
-            | [] -> currentSolution
-            | eq :: unsolved ->
-                match eq.right with
-                | TypeError e -> failwith $"TypeError: {e}" // TODO: we don't have to failo - we can propagate
-                | MBase typeName ->
-                    let newSolution = eq @ currentSolution
-                    solve unsolved newSolution
-                | MVar x -> // TODO: when x =
-                    
-                
-                //
-                // match eq.right with
-                // | TypeError e -> failwith $"TypeError: {e}"
-                // | MVar a
-                //     // substitute
-                //     let newEqs =
-                //         [
-                //             for otherEq in eqs do
-                //                 yield! subst eq otherEq
-                //         ]
-                //     let newSolution = subst solution a x
-                //     solve newEqs (eq :: newSolution)
-                // | a, b ->
-                //     // gen new constraints and solve
-                //     let newConstraints = unify a b
-                //     let newEqs = eqs @ newConstraints
-                //     let newSolution = currentSolution
-                //     solve newEqs newSolution
+        let rec subst (t: Mono) (varNr: TypeVar) (dest: Mono) =
+            match t with
+            | MVar i when i = varNr -> dest
+            | MFun (m, n) -> MFun (subst m varNr dest, subst n varNr dest)
+            | _ -> t
+
+        let substMany (eqs: Subst list) (varNr: TypeVar) (dest: Mono) : Subst list =
+            eqs |> List.collect (fun eq ->
+                let left = if eq.tvar = varNr then dest else MVar eq.tvar
+                let right = subst eq.right varNr dest
+                unify left right)
         
-        solve (eqs |> List.sortByDescending (fun e -> e.left)) []
+        // TODO: Subst list mit Errors anreichern
+        let rec solve (eqs: Subst list) (solution: Subst list) : Subst list =            
+            match eqs with
+            | [] -> solution
+            | eq :: eqs ->
+                match eq.right with
+                | TypeError e ->
+                    failwith $"TODO: Type error: {e}"
+                | MBase typeName ->
+                    let newEqs = substMany eqs eq.tvar eq.right
+                    let newSolution = eq :: solution
+                    solve newEqs newSolution
+                | _ ->
+                    // substitute
+                    let newEqs = substMany eqs eq.tvar eq.right
+                    let newSolution = eq :: solution
+                    solve newEqs newSolution
+        
+        solve (eqs |> List.sortByDescending (fun e -> e.tvar)) []
     
     let infer env exp =
         let annotatedAst = annotate env exp
@@ -169,10 +168,9 @@ module Infer =
                 let res =
                     solutionMap
                     |> List.choose (fun x ->
-                        match x.left, x.right with
-                        | l,r
-                        | r,l when l = var -> Some r
-                        | _ -> None)
+                        match x.tvar = var with
+                        | true -> Some x.right
+                        | false -> None)
                     |> List.tryExactlyOne
                 match res with
                 | Some x -> x
@@ -186,24 +184,17 @@ module Infer =
                     | TEApp tapp -> TEApp {| tapp with target = applySolution tapp.target; arg = applySolution tapp.arg |}
                     | TEFun tfun -> TEFun {| tfun with body = applySolution tfun.body |}
                     | TELet tlet -> TELet {| tlet with assignment = applySolution tlet.assignment; body = applySolution tlet.body |}
-                { texp with texp = finalExp; annotation = findVar texp.annotation }
+                { texp with texp = finalExp; typ = findVar texp.tvar }
             applySolution annotatedAst
         typedAst
 
 
 module Debug =
 
-    let printEquations (eqs: Equation list) =
+    let printEquations (eqs: Subst list) =
         eqs
-        |> List.map (fun e ->
-            let l,r =
-                match e.left,e.right with
-                | MVar a,x
-                | x, MVar a -> MVar a,x
-                | x, y -> x,y
-            l, r, e.desc)
-        |> List.sortBy (fun (x,_,_) -> x)
-        |> List.iter (fun (l,r,desc) -> printfn "%-20s    %A = %A" desc l r)
+        |> List.sortBy (fun x -> x.tvar)
+        |> List.iter (fun x -> printfn "%-20s    %A = %A" x.desc x.tvar x.right)
 
 
 
@@ -249,7 +240,7 @@ let idExp = xfun "x" (xvar "x")
 let printConstraints = Infer.annotate env >> Infer.constrain >> Debug.printEquations
 let printSolution = Infer.annotate env >> Infer.constrain >> Infer.solve >> Debug.printEquations
 let infer = Infer.infer env
-let solve = Infer.infer env >> fun x -> x.annotation
+let solve = Infer.infer env >> fun x -> x.typ
 
 
 printConstraints expr3
@@ -260,6 +251,7 @@ printSolution expr3
 infer expr3
 solve expr1
 solve expr2
+solve <| xint 43
 solve <| xlet "hurz" (xint 43) (xstr "sss")
 solve <| idExp
 solve <| xfun "x" (xstr "klököl")
