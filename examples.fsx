@@ -1,5 +1,7 @@
 #load "test.fsx"
 
+open Test
+
 module Dsl =
     
     let knownBaseTypes =
