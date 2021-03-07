@@ -1,9 +1,29 @@
-#load "test.fsx"
 
-open Test
+#load "hm.fsx"
+open Hm
 
+type Show =
+    static member show(t: Mono) =
+        match t with
+        | MBase tname -> tname
+        | MVar tvar -> string tvar
+        | MFun (m, n) -> $"{Show.show m} -> {Show.show n}"
+    static member show(eqs: Subst list) =
+        eqs
+        |> List.sortBy (fun x -> x.tvar)
+        |> List.map (fun x -> $"%-20s{x.desc}    {x.tvar} = {Show.show x.right}")
+        |> String.concat "\n"
+        |> fun x -> "\n\n----------Substs:\n" + x + "\n----------"
+
+#if INTERACTIVE
+fsi.PrintWidth <- 250
+fsi.AddPrinter (fun (x: Mono) -> Show.show x)
+fsi.AddPrinter (fun (x: Subst list) -> Show.show x)
+#endif
+
+
+[<AutoOpen>]
 module Dsl =
-    
     let knownBaseTypes =
         {| int = "Int"
            float = "Float"
@@ -14,26 +34,29 @@ module Dsl =
     let tstring = MBase knownBaseTypes.string
     let tfun(a, b) = MFun(a, b)
 
-    let xint (x: int) = ELit { typeName = knownBaseTypes.int; value = string x }
-    let xfloat (x: float) = ELit { typeName = knownBaseTypes.float; value = string x }
-    let xstr (x: string) = ELit { typeName = knownBaseTypes.string; value = x }
-
-open Dsl
+    let cint (x: int) = ELit { typeName = knownBaseTypes.int; value = string x }
+    let cfloat (x: float) = ELit { typeName = knownBaseTypes.float; value = string x }
+    let cstr (x: string) = ELit { typeName = knownBaseTypes.string; value = x }
 
 let env : Env = Map.ofList [
     "libcall_add", tfun(tint, tfun(tint, tint)) |> Poly.mono
     ]
-    
+
 // let ftvOfE (e: Exp) =
 //     let te = Infer.annotate Env.empty e
 //     te.t, Ftv.get te.t
-let printConstraints =
-    let inf = Infer()
-    inf.AnnoExp >> inf.Constrain env >> Debug.printEquations
-let printSolution =
-    let inf = Infer()
-    inf.AnnoExp >> inf.Constrain env >> inf.Solve >> Debug.printEquations
-let inferType x = Infer().Infer env x |> fun res -> res.finalType
+let inferType =
+    Infer.infer env
+    >> fun res -> res.finalType
+let constr =
+    Infer.infer env
+    >> fun x -> x.constraintSet
+let solve =
+    Infer.infer env
+    >> fun x -> x.solutionMap
+let constrAndSolve x =
+    Infer.infer env x
+    |> fun x -> x.constraintSet, x.solutionMap
 
 
 
@@ -49,32 +72,41 @@ Ftv.get (tfun(tint, tfun(tint, MVar 2)))
 
 let idExp = EFun("x", EVar "x")
 
-inferType <| xint 43
+constrAndSolve idExp
+
+inferType <| cint 43
 inferType <| idExp
-inferType <| ELet("hurz", xint 43, xstr "sss")
-inferType <| ELet("id", idExp, EApp(EVar "id", xstr "sss"))
-inferType <| EFun("x", xstr "klököl")
-inferType <| EApp(EFun("x", EVar "x"), xint 2)
-inferType <| EApp(EFun("x", EVar "x"), xstr "Hello")
+inferType <| ELet("hurz", cint 43, cstr "sss")
+inferType <| ELet("id", idExp, EApp(EVar "id", cstr "sss"))
+inferType <| EFun("x", cstr "klököl")
+inferType <| EApp(EFun("x", EVar "x"), cint 2)
+inferType <| EApp(EFun("x", EVar "x"), cstr "Hello")
 
 // unbound var "y":
 inferType <| EFun("x", EFun("y", EVar "x"))
 
 inferType <| ELet("k", EFun("x", ELet("f", EFun("y", EVar "x"), EVar "f")), EVar "k")
-inferType <| ELet("k", xint 43, ELet("k", xstr "sss", EVar "k"))
+inferType <| ELet("k", cint 43, ELet("k", cstr "sss", EVar "k"))
+
+// polymorphic let
+ELet("f", idExp,
+    ELet("res1", EApp(EVar "f", cint 99),
+        ELet("res2", EApp(EVar "f", cstr "HelloWorld"),
+            EVar("res2")
+)))
+|> inferType
 
 
-
-let expr1 = xint 42
-let expr2 = ELet("hurz", xint 43, xint 32)
+let expr1 = cint 42
+let expr2 = ELet("hurz", cint 43, cint 32)
 let expr3 =
     let addA = EFun("a", EApp(EVar "libcall_add", EVar "a"))
     let addB = EFun("b", EApp(addA, EVar "b"))
-    ELet("hurz", xint 43, ELet("f", addB, EApp(EApp(EVar "f", EVar "hurz"), xint 99)))
+    ELet("hurz", cint 43, ELet("f", addB, EApp(EApp(EVar "f", EVar "hurz"), cint 99)))
 
-printConstraints expr3
-printSolution idExp
-printSolution expr3
+constr expr3
+solve idExp
+solve expr3
 
 inferType expr3
 inferType expr1
