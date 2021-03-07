@@ -72,6 +72,15 @@ Ftv.get (tfun(tint, tfun(tint, MVar 2)))
 
 let idExp = EFun("x", EVar "x")
 
+// polymorphic let
+ELet("f", idExp,
+    ELet("res1", EApp(EVar "f", cint 99),
+        ELet("res2", EApp(EVar "f", cstr "HelloWorld"),
+            EVar("res2")
+)))
+|> constrAndSolve
+
+
 constrAndSolve idExp
 
 inferType <| cint 43
@@ -87,14 +96,6 @@ inferType <| EFun("x", EFun("y", EVar "x"))
 
 inferType <| ELet("k", EFun("x", ELet("f", EFun("y", EVar "x"), EVar "f")), EVar "k")
 inferType <| ELet("k", cint 43, ELet("k", cstr "sss", EVar "k"))
-
-// polymorphic let
-ELet("f", idExp,
-    ELet("res1", EApp(EVar "f", cint 99),
-        ELet("res2", EApp(EVar "f", cstr "HelloWorld"),
-            EVar("res2")
-)))
-|> inferType
 
 
 let expr1 = cint 42

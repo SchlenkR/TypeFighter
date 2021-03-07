@@ -77,29 +77,15 @@ type Ftv =
 module Subst =
     let create(desc, tvar, r) = { desc = desc; tvar = tvar; right = r; }
 
-type VarGen() =
+type Newvar() =
     let mutable varCounter = -1
     member this.fresh() =
         varCounter <- varCounter + 1
         varCounter
 
 module Infer =
-        
-    let generalize (t: Mono) (env: Env) =
-        let freeVars = Ftv.get t - Ftv.get env
-        // printfn $"GEN: {vars}"
-        Poly.poly t (Set.toList freeVars)
 
-    let inst (vargen: VarGen) (p: Poly) : Mono =
-        // printfn $"Inst {p}"
-        let rec replace (t: Mono) (freeVar: TypeVar) =
-            match t with
-            | MVar tvar when tvar = freeVar -> MVar (vargen.fresh())
-            | MFun (t1, t2) -> MFun (replace t1 freeVar, replace t2 freeVar)
-            | _ -> t
-        p.tvars |> List.fold replace p.t
-
-    let annoExp (vargen: VarGen) (exp: Exp) =
+    let annoExp (newvar: Newvar) (exp: Exp) =
         let rec annoExp (exp: Exp) =
             let texp =
                 match exp with
@@ -110,33 +96,47 @@ module Infer =
                 | EApp (e1, e2) ->
                     TEApp (annoExp e1, annoExp e2)
                 | EFun (ident, body) ->
-                    let annotatedIdent = { ident = ident;  tvar = vargen.fresh() }
+                    let annotatedIdent = { ident = ident;  tvar = newvar.fresh() }
                     TEFun (annotatedIdent, annoExp body)
                 | ELet (ident, e, body) ->
                     TELet (ident, annoExp e, annoExp body)
             { texp = texp
-              tvar = vargen.fresh () }
+              tvar = newvar.fresh () }
         annoExp exp
 
-    let constrain (vargen: VarGen) (env: Env) (tanno: TAnno) =
+    let constrain (newvar: Newvar) (env: Env) (tanno: TAnno) =
+        let inst (p: Poly) : Mono =
+            // printfn $"Inst {p}"
+            let rec replace (t: Mono) (freeVar: TypeVar) =
+                match t with
+                | MVar tvar when tvar = freeVar -> MVar (newvar.fresh())
+                | MFun (t1, t2) -> MFun (replace t1 freeVar, replace t2 freeVar)
+                | _ -> t
+            p.tvars |> List.fold replace p.t
+
+        let gen (t: Mono) (env: Env) =
+            let freeVars = Ftv.get t - Ftv.get env
+            // printfn $"GEN: {vars}"
+            Poly.poly t (Set.toList freeVars)
+
         let rec constrain (env: Env) (tanno: TAnno) = [
             match tanno.texp with
             | TELit x ->
                 yield Subst.create($"Lit {x.typeName}", tanno.tvar, MBase x.typeName)
             | TEVar ident ->
-                let varType = Env.resolve ident env |> inst vargen
-                yield Subst.create($"Var {ident}", tanno.tvar, varType)
+                let varType = Env.resolve ident env |> inst
+                yield Subst.create($"Var-Expr {ident}", tanno.tvar, varType)
             | TEApp (e1, e2) ->
-                yield Subst.create("App", e1.tvar, MFun(MVar e2.tvar, MVar tanno.tvar))
+                yield Subst.create("App (e1 = e2)", e1.tvar, MFun(MVar e2.tvar, MVar tanno.tvar))
                 yield! constrain env e2
                 yield! constrain env e1
             | TEFun (ident, body) ->
                 let newEnv = Env.bind ident.ident (Poly.mono (MVar ident.tvar)) env
-                yield Subst.create("Fun", tanno.tvar, MFun(MVar ident.tvar, MVar body.tvar))
+                yield Subst.create("Fun-Expr", tanno.tvar, MFun(MVar ident.tvar, MVar body.tvar))
                 yield! constrain newEnv body
             | TELet (ident, e, body) ->
-                let newEnv = Env.bind ident (generalize (MVar e.tvar) env) env
-                yield Subst.create($"Let {ident}", tanno.tvar, MVar body.tvar)
+                let newEnv = Env.bind ident (gen (MVar e.tvar) env) env
+                yield Subst.create($"Let-Expr {ident}", tanno.tvar, MVar body.tvar)
                 yield! constrain env e
                 yield! constrain newEnv body
             ]
@@ -204,10 +204,10 @@ module Infer =
         )
     
     let infer env exp =
-        let vargen = VarGen()
+        let newvar = Newvar()
 
-        let annotatedAst = annoExp vargen exp
-        let constraintSet = constrain vargen env annotatedAst
+        let annotatedAst = annoExp newvar exp
+        let constraintSet = constrain newvar env annotatedAst
         let solutionMap = solve constraintSet
 
         let findVar var =
