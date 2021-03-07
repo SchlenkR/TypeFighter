@@ -23,7 +23,7 @@ type Mono =
     
 and Poly =
     { t: Mono
-      targs: TypeVar list }
+      tvars: TypeVar list }
 
 type Env = Map<Ident, Poly>
 
@@ -50,7 +50,7 @@ type Unifyable =
       right: Mono }
 
 module Poly =
-    let poly t targs = { t = t; targs = targs }
+    let poly t targs = { t = t; tvars = targs }
     let mono t = poly t []
 
 module Env =
@@ -69,7 +69,7 @@ type Ftv =
         | MVar varName -> Set.singleton varName
         | MFun (t1, t2) -> Ftv.get t1 + Ftv.get t2
     static member get (p: Poly) : Set<TypeVar> =
-        Ftv.get p.t - Set.ofList p.targs
+        Ftv.get p.t - Set.ofList p.tvars
     static member get (env: Env) : Set<TypeVar> =
         let typesBoundInEnv = env |> Map.toList |> List.map snd
         let typeVarsBoundInEnv =
@@ -89,15 +89,18 @@ type Infer() =
         varCounter
 
     let generalize (t: Mono) (env: Env) =
-        Poly.poly t ((Ftv.get t - Ftv.get env) |> Set.toList)
+        let vars = Ftv.get t - Ftv.get env
+        // printfn $"GEN: {vars}"
+        Poly.poly t (Set.toList vars)
 
     let inst (p: Poly) : Mono =
+        // printfn $"Inst {p}"
         let rec replace (t: Mono) (tvar: TypeVar) =
             match t with
             | MBase _ -> t
             | MVar _ -> t
             | MFun (t1, t2) -> MFun (replace t1 tvar, replace t2 tvar)
-        p.targs |> List.fold replace p.t
+        p.tvars |> List.fold replace p.t
 
     let rec annoExp (exp: Exp) =
         let annoIdent ident =
@@ -217,7 +220,11 @@ type Infer() =
             match res with
             | Some x -> x
             | None -> failwith $"Var not found: {var}"
-        findVar annotatedAst.tvar
+        {| annotatedAst = annotatedAst
+           constraintSet = constraintSet
+           solutionMap = solutionMap
+           finalType = findVar annotatedAst.tvar |}
+
 
     member this.AnnoExp = annoExp
     member this.Constrain = constrain
@@ -226,105 +233,14 @@ type Infer() =
 
 module Debug =
 
+    let rec printType (t: Mono) =
+        match t with
+        | MBase tname -> tname
+        | MVar tvar -> string tvar
+        | MFun (m, n) -> $"{printType m} -> {printType n}"
+
     let printEquations (eqs: Subst list) =
         eqs
         |> List.sortBy (fun x -> x.tvar)
-        |> List.iter (fun x -> printfn "%-20s    %A = %A" x.desc x.tvar x.right)
-
-
-
-///////// Test
-
-module Dsl =
-    
-    let knownBaseTypes =
-        {| int = "Int"
-           float = "Float"
-           string = "String" |}
-           
-    let tint = MBase knownBaseTypes.int
-    let tfloat = MBase knownBaseTypes.float
-    let tstring = MBase knownBaseTypes.string
-    let tfun(a, b) = MFun(a, b)
-
-    let xint (x: int) = ELit { typeName = knownBaseTypes.int; value = string x }
-    let xfloat (x: float) = ELit { typeName = knownBaseTypes.float; value = string x }
-    let xstr (x: string) = ELit { typeName = knownBaseTypes.string; value = x }
-
-open Dsl
-
-let env : Env = Map.ofList [
-    "libcall_add", tfun(tint, tfun(tint, tint)) |> Poly.mono
-    ]
-    
-// let ftvOfE (e: Exp) =
-//     let te = Infer.annotate Env.empty e
-//     te.t, Ftv.get te.t
-let printConstraints =
-    let inf = Infer()
-    inf.AnnoExp >> inf.Constrain env >> Debug.printEquations
-let printSolution =
-    let inf = Infer()
-    inf.AnnoExp >> inf.Constrain env >> inf.Solve >> Debug.printEquations
-let infer = Infer().Infer env
-
-
-
-
-
-
-
-Ftv.get (tfun(tint, tfun(tint, MVar 2)))
-// Infer.annotate env idExp
-// ftvOfE idExp
-
-
-
-let idExp = EFun("x", EVar "x")
-
-infer <| xint 43
-infer <| idExp
-infer <| ELet("hurz", xint 43, xstr "sss")
-infer <| ELet("id", idExp, EApp(EVar "id", xstr "sss"))
-infer <| EFun("x", xstr "klököl")
-infer <| EApp(EFun("x", EVar "x"), xint 2)
-infer <| EApp(EFun("x", EVar "x"), xstr "Hello")
-
-// unbound var "y":
-infer <| EFun("x", EFun("y", EVar "x"))
-
-infer <| ELet("k", EFun("x", ELet("f", EFun("y", EVar "x"), EVar "f")), EVar "k")
-infer <| ELet("k", xint 43, ELet("k", xstr "sss", EVar "k"))
-
-
-
-let expr1 = xint 42
-let expr2 = ELet("hurz", xint 43, xint 32)
-let expr3 =
-    let addA = EFun("a", EApp(EVar "libcall_add", EVar "a"))
-    let addB = EFun("b", EApp(addA, EVar "b"))
-    ELet("hurz", xint 43, ELet("f", addB, EApp(EApp(EVar "f", EVar "hurz"), xint 99)))
-
-printConstraints expr3
-printSolution idExp
-printSolution expr3
-
-infer expr3
-infer expr1
-infer expr2
-
-
-// Errors
-(*
-solve <| EApp (EVar "libcall_add") (xstr "lklö")
-*)
-
-
-(*
-// Der Typ von "f" ist _kein_ Polytyp
-(fun f -> f "as", f 99) id
-
-// Der Typ von "f" ist ein Polytyp
-let f = id in f "as", f 99
-*)
+        |> List.iter (fun x -> printfn $"%-20s{x.desc}    {x.tvar} = {x.right}")
 
