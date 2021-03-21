@@ -1,4 +1,5 @@
-﻿type Lit = { typeName: string; value: string }
+﻿
+type Lit = { typeName: string; value: string }
 
 type Exp =
     | ELit of Lit
@@ -7,10 +8,19 @@ type Exp =
     | EFun of string * Exp
     | ELet of string * Exp * Exp
 
-// make SCDU fot them
 type TypeVar = int
 
 type Ident = string
+
+type Annotated<'a> =
+    { annotated: 'a
+      tvar: TypeVar }
+type TExp =
+    | TELit of Lit
+    | TEVar of Ident
+    | TEApp of Annotated<TExp> * Annotated<TExp>
+    | TEFun of Annotated<Ident> * Annotated<TExp> // TODO: Wieso hier IdentAnno und nicht nur Ident?
+    | TELet of Ident * Annotated<TExp> * Annotated<TExp>
 
 type Mono =
     | MVar of TypeVar
@@ -22,19 +32,6 @@ and Poly =
       tvars: TypeVar list }
 
 type Env = Map<Ident, Poly>
-
-type TExp =
-    | TELit of Lit
-    | TEVar of Ident
-    | TEApp of TAnno * TAnno
-    | TEFun of IdentAnno * TAnno // TODO: Wieso hier IdentAnno und nicht nur Ident?
-    | TELet of Ident * TAnno * TAnno
-and IdentAnno =
-    { ident: Ident
-      tvar: TypeVar }
-and TAnno =
-    { texp: TExp
-      tvar: TypeVar }
 
 type Subst =
     { desc: string
@@ -96,15 +93,15 @@ module Infer =
                 | EApp (e1, e2) ->
                     TEApp (annoExp e1, annoExp e2)
                 | EFun (ident, body) ->
-                    let annotatedIdent = { ident = ident;  tvar = newvar.fresh() }
+                    let annotatedIdent = { annotated = ident; tvar = newvar.fresh() }
                     TEFun (annotatedIdent, annoExp body)
                 | ELet (ident, e, body) ->
                     TELet (ident, annoExp e, annoExp body)
-            { texp = texp
+            { annotated = texp
               tvar = newvar.fresh () }
         annoExp exp
 
-    let constrain (newvar: Newvar) (env: Env) (tanno: TAnno) =
+    let constrain (newvar: Newvar) (env: Env) (annoExp: Annotated<TExp>) : Subst list =
         let inst (p: Poly) : Mono =
             // printfn $"Inst {p}"
             let rec replace (t: Mono) (freeVar: TypeVar) =
@@ -119,28 +116,28 @@ module Infer =
             // printfn $"GEN: {vars}"
             Poly.poly t (Set.toList freeVars)
 
-        let rec constrain (env: Env) (tanno: TAnno) = [
-            match tanno.texp with
+        let rec constrain (env: Env) (annoExp: Annotated<TExp>) = [
+            match annoExp.annotated with
             | TELit x ->
-                yield Subst.create($"Lit {x.typeName}", tanno.tvar, MBase x.typeName)
+                yield Subst.create($"Lit {x.typeName}", annoExp.tvar, MBase x.typeName)
             | TEVar ident ->
                 let varType = Env.resolve ident env |> inst
-                yield Subst.create($"Var-Expr {ident}", tanno.tvar, varType)
+                yield Subst.create($"Var-Expr {ident}", annoExp.tvar, varType)
             | TEApp (e1, e2) ->
-                yield Subst.create("App (e1 = e2)", e1.tvar, MFun(MVar e2.tvar, MVar tanno.tvar))
+                yield Subst.create("App (e1 = e2)", e1.tvar, MFun(MVar e2.tvar, MVar annoExp.tvar))
                 yield! constrain env e2
                 yield! constrain env e1
             | TEFun (ident, body) ->
-                let newEnv = Env.bind ident.ident (Poly.mono (MVar ident.tvar)) env
-                yield Subst.create("Fun-Expr", tanno.tvar, MFun(MVar ident.tvar, MVar body.tvar))
+                let newEnv = Env.bind ident.annotated (Poly.mono (MVar ident.tvar)) env
+                yield Subst.create("Fun-Expr", annoExp.tvar, MFun(MVar ident.tvar, MVar body.tvar))
                 yield! constrain newEnv body
             | TELet (ident, e, body) ->
                 let newEnv = Env.bind ident (gen (MVar e.tvar) env) env
-                yield Subst.create($"Let-Expr {ident}", tanno.tvar, MVar body.tvar)
+                yield Subst.create($"Let-Expr {ident}", annoExp.tvar, MVar body.tvar)
                 yield! constrain env e
                 yield! constrain newEnv body
             ]
-        constrain env tanno
+        constrain env annoExp
 
     let solve (eqs: Subst list) =
         let rec unify (t1: Mono) (t2: Mono) : Unifyable list =
