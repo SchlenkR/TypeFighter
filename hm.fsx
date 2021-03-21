@@ -103,17 +103,20 @@ module Infer =
 
     let constrain (newvar: Newvar) (env: Env) (annoExp: Annotated<TExp>) : Subst list =
         let inst (p: Poly) : Mono =
-            // printfn $"Inst {p}"
             let rec replace (t: Mono) (freeVar: TypeVar) =
                 match t with
-                | MVar tvar when tvar = freeVar -> MVar (newvar.fresh())
-                | MFun (t1, t2) -> MFun (replace t1 freeVar, replace t2 freeVar)
+                | MVar tvar when tvar = freeVar ->
+                    let instanciatedVar = newvar.fresh()
+                    printfn $"Inst {tvar} -> {instanciatedVar}"
+                    MVar freeVar
+                | MFun (t1, t2) ->
+                    MFun (replace t1 freeVar, replace t2 freeVar)
                 | _ -> t
             p.tvars |> List.fold replace p.t
 
         let gen (t: Mono) (env: Env) =
             let freeVars = Ftv.get t - Ftv.get env
-            // printfn $"GEN: {vars}"
+            printfn $"GEN: {freeVars}"
             Poly.poly t (Set.toList freeVars)
 
         let rec constrain (env: Env) (annoExp: Annotated<TExp>) = [

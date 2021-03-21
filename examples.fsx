@@ -56,7 +56,17 @@ let solve =
     >> fun x -> x.solutionMap
 let constrAndSolve x =
     Infer.infer env x
-    |> fun x -> x.constraintSet, x.solutionMap
+    |> fun x -> x.constraintSet, x.solutionMap, x.finalType
+
+let eq e1 e2 =
+    if not (e1 = e2)
+    then failwith $"'{e1}' != {e2}"
+    else
+        printfn "OK"
+        e1
+
+let idExp = EFun("x", EVar "x")
+
 
 
 
@@ -70,8 +80,6 @@ Ftv.get (tfun(tint, tfun(tint, MVar 2)))
 
 
 
-let idExp = EFun("x", EVar "x")
-
 // polymorphic let
 ELet("f", idExp,
     ELet("res1", EApp(EVar "f", cint 99),
@@ -82,10 +90,12 @@ ELet("f", idExp,
 
 
 constrAndSolve idExp
+constrAndSolve <| ELet("id", idExp, EApp(EVar "id", cstr "sss"))
+constrAndSolve <| EApp(idExp, cstr "sss")
 
-inferType <| cint 43
-inferType <| idExp
-inferType <| ELet("hurz", cint 43, cstr "sss")
+inferType <| cint 43 |> eq tint
+inferType <| idExp |> Ftv.get
+inferType <| ELet("hurz", cint 43, cstr "sss") |> eq tstring
 inferType <| ELet("id", idExp, EApp(EVar "id", cstr "sss"))
 inferType <| EFun("x", cstr "klököl")
 inferType <| EApp(EFun("x", EVar "x"), cint 2)
