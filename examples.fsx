@@ -38,9 +38,10 @@ module Dsl =
     let cfloat (x: float) = ELit { typeName = knownBaseTypes.float; value = string x }
     let cstr (x: string) = ELit { typeName = knownBaseTypes.string; value = x }
 
-let env : Env = Map.ofList [
-    "libcall_add", tfun(tint, tfun(tint, tint)) |> Poly.mono
-    ]
+//let env : Env = Map.ofList [
+//    "libcall_add", tfun(tint, tfun(tint, tint))
+//    ]
+let env = Env.empty
 
 // let ftvOfE (e: Exp) =
 //     let te = Infer.annotate Env.empty e
@@ -74,7 +75,7 @@ let idExp = EFun("x", EVar "x")
 
 
 
-Ftv.get (tfun(tint, tfun(tint, MVar 2)))
+//Ftv.get (tfun(tint, tfun(tint, MVar 2)))
 // Infer.annotate env idExp
 // ftvOfE idExp
 
