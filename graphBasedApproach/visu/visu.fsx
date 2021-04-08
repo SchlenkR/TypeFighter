@@ -14,18 +14,18 @@ type Node =
       children: ResizeArray<Node> }
 
 module Node =
-    let constr name desc =
+    let var name desc (children: Node list) =
         { name = name
-          desc = desc
-          typ = Constr
-          key = -1
-          children = ResizeArray() }
-    let var desc =
-        { name = ""
           desc = desc
           typ = Var
           key = -1
-          children = ResizeArray() }
+          children = ResizeArray(children) }
+    let constr desc (children: Node list) =
+        { name = ""
+          desc = desc
+          typ = Constr
+          key = -1
+          children = ResizeArray(children) }
 
     let connect (p: Node) c = p.children.Add c
 
@@ -39,7 +39,10 @@ let openGraph (nodes: Node list) =
             {| key = n.key
                name = n.name
                desc = n.desc
-               fig = match n.typ with | Constr -> "Procedure" | Var -> "Rectangle" |})
+               fig =
+                   match n.typ with
+                   | Constr -> "Ellipse"
+                   | Var -> "Rectangle" |})
     let jsLinks =
         [
             for n in nodes do
@@ -59,10 +62,10 @@ let openGraph (nodes: Node list) =
 module Test =
     open Node
 
-    let n1 = constr "n 1" "constr 1"
-    let n2 = constr "n 2" "constr 2"
-    let n3 = constr "n 3" "constr 3"
-    let n4 = var "constr 4"
+    let n1 = var "n 1" "constr 1" []
+    let n2 = var "n 2" "constr 2" []
+    let n3 = var "n 3" "constr 3" []
+    let n4 = constr "constr 4" []
 
     connect n1 n2
     connect n2 n3

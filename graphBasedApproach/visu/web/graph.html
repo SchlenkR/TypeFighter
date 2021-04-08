@@ -26,7 +26,10 @@
                 $(go.Diagram,
                     "myDiagramDiv", // must be the ID or reference to div
                     {
-                        layout: $(go.ForceDirectedLayout, {})
+                        layout: $(go.TreeLayout,
+                            {
+                                angle: 90
+                            })
                     });
 
             myDiagram.nodeTemplate =
@@ -35,10 +38,9 @@
                         {
                             fill: "white",
                             stroke: "darkblue",
-                            strokeWidth: 2,
-                            figure: "Procedure"
-                        }),
-                        //new go.Binding("figure", "fig")),
+                            strokeWidth: 2
+                        },
+                        new go.Binding("figure", "fig")),
                     $(go.Panel, "Table",
                         {
                             defaultAlignment: go.Spot.Left,
