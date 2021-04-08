@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <link rel="shortcut icon" type="image/x-icon" href="https://production-assets.codepen.io/assets/favicon/favicon-8ea04875e70c4b0bb41da869e81236e54394d63638a1ef12fa558a4a835f1164.ico" />
     <link rel="mask-icon" type="" href="https://production-assets.codepen.io/assets/favicon/logo-pin-f2d2b6d2c61838f7e76325261b7195c27224080bc099486ddd6dccb469b8e8e6.svg" color="#111" />
-    <title>CodePen - Redesigned - Company Employees Hierarchy Chart </title>
+    <title>Chart</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.css'>
@@ -19,38 +19,6 @@
             height: 100%;
             font-family: 'Roboto', sans-serif;
         }
-
-
-        /* ########################   DEPARTMENT INFO  ############################*/
-
-        .department-information {
-            font-family: 'Roboto', sans-serif;
-            display: none;
-            box-shadow: 0 0 5px #999999;
-            position: absolute;
-            max-width: 200px;
-            top: 60px;
-            left: 20px;
-            padding: 10px;
-            background-color: white;
-        }
-
-            .department-information .dept-name {
-                color: #26a69a;
-                font-weight: bold;
-            }
-
-            .department-information .dept-description {
-                margin-top: 10px;
-                color: #959b9a;
-                font-size: 13px;
-            }
-
-            .department-information .dept-emp-count {
-                margin-top: 10px;
-                color: #959b9a;
-                font-size: 13px;
-            }
 
         /* ############################################## SVG ################################# */
 
@@ -125,29 +93,11 @@
         }
     </style>
 
-
-
-
-
-
 </head>
 
 <body translate="no">
 
     <div id="full-container">
-
-        <div class="department-information">
-            <div class="dept-name">
-                dept name
-            </div>
-            <div class="dept-emp-count">
-                dept description test, this is department description
-            </div>
-            <div class="dept-description">
-                dept description test, this is department description
-            </div>
-        </div>
-
         <div id="svgChart"></div>
     </div>
 
@@ -187,7 +137,6 @@
                 collapseCircleRadius: 7,
                 nodeHeight: 80,
                 nodeWidth: 210,
-                duration: 750,
                 rootNodeTopMargin: 20,
                 minMaxZoomProportions: [0.05, 3],
                 linkLineSize: 180,
@@ -200,7 +149,7 @@
             var dynamic = {}
             dynamic.nodeImageWidth = attrs.nodeHeight * 100 / 140;
             dynamic.nodeImageHeight = attrs.nodeHeight - 2 * attrs.nodePadding;
-            dynamic.nodeTextLeftMargin = attrs.nodePadding * 2 + dynamic.nodeImageWidth
+            dynamic.nodeTextLeftMargin = attrs.nodePadding * 2 + dynamic.nodeImageWidth;
             dynamic.rootNodeLeftMargin = attrs.width / 2;
             dynamic.nodePositionNameTopMargin = attrs.nodePadding + 8 + dynamic.nodeImageHeight / 4 * 1;
             dynamic.nodeChildCountTopMargin = attrs.nodePadding + 14 + dynamic.nodeImageHeight / 4 * 3;
@@ -245,7 +194,7 @@
                     d.y = d.depth * attrs.linkLineSize;
                 });
 
-                // Update the nodes…
+                // Update the nodes
                 var node = svg.selectAll("g.node").data(nodes,
                     function (d) {
                         return d.id || (d.id = ++attrs.index);
@@ -355,13 +304,11 @@
 
                 // Transition nodes to their new position.
                 var nodeUpdate = node.transition()
-                    .duration(attrs.duration)
                     .attr("transform",
                         function (d) {
                             return "translate(" + d.x + "," + d.y + ")";
                         });
 
-                //todo replace with attrs object
                 nodeUpdate.select("rect")
                     .attr("width", attrs.nodeWidth)
                     .attr("height", attrs.nodeHeight)
@@ -379,7 +326,6 @@
 
                 // Transition exiting nodes to the parent's new position.
                 var nodeExit = node.exit().transition()
-                    .duration(attrs.duration)
                     .attr("transform", function (d) {
                         return "translate(" + source.x + "," + source.y + ")";
                     })
@@ -389,7 +335,7 @@
                     .attr("width", attrs.nodeWidth)
                     .attr("height", attrs.nodeHeight);
 
-                // Update the links…
+                // Update the links
                 var link = svg.selectAll("path.link")
                     .data(links, function (d) {
                         return d.target.id;
@@ -412,24 +358,7 @@
                     });
 
                 // Transition links to their new position.
-                link.transition()
-                    .duration(attrs.duration)
-                    .attr("d", diagonal);
-
-                // Transition exiting nodes to the parent's new position.
-                link.exit().transition()
-                    .duration(attrs.duration)
-                    .attr("d", function (d) {
-                        var o = {
-                            x: source.x,
-                            y: source.y
-                        };
-                        return diagonal({
-                            source: o,
-                            target: o
-                        });
-                    })
-                    .remove();
+                link.transition().attr("d", diagonal);
 
                 // Stash the old positions for transition.
                 nodes.forEach(function (d) {
