@@ -38,11 +38,11 @@ type JsNode =
     { key: int
       name: string
       desc: string
-      fig: string }
+      [<JsonProperty "fig">] layout: string }
 
 type JsLink =
-    { from: int
-      ``to``: int }
+    { [<JsonProperty "from">] fromNode: int
+      [<JsonProperty "to">] toNode: int }
 
 let writeGraph (jsNodes: JsNode list) (jsLinks: JsLink list) (layout: string) =
     let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
@@ -68,12 +68,12 @@ let writeTree (nodes: TreeNode list) =
             { key = n.key
               name = n.name
               desc = n.desc
-              fig = n.typ })
+              layout = n.typ })
     let jsLinks =
         [
             for n in nodes do
                 for c in n.children do
-                    { from = n.key; ``to`` = c.key }
+                    { fromNode = n.key; toNode = c.key }
         ]
     
     writeGraph jsNodes jsLinks Layouts.tree

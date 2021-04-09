@@ -310,8 +310,8 @@ module GraphVisu =
             items
             |> List.choose (fun x -> match x with | Edge e -> Some e | _ -> None)
             |> List.map (fun edge ->
-                { from = edge.fromNode.i
-                  ``to`` = edge.toNode.i })
+                { fromNode = edge.fromNode.i
+                  toNode = edge.toNode.i })
         let jsNodes =
             Graph.getAllNodes items |> List.map (fun x ->
                 match x.n with
@@ -319,18 +319,17 @@ module GraphVisu =
                     { key = x.i
                       name = "SOURCE"
                       desc = string constr
-                      fig = NodeTypes.op }
+                      layout = NodeTypes.op }
                 | Var var ->
                     { key = x.i
                       name = string var.tyvar
                       desc = string var.constr
-                      fig = NodeTypes.var }
+                      layout = NodeTypes.var }
                 | Op op ->
                     { key = x.i
                       name = string op
                       desc = ""
-                      fig = NodeTypes.op }
-            )
+                      layout = NodeTypes.op } )
 
         writeGraph jsNodes jsLinks Layouts.graph
 
