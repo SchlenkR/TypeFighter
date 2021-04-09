@@ -71,39 +71,71 @@ type Var =
     { tyvar: TyVar
       mutable cachedConstr: Constraint option }
 type Op =
-    | ToFunction of int
+    | MakeFunc
+    | ApplyFunc
 type Node =
-    | Source of int
+    | Source of Constraint
     | Var of Var
     | Op of Op
+type IndexedNode = int * Node
 type Edge =
-    { fromNode: Node
-      toNode: Node
+    { fromNode: IndexedNode
+      toNode: IndexedNode
       mutable cachedConstr: Constraint option }
 type GraphItem =
-    | Node of Node
+    | Node of IndexedNode
     | Edge of Edge
 
 let createConstraintGraph (exp: Annotated<TExp>) =
-    let allNodes = System.Collections.Generic.Dictionary<TyVar, Node>()
-    let addVarNode (tyvar: TyVar) =
-        let varNode = { tyvar = tyvar; cachedConstr = None }
-        allNodes.Add(tyvar, Var varNode)
-        Var varNode
-    let connect a b c = { fromNode = a; toNode = b; cachedConstr = c }
+    let allNodes = System.Collections.Generic.Dictionary<TyVar, IndexedNode>()
     let nextId = Incr((-)).next
+    let withId x = (nextId(), x)
+    let addVarNode (tyvar: TyVar) =
+        let node = { tyvar = tyvar; cachedConstr = None }
+        let nodei = withId (Var node)
+        allNodes.Add(tyvar, nodei)
+        nodei
+    let addSourceNode (tyname: string) =
+        Source (CBaseType tyname) |> withId
+    let connect a b c =
+        { fromNode = a; toNode = b; cachedConstr = c }
+    let makeFunction n1 n2 ntarget =
+        [
+            let nfunc = Op MakeFunc |> withId
 
+            let e1func = connect n1 nfunc None
+            let e2func = connect n2 nfunc None
+            let efunctarget = connect nfunc ntarget None
+
+            yield Node nfunc
+            yield Edge e1func
+            yield Edge e2func
+            yield Edge efunctarget
+        ]
+    let applyFunction nsource ntarget =
+        [
+            let nfunc = Op ApplyFunc |> withId
+
+            let esourcefunc = connect nsource nfunc None
+            let efunctarget = connect nfunc ntarget None
+
+            yield Node nfunc
+            yield Edge esourcefunc
+            yield Edge efunctarget
+        ]
     let rec constrainExp (exp: Annotated<TExp>) =
         [
             match exp.annotated with
             | TELit x ->
                 let node = addVarNode exp.tyvar
-                let edge = connect (Source (nextId())) node (Some (CBaseType x.typeName))
+                let nsource = addSourceNode x.typeName
+                let edge = connect nsource node None
 
                 yield Node node
+                yield Node nsource
                 yield Edge edge
             | TEVar ident ->
-                let node = (addVarNode exp.tyvar)
+                let node = addVarNode exp.tyvar
                 
                 // there has to be a node in the allNodes
                 let edge =
@@ -113,63 +145,36 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 yield Node node
                 yield Edge edge
             | TEApp (e1, e2) ->
-                // IMPORTANT: order of execution is significant here due to state manipulation
                 yield! constrainExp e1
                 yield! constrainExp e2
 
-                // TODO: seems a bit weired due to mutable ResizeArray
-                // but there now should exist entries for the e1.tyvar and e2.tyvar in allNodes
                 let ne1 = allNodes.[e1.tyvar]
                 let ne2 = allNodes.[e2.tyvar]
 
                 let node = addVarNode exp.tyvar
-                let nfunc = Op (ToFunction (nextId()))
-
-                let ee2func = connect ne2 nfunc None
-                let enodefunc = connect node nfunc None
-                let efunce1 = connect nfunc ne1 None
-
                 yield Node node
-                yield Node nfunc
-                yield Edge ee2func
-                yield Edge enodefunc
-                yield Edge efunce1
+
+                yield! makeFunction ne2 node ne1
+                yield! applyFunction ne1 node
             | TEFun (ident, body) ->
-                // IMPORTANT: order of execution is significant here due to state manipulation
                 let nident = addVarNode ident.tyvar
                 yield Node nident
                 
-                // IMPORTANT: order of execution is significant here due to state manipulation
                 yield! constrainExp body
 
-                // TODO: seems a bit weired due to mutable ResizeArray
-                // but there now should exist entries for the e1.tyvar and e2.tyvar in allNodes
                 let nbody = allNodes.[body.tyvar]
 
                 let node = addVarNode exp.tyvar
-                let nfunc = Op (ToFunction (nextId()))
-
-                let eidentfunc = connect nident nfunc None
-                let ebodyfunc = connect nbody nfunc None
-                let efuncnode = connect nfunc node None
-
                 yield Node node
-                yield Node nfunc
-                yield Edge eidentfunc
-                yield Edge ebodyfunc
-                yield Edge efuncnode
+
+                yield! makeFunction nident nbody node
             | TELet (ident, e, body) ->
-                let nident =
-                    // important: we have to use the body's env to resolve ident
-                    let tyvarIdent = body.env |> Env.resolve ident
-                    addVarNode tyvarIdent
+                let nident = body.env |> Env.resolve ident |> addVarNode
                 yield Node nident
 
                 yield! constrainExp e
                 yield! constrainExp body
 
-                // TODO: seems a bit weired due to mutable ResizeArray
-                // but there now should exist entries for the e1.tyvar and e2.tyvar in allNodes
                 let ne = allNodes.[e.tyvar]
                 let nbody = allNodes.[body.tyvar]
 
@@ -181,7 +186,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 yield Node node
                 yield Edge ebodynode
                 yield Edge eeident
-        ]
+            ]
     constrainExp exp
 
 module GraphVisu =
@@ -201,76 +206,72 @@ module GraphVisu =
                 |> fun s -> $"[\n{s} ]"
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
 
-    let showAst (exp: Annotated<TExp>) =
-        let flattenedNodes =
-            let rec flatten (node: TreeNode) =
-                [
-                    yield node
-                    for c in node.children do
-                        yield! flatten c
-                ]
+    let flattenedAst (exp: Annotated<TExp>) =
+        let rec flatten (node: TreeNode) =
+            [
+                yield node
+                for c in node.children do
+                    yield! flatten c
+            ]
+    
+        let rec createNodes (exp: Annotated<TExp>) =
+            match exp.annotated with
+            | TELit x ->
+                TreeNode.var $"Lit ({x.value}: {x.typeName})" (showTyvarAndEnv exp) []
+            | TEVar ident ->
+                let tyvar = Env.resolve ident exp.env                
+                TreeNode.var $"Var {showTyvar ident tyvar}" (showTyvarAndEnv exp) []
+            | TEApp (e1, e2) ->
+                let child1 = createNodes e1
+                let child2 = createNodes e2
             
-            let rec createNodes (exp: Annotated<TExp>) =
-                match exp.annotated with
-                | TELit x ->
-                    TreeNode.var $"Lit ({x.value}: {x.typeName})" (showTyvarAndEnv exp) []
-                | TEVar ident ->
-                    let tyvar = Env.resolve ident exp.env                
-                    TreeNode.var $"Var {showTyvar ident tyvar}" (showTyvarAndEnv exp) []
-                | TEApp (e1, e2) ->
-                    let child1 = createNodes e1
-                    let child2 = createNodes e2
-                    
-                    TreeNode.var $"App" (showTyvarAndEnv exp) [ child1; child2 ]
-                | TEFun (ident, body) ->
-                    let child = createNodes body
+                TreeNode.var $"App" (showTyvarAndEnv exp) [ child1; child2 ]
+            | TEFun (ident, body) ->
+                let child = createNodes body
 
-                    TreeNode.var
-                        $"""fun {showTyvar ident.annotated ident.tyvar} -> {showTyvar "e" body.tyvar}"""
-                        (showTyvarAndEnv exp)
-                        [child]
-                | TELet (ident, e, body) ->
-                    let child1 = createNodes e
-                    let child2 = createNodes body
+                TreeNode.var
+                    $"""fun {showTyvar ident.annotated ident.tyvar} -> {showTyvar "e" body.tyvar}"""
+                    (showTyvarAndEnv exp)
+                    [child]
+            | TELet (ident, e, body) ->
+                let child1 = createNodes e
+                let child2 = createNodes body
 
-                    TreeNode.var
-                        $"""let {ident} = {showTyvar "e1" e.tyvar} in {showTyvar "e2" body.tyvar}"""
-                        (showTyvarAndEnv exp)
-                        [ child1; child2 ]
+                TreeNode.var
+                    $"""let {ident} = {showTyvar "e1" e.tyvar} in {showTyvar "e2" body.tyvar}"""
+                    (showTyvarAndEnv exp)
+                    [ child1; child2 ]
 
-            createNodes exp |> flatten
-        createTree flattenedNodes
+        createNodes exp |> flatten
+
+    let showAst (exp: Annotated<TExp>) =
+        flattenedAst exp |> createTree 
 
     let showConstraintGraph (items: GraphItem list) =
         let allNodes =
             items |> List.choose (fun x -> match x with | Node n -> Some n | _ -> None)
-        let getIndex n =
-            match n with
-            | Source i -> i
-            | Var var -> var.tyvar
-            | Op (ToFunction i) -> i
         let jsLinks =
             items
             |> List.choose (fun x -> match x with | Edge e -> Some e | _ -> None)
             |> List.map (fun edge ->
-                { from = getIndex edge.fromNode
-                  ``to`` = getIndex edge.toNode })
+                { from = fst edge.fromNode
+                  ``to`` = fst edge.toNode })
         let jsNodes =
-            allNodes |> List.map (fun n ->
+            allNodes |> List.map (fun (id,n) ->
                 match n with
-                | Source i ->
-                    { key = i
+                | Source constr ->
+                    { key = id
                       name = "SOURCE"
-                      desc = ""
+                      desc = string constr
                       fig = NodeTypes.op }
                 | Var var ->
-                    { key = var.tyvar
+                    { key = id
                       name = string var.tyvar
                       desc = string var.cachedConstr
                       fig = NodeTypes.var }
-                | Op (ToFunction index) as a ->
-                    { key = index
-                      name = string a
+                | Op x ->
+                    { key = id
+                      name = string x
                       desc = ""
                       fig = NodeTypes.op }
             )
@@ -308,8 +309,14 @@ let showConstraintGraph exp =
 let idExp = EFun("x", EVar "x")
 
 
-
 // polymorphic let
+(*
+let id x = x
+let f = id
+let res1 = f 99
+let res2 = f "Hello World"
+res2
+*)
 ELet("f", idExp,
     ELet("res1", EApp(EVar "f", cint 99),
         ELet("res2", EApp(EVar "f", cstr "HelloWorld"),
