@@ -44,7 +44,7 @@ type JsLink =
     { from: int
       ``to``: int }
 
-let createGraph (jsNodes: JsNode list) (jsLinks: JsLink list) (layout: string) =
+let writeGraph (jsNodes: JsNode list) (jsLinks: JsLink list) (layout: string) =
     let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
     let linksJson = JsonConvert.SerializeObject(jsLinks, Formatting.Indented)
 
@@ -58,7 +58,7 @@ window.linkDataArray = {linksJson};
     let dataPath = Path.Combine(path, "data.js")
     File.WriteAllText(dataPath, json)
 
-let createTree (nodes: TreeNode list) =
+let writeTree (nodes: TreeNode list) =
     for i,n in nodes |> List.indexed do
         n.key <- i
 
@@ -76,7 +76,7 @@ let createTree (nodes: TreeNode list) =
                     { from = n.key; ``to`` = c.key }
         ]
     
-    createGraph jsNodes jsLinks Layouts.tree
+    writeGraph jsNodes jsLinks Layouts.tree
 
 
 

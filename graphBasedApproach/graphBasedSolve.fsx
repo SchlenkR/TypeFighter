@@ -62,9 +62,10 @@ let annotate (env: Env) (exp: Exp) =
     annotate env exp
 
 type Constraint =
-    | CAny
+    | CUnknown
+    | CPoly of TyVar list
+    | CClass of string * TyVar list
     | CBaseType of string
-    | CVar of TyVar
     | CFun of Constraint * Constraint
     
 type Var =
@@ -77,7 +78,7 @@ type Node =
     | Source of Constraint
     | Var of Var
     | Op of Op
-type IndexedNode = int * Node
+type IndexedNode = { i: int; n: Node}
 type Edge =
     { fromNode: IndexedNode
       toNode: IndexedNode
@@ -86,9 +87,15 @@ type GraphItem =
     | Node of IndexedNode
     | Edge of Edge
 
+module Graph =
+    let getAllNodes (items: GraphItem list) =
+        items |> List.choose (fun x -> match x with | Node x -> Some x | _ -> None)
+    let getAllEdges (items: GraphItem list) =
+        items |> List.choose (fun x -> match x with | Edge x -> Some x | _ -> None)
+
 let createConstraintGraph (exp: Annotated<TExp>) =
     let nextId = Incr((-)).next
-    let withId x = (nextId(), x)
+    let withId x = { i = nextId(); n = x }
     let makeVarNode (tyvar: TyVar) =
         let node = { tyvar = tyvar; cachedConstr = None }
         let nodei = withId (Var node)
@@ -121,14 +128,12 @@ let createConstraintGraph (exp: Annotated<TExp>) =
             yield Edge esourcefunc
             yield Edge efunctarget
         ]
-
     let findNode (tyvar: TyVar) (allNodes: IndexedNode list) =
-        allNodes |> List.find (fun ix ->
-            match snd ix with 
+        allNodes |> List.find (fun x ->
+            match x.n with 
             | Var var when var.tyvar = tyvar -> true
             | _ -> false)
-
-    let rec constrainExp (exp: Annotated<TExp>) (allNodes: IndexedNode list) =
+    let rec generateGraph (exp: Annotated<TExp>) (allNodes: IndexedNode list) =
         match exp.annotated with
         | TELit x ->
             let node = makeVarNode exp.tyvar
@@ -147,8 +152,8 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 yield Node node
                 yield Edge edge ]
         | TEApp (e1, e2) ->
-            let ne1, e1Nodes = constrainExp e1 allNodes
-            let ne2, e2Nodes = constrainExp e2 allNodes
+            let ne1, e1Nodes = generateGraph e1 allNodes
+            let ne2, e2Nodes = generateGraph e2 allNodes
             let node = makeVarNode exp.tyvar
             node, [
                 yield! e1Nodes
@@ -158,29 +163,83 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 yield! applyFunction ne1 node ]
         | TEFun (ident, body) ->
             let nident = makeVarNode ident.tyvar
-            let nbody,bodyNodes = constrainExp body (nident :: allNodes)
+            let nbody,bodyNodes = generateGraph body (nident :: allNodes)
             let node = makeVarNode exp.tyvar
             node, [
                 yield Node nident
                 yield Node node
                 yield! bodyNodes
-                yield! makeFunction nident nbody node
-            ]
+                yield! makeFunction nident nbody node ]
         | TELet (ident, e, body) ->
             let nident = body.env |> Env.resolve ident |> makeVarNode
             let allNodes = nident :: allNodes
-            let ne, enodes = constrainExp e allNodes
-            let nbody, bodyNodes =  constrainExp body allNodes
+            let ne, enodes = generateGraph e allNodes
+            let nbody, bodyNodes =  generateGraph body allNodes
             let node = makeVarNode exp.tyvar
             node, [
-                Node node
-                Edge (connect nbody node None)
-                Edge (connect ne nident None)
-                Node nident
+                yield Node node
+                yield Edge (connect nbody node None)
+                yield Edge (connect ne nident None)
+                yield Node nident
                 yield! enodes
-                yield! bodyNodes
-            ]
-    constrainExp exp [] |> snd
+                yield! bodyNodes ]
+
+    generateGraph exp [] |> snd
+
+type ConnectedItem =
+    { indexedNode: IndexedNode
+      parents: ResizeArray<ConnectedItem>
+      children: ResizeArray<ConnectedItem> }
+
+let solve (graph: GraphItem list) =
+    let allEdges = Graph.getAllEdges graph
+    let allNodes = Graph.getAllNodes graph
+    let allVarNodes =
+        allNodes |> List.choose (fun x -> 
+            match x.n with 
+            | Var var -> Some {| i = x.i; var = var |} 
+            | _ -> None)
+    let connectedGraph =
+        let connectedIndexedItems =
+            allNodes  
+            |> List.map (fun x -> 
+                x.i, { indexedNode = x; parents = ResizeArray(); children = ResizeArray() })
+            |> dict
+        for edge in allEdges do
+            let connectedFrom = connectedIndexedItems.[edge.fromNode.i]
+            let connectedTo = connectedIndexedItems.[edge.toNode.i]
+            do
+                connectedFrom.children.Add connectedTo
+                connectedTo.children.Add connectedFrom
+        connectedIndexedItems.Values |> Seq.toList
+
+    let getOutgoingEdges node = allEdges |> List.filter (fun e -> e.fromNode = node)
+    let applyConstraint constr (edges: Edge list) = for e in edges do e.cachedConstr <- Some constr
+
+    let polyNodes =
+        let targets = allEdges |> List.map (fun e -> e.toNode)
+        Set.ofList allNodes - Set.ofList targets
+    
+    // constrain all poly nodes
+    for x in polyNodes do
+        let outgoingEdges = getOutgoingEdges x
+        match x.n with
+        | Source c -> applyConstraint c outgoingEdges
+        | Var var ->
+            let constr = CPoly [ var.tyvar ]
+            var.cachedConstr <- Some constr
+            applyConstraint constr outgoingEdges
+        | Op _ -> failwith "Operator node without incoming edges detected."
+
+    let visitedNodes = ResizeArray<int>()
+    let startNode =
+        connectedGraph
+        |> List.sortBy (fun x -> x.indexedNode.n)
+        |> List.head
+    startNode
+
+    // already visited and cannot do anything: ERROR
+
 
 module GraphVisu =
     open Visu
@@ -199,7 +258,7 @@ module GraphVisu =
                 |> fun s -> $"[\n{s} ]"
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
 
-    let flattenedAst (exp: Annotated<TExp>) =
+    let showAst (exp: Annotated<TExp>) =
         let rec flatten (node: TreeNode) =
             [
                 yield node
@@ -235,40 +294,36 @@ module GraphVisu =
                     (showTyvarAndEnv exp)
                     [ child1; child2 ]
 
-        createNodes exp |> flatten
-
-    let showAst (exp: Annotated<TExp>) =
-        flattenedAst exp |> createTree 
+        createNodes exp |> flatten |> writeTree
 
     let showConstraintGraph (items: GraphItem list) =
-        let allNodes =
-            items |> List.choose (fun x -> match x with | Node n -> Some n | _ -> None)
         let jsLinks =
             items
             |> List.choose (fun x -> match x with | Edge e -> Some e | _ -> None)
             |> List.map (fun edge ->
-                { from = fst edge.fromNode
-                  ``to`` = fst edge.toNode })
+                { from = edge.fromNode.i
+                  ``to`` = edge.toNode.i })
         let jsNodes =
-            allNodes |> List.map (fun (id,n) ->
-                match n with
+            Graph.getAllNodes items |> List.map (fun x ->
+                match x.n with
                 | Source constr ->
-                    { key = id
+                    { key = x.i
                       name = "SOURCE"
                       desc = string constr
                       fig = NodeTypes.op }
                 | Var var ->
-                    { key = id
+                    { key = x.i
                       name = string var.tyvar
                       desc = string var.cachedConstr
                       fig = NodeTypes.var }
-                | Op x ->
-                    { key = id
-                      name = string x
+                | Op op ->
+                    { key = x.i
+                      name = string op
                       desc = ""
                       fig = NodeTypes.op }
             )
-        createGraph jsNodes jsLinks Layouts.graph
+
+        writeGraph jsNodes jsLinks Layouts.graph
 
 
 
@@ -298,6 +353,10 @@ let showConstraintGraph exp =
     annotate env exp 
     |> createConstraintGraph
     |> GraphVisu.showConstraintGraph
+let showSolved exp =
+    annotate env exp 
+    |> createConstraintGraph
+    |> solve
 
 let idExp = EFun("x", EVar "x")
 
@@ -317,7 +376,9 @@ ELet("f", idExp,
 )))
 //|> annotate env |> createConstraintGraph
 //|> showAst
-|> showConstraintGraph
+|> showSolved
+
+idExp |> showSolved
 
 
 //showAnnotated idExp
