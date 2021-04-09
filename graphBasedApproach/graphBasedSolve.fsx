@@ -11,25 +11,20 @@ type Exp =
     | ELet of string * Exp * Exp
 
 type TyVar = int
-
 type Ident = string
+type Env = Map<Ident, TyVar>
 
 type Annotated<'var, 'expr> =
     { annotated: 'expr
-      tvar: 'var }
+      tyvar: 'var
+      env: Env }
 
 type TExp =
     | TELit of Lit
     | TEVar of Ident
     | TEApp of Annotated<TyVar, TExp> * Annotated<TyVar, TExp>
-    | TEFun of Annotated<TyVar, Ident> * Annotated<TyVar, TExp> // TODO: Wieso hier IdentAnno und nicht nur Ident?
+    | TEFun of Annotated<TyVar, Ident> * Annotated<TyVar, TExp>
     | TELet of Ident * Annotated<TyVar, TExp> * Annotated<TyVar, TExp>
-
-type Constraint =
-    | Class of {| name: string; constraints: Constraint list |}
-    | Func of Constraint * Constraint
-    
-type Env = Map<Ident, TyVar>
 
 module Env =
     let empty : Env = Map.empty
@@ -41,69 +36,142 @@ module Env =
         | Some t -> t
 
 module Infer =
-    type Newvar() =
+    type private Newvar() =
         let mutable varCounter = -1
         member this.fresh() =
             varCounter <- varCounter + 1
             varCounter
 
-    let annoExp (newvar: Newvar) (exp: Exp) =
-        let rec annoExp (exp: Exp) =
-            let thisVar = newvar.fresh()
-            let texp =
-                match exp with
-                | ELit x ->
-                    TELit x
-                | EVar ident ->
-                    TEVar ident
-                | EApp (e1, e2) ->
-                    TEApp (annoExp e1, annoExp e2)
-                | EFun (ident, body) ->
-                    let annotatedIdent = { annotated = ident; tvar = newvar.fresh() }
-                    TEFun (annotatedIdent, annoExp body)
-                | ELet (ident, e, body) ->
-                    TELet (ident, annoExp e, annoExp body)
-            { annotated = texp
-              tvar = thisVar }
-        annoExp exp
+    let annoExp (env: Env) (exp: Exp) =
+        let newvar = Newvar()
+        let rec annoExp (env: Env) (exp: Exp) =
+            { tyvar = newvar.fresh()
+              annotated =
+                  match exp with
+                  | ELit x ->
+                      TELit x
+                  | EVar ident ->
+                      TEVar ident
+                  | EApp (e1, e2) ->
+                      TEApp (annoExp env e1, annoExp env e2)
+                  | EFun (ident, body) ->
+                      let tyvarIdent = newvar.fresh()
+                      let newEnv = env |> Env.bind ident tyvarIdent
+                      let annotatedIdent = { annotated = ident; tyvar = tyvarIdent; env = env }
+                      TEFun (annotatedIdent, annoExp newEnv body)
+                  | ELet (ident, e, body) ->
+                      let newEnv = env |> Env.bind ident (newvar.fresh())
+                      TELet (ident, annoExp env e, annoExp newEnv body)
+              env = env }
+        annoExp Env.empty exp
 
-module Graph =
+    type Constraint =
+        | CAny
+        | CBaseType of string
+        | CFun of Constraint * Constraint
+    
+    type GraphNode =
+        { tyvar: TyVar
+          inputs: ResizeArray<Constraint> }
+
+    //let constrainExp (annoExp: Annotated<TyVar, TExp>) =
+    //    let nodes = ResizeArray<GraphNode>()
+    //    let rec constrainExp (annoExp: Annotated<TyVar, TExp>) =
+    //        match annoExp.annotated with
+    //        | TELit x ->
+    //            let node =
+    //                let constraints = [ CBaseType x.typeName ]
+    //                { tyvar = annoExp.tyvar
+    //                  inputs = ResizeArray(constraints) }
+    //            nodes.Add node
+    //            node
+    //        | TEVar ident ->
+    //            let node =
+    //                { tyvar = annoExp.tyvar
+    //                  inputs = ResizeArray() }
+    //            nodes.Add node
+    //            node
+    //        | TEApp (e1, e2) ->
+    //            let c1 = constrainExp e1
+    //            let c2 = constrainExp e2
+                
+    //            c1.inputs.Add (CFun ())
+
+    //            let node =
+    //                let constraints = [
+    //                ]
+    //                { tyvar = annoExp.tyvar
+    //                  inputs = ResizeArray() }
+    //            nodes.Add node
+                
+    //            Node.var $"App" (showTyvar annoExp.tyvar) [ child1; child2 ]
+    //        | TEFun (ident, body) ->
+    //            let newEnv = env |> Env.bind ident.annotated ident.tyvar
+    //            let child = createNodes newEnv body
+
+    //            Node.var
+    //                $"fun ({ident.annotated}{showTyvar ident.tyvar}) -> [e{showTyvar body.tyvar}]"
+    //                (showTyvar annoExp.tyvar)
+    //                [child]
+    //        | TELet (ident, e, body) ->
+    //            let child1 = createNodes env e
+
+    //            let newEnv = env |> Env.bind ident e.tyvar
+    //            let child2 = createNodes newEnv body
+
+    //            Node.var
+    //                $"let {ident} = [e1{showTyvar e.tyvar}] in [e2{showTyvar body.tyvar}]"
+    //                (showTyvar annoExp.tyvar)
+    //                [ child1; child2 ]
+
+
+module Show =
     open Visu
 
-    let showAnnotated (env: Env) (annoExp: Annotated<TyVar, TExp>) =
-        let showTvar (tvar: TyVar) = $": {tvar}"
-        let rec createNodes (env: Env)  (annoExp: Annotated<TyVar, TExp>) =
+    let annotated (annoExp: Annotated<TyVar, TExp>) =
+        let showTyvar (ident: string) (tyvar: TyVar) =
+            $"{{{ident}: {tyvar}}}"
+
+        let showTyvarAndEnv annoExp =
+            let envVars =
+                match annoExp.env |> Map.toList with
+                | [] -> "[ ]"
+                | [(ident, tyvar)] -> $"[ {showTyvar ident tyvar} ]"
+                | _ ->
+                    [ for x in annoExp.env do $"-  {showTyvar x.Key x.Value}" ]
+                    |> String.concat "\n"
+                    |> fun s -> $"[\n{s} ]"
+            ($"var = {annoExp.tyvar}") + "\nenv = " + envVars
+        
+        let rec createNodes (annoExp: Annotated<TyVar, TExp>) =
             match annoExp.annotated with
             | TELit x ->
-                Node.var $"Lit ({x.value}:{x.typeName})" (showTvar annoExp.tvar) []
+                Node.var $"Lit ({x.value}: {x.typeName})" (showTyvarAndEnv annoExp) []
             | TEVar ident ->
-                let tyvar = Env.resolve ident env                
-                Node.var $"Var ({ident}{showTvar tyvar})" (showTvar annoExp.tvar) []
+                let tyvar = Env.resolve ident annoExp.env                
+                Node.var $"Var {showTyvar ident tyvar}" (showTyvarAndEnv annoExp) []
             | TEApp (e1, e2) ->
-                let child1 = createNodes env e1
-                let child2 = createNodes env e2
+                let child1 = createNodes e1
+                let child2 = createNodes e2
                 
-                Node.var $"App" (showTvar annoExp.tvar) [ child1; child2 ]
+                Node.var $"App" (showTyvarAndEnv annoExp) [ child1; child2 ]
             | TEFun (ident, body) ->
-                let newEnv = env |> Env.bind ident.annotated ident.tvar
-                let child = createNodes newEnv body
+                let child = createNodes body
 
                 Node.var
-                    $"fun ({ident.annotated}{showTvar ident.tvar}) -> [e{showTvar body.tvar}]"
-                    (showTvar annoExp.tvar)
+                    $"""fun {showTyvar ident.annotated ident.tyvar} -> {showTyvar "e" body.tyvar}"""
+                    (showTyvarAndEnv annoExp)
                     [child]
             | TELet (ident, e, body) ->
-                let child1 = createNodes env e
-
-                let newEnv = env |> Env.bind ident e.tvar
-                let child2 = createNodes newEnv body
+                let child1 = createNodes e
+                let child2 = createNodes body
 
                 Node.var
-                    $"let {ident} = [e1{showTvar e.tvar}] in [e2{showTvar body.tvar}]"
-                    (showTvar annoExp.tvar)
+                    $"""let {ident} = {showTyvar "e1" e.tyvar} in {showTyvar "e2" body.tyvar}"""
+                    (showTyvarAndEnv annoExp)
                     [ child1; child2 ]
 
-        let node = createNodes env annoExp
+        let node = createNodes annoExp
         let flattened =
             let rec flatten (node: Node) =
                 [
@@ -140,8 +208,8 @@ module Dsl =
 let env = Env.empty
 
 let showAnnotated exp =
-    Infer.annoExp (Infer.Newvar()) exp
-    |> Graph.showAnnotated env
+    Infer.annoExp env exp
+    |> Show.annotated
 
 let idExp = EFun("x", EVar "x")
 

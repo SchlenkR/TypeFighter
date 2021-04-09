@@ -1,75 +1,75 @@
 window.nodeDataArray = [
   {
-    "desc": ": 0",
+    "desc": "var = 0\nenv = [ ]",
     "fig": "Rectangle",
     "key": 0,
-    "name": "let f = [e1: 1] in [e2: 4]"
+    "name": "let f = {e1: 2} in {e2: 5}"
   },
   {
-    "desc": ": 1",
+    "desc": "var = 2\nenv = [ ]",
     "fig": "Rectangle",
     "key": 1,
-    "name": "fun (x: 2) -> [e: 3]"
+    "name": "fun {x: 3} -> {e: 4}"
   },
   {
-    "desc": ": 3",
+    "desc": "var = 4\nenv = [ {x: 3} ]",
     "fig": "Rectangle",
     "key": 2,
-    "name": "Var (x: 2)"
+    "name": "Var {x: 3}"
   },
   {
-    "desc": ": 4",
+    "desc": "var = 5\nenv = [ {f: 1} ]",
     "fig": "Rectangle",
     "key": 3,
-    "name": "let res1 = [e1: 5] in [e2: 8]"
+    "name": "let res1 = {e1: 7} in {e2: 10}"
   },
   {
-    "desc": ": 5",
+    "desc": "var = 7\nenv = [ {f: 1} ]",
     "fig": "Rectangle",
     "key": 4,
     "name": "App"
   },
   {
-    "desc": ": 6",
+    "desc": "var = 8\nenv = [ {f: 1} ]",
     "fig": "Rectangle",
     "key": 5,
-    "name": "Var (f: 1)"
+    "name": "Var {f: 1}"
   },
   {
-    "desc": ": 7",
+    "desc": "var = 9\nenv = [ {f: 1} ]",
     "fig": "Rectangle",
     "key": 6,
-    "name": "Lit (99:Int)"
+    "name": "Lit (99: Int)"
   },
   {
-    "desc": ": 8",
+    "desc": "var = 10\nenv = [\n-  {f: 1}\n-  {res1: 6} ]",
     "fig": "Rectangle",
     "key": 7,
-    "name": "let res2 = [e1: 9] in [e2: 12]"
+    "name": "let res2 = {e1: 12} in {e2: 15}"
   },
   {
-    "desc": ": 9",
+    "desc": "var = 12\nenv = [\n-  {f: 1}\n-  {res1: 6} ]",
     "fig": "Rectangle",
     "key": 8,
     "name": "App"
   },
   {
-    "desc": ": 10",
+    "desc": "var = 13\nenv = [\n-  {f: 1}\n-  {res1: 6} ]",
     "fig": "Rectangle",
     "key": 9,
-    "name": "Var (f: 1)"
+    "name": "Var {f: 1}"
   },
   {
-    "desc": ": 11",
+    "desc": "var = 14\nenv = [\n-  {f: 1}\n-  {res1: 6} ]",
     "fig": "Rectangle",
     "key": 10,
-    "name": "Lit (HelloWorld:String)"
+    "name": "Lit (HelloWorld: String)"
   },
   {
-    "desc": ": 12",
+    "desc": "var = 15\nenv = [\n-  {f: 1}\n-  {res1: 6}\n-  {res2: 11} ]",
     "fig": "Rectangle",
     "key": 11,
-    "name": "Var (res2: 9)"
+    "name": "Var {res2: 11}"
   }
 ]; 
 

@@ -57,12 +57,18 @@
                                 alignment: go.Spot.Center,
                                 font: "bold 12pt sans-serif"
                             },
-                            new go.Binding("height", "name", function(x) {
+                            new go.Binding("height", "name", function (x) {
                                 if (x === "") return 0;
-                                return undefined;
+                                else return undefined;
                             }),
                             new go.Binding("text", "name")),
-                        $(go.TextBlock, { row: 1 },
+                        $(go.TextBlock,
+                            {
+                                row: 1,
+                                font: "10pt Consolas",
+                                spacingAbove: 2,
+                                spacingBelow: 2
+                            },
                             new go.Binding("text", "desc"))
                     )
                 );
