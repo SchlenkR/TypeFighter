@@ -4,139 +4,139 @@ window.nodeDataArray = [
   {
     "key": -23,
     "name": "1",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -1,
     "name": "2",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -2,
     "name": "4",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -4,
     "name": "3",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -3,
     "name": "5",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -5,
     "name": "MakeFunc",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Ellipse"
   },
   {
     "key": -22,
     "name": "6",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -6,
     "name": "7",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -7,
     "name": "9",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -8,
     "name": "10",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -9,
     "name": "SOURCE",
-    "desc": "CBaseType \"Int\"",
+    "desc": "c = CBaseType \"Int\"",
     "fig": "Ellipse"
   },
   {
     "key": -10,
     "name": "8",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -11,
     "name": "MakeFunc",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Ellipse"
   },
   {
     "key": -12,
     "name": "ApplyFunc",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Ellipse"
   },
   {
     "key": -21,
     "name": "11",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -13,
     "name": "12",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -14,
     "name": "14",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -15,
     "name": "15",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -16,
     "name": "SOURCE",
-    "desc": "CBaseType \"String\"",
+    "desc": "c = CBaseType \"String\"",
     "fig": "Ellipse"
   },
   {
     "key": -17,
     "name": "13",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   },
   {
     "key": -18,
     "name": "MakeFunc",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Ellipse"
   },
   {
     "key": -19,
     "name": "ApplyFunc",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Ellipse"
   },
   {
     "key": -20,
     "name": "16",
-    "desc": "",
+    "desc": "c = ()",
     "fig": "Rectangle"
   }
 ];

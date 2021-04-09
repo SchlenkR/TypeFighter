@@ -68,17 +68,16 @@ type Constraint =
     | CBaseType of string
     | CFun of Constraint * Constraint
     
-type Var =
-    { tyvar: TyVar
-      mutable constr: Constraint option }
 type Op =
     | MakeFunc
     | ApplyFunc
 type Node =
     | Source of Constraint
-    | Var of Var
+    | Var of TyVar
     | Op of Op
-type IndexedNode = { i: int; n: Node }
+type IndexedNode =
+    { i: int
+      n: Node }
 type Edge =
     { fromNode: IndexedNode
       toNode: IndexedNode }
@@ -89,6 +88,7 @@ type GraphItem =
 type [<ReferenceEquality>] ConnectedNode =
     { i: int
       n: Node
+      mutable constr: Constraint option
       incoming: ResizeArray<ConnectedEdge>
       outgoing: ResizeArray<ConnectedEdge> }
 and [<ReferenceEquality>] ConnectedEdge =
@@ -108,6 +108,7 @@ module Graph =
                 let connectedItem =
                     { i = x.i
                       n = x.n
+                      constr = None
                       incoming = ResizeArray()
                       outgoing = ResizeArray() }
                 (x.i, connectedItem))
@@ -126,17 +127,15 @@ module Graph =
 
 let createConstraintGraph (exp: Annotated<TExp>) =
     let nextId = Incr((-)).next
-    let withId x = { i = nextId(); n = x }
-    let makeVarNode (tyvar: TyVar) =
-        let node = { tyvar = tyvar; constr = None }
-        let nodei = withId (Var node)
-        nodei
+    let makeNode x = { i = nextId(); n = x; }
+    let makeVarNode (tyvar: TyVar) = makeNode (Var tyvar)
     let makeSourceNode (tyname: string) =
-        Source (CBaseType tyname) |> withId
+        makeNode (Source (CBaseType tyname))
+    let makeOpNode op = makeNode (Op op)
     let connect a b = { fromNode = a; toNode = b }
     let makeFunction n1 n2 ntarget =
         [
-            let nfunc = Op MakeFunc |> withId
+            let nfunc = makeOpNode MakeFunc
 
             let e1func = connect n1 nfunc
             let e2func = connect n2 nfunc
@@ -149,7 +148,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
         ]
     let applyFunction nsource ntarget =
         [
-            let nfunc = Op ApplyFunc |> withId
+            let nfunc = makeOpNode ApplyFunc
 
             let esourcefunc = connect nsource nfunc
             let efunctarget = connect nfunc ntarget
@@ -161,7 +160,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
     let findNode (tyvar: TyVar) (allNodes: IndexedNode list) =
         allNodes |> List.find (fun x ->
             match x.n with 
-            | Var var when var.tyvar = tyvar -> true
+            | Var x when x = tyvar -> true
             | _ -> false)
     let rec generateGraph (exp: Annotated<TExp>) (allNodes: IndexedNode list) =
         match exp.annotated with
@@ -237,9 +236,9 @@ let solve (graph: GraphItem list) =
         let outgoingEdges = x.outgoing
         match x.n with
         | Source c -> applyConstraint c outgoingEdges
-        | Var var ->
-            let constr = CPoly [ var.tyvar ]
-            var.constr <- Some constr
+        | Var tyvar ->
+            let constr = CPoly [ tyvar ]
+            x.constr <- Some constr
             applyConstraint constr outgoingEdges
         | Op _ -> failwith "Operator node without incoming edges detected."
 
@@ -255,7 +254,6 @@ module GraphVisu =
 
     let showTyvar (ident: string) (tyvar: TyVar) =
         $"{{{ident} : {tyvar}}}"
-
     let showTyvarAndEnv exp =
         let envVars =
             match exp.env |> Map.toList with
@@ -320,15 +318,15 @@ module GraphVisu =
                       name = "SOURCE"
                       desc = string constr
                       layout = NodeTypes.op }
-                | Var var ->
+                | Var tyvar ->
                     { key = x.i
-                      name = string var.tyvar
-                      desc = string var.constr
+                      name = string tyvar
+                      desc = "()"
                       layout = NodeTypes.var }
                 | Op op ->
                     { key = x.i
                       name = string op
-                      desc = ""
+                      desc = "()"
                       layout = NodeTypes.op } )
 
         writeGraph jsNodes jsLinks Layouts.graph
@@ -356,7 +354,8 @@ module Dsl =
 let env = Env.empty
 
 let showAst exp = 
-    annotate env exp |> GraphVisu.showAst
+    annotate env exp
+    |> GraphVisu.showAst
 let showConstraintGraph exp =
     annotate env exp 
     |> createConstraintGraph
@@ -384,9 +383,10 @@ ELet("f", idExp,
 )))
 //|> annotate env |> createConstraintGraph
 //|> showAst
-|> showSolved
+|> showConstraintGraph
+//|> showSolved
 
-idExp |> showSolved
+//idExp |> showSolved
 
 
 //showAnnotated idExp
