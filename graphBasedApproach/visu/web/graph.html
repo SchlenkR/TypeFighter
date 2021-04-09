@@ -22,15 +22,32 @@
         function init() {
             var $ = go.GraphObject.make; // for conciseness in defining templates
 
+            var getLayout = function() {
+                if (window.layout === "graph") {
+                    return $(go.ForceDirectedLayout);
+                } else {
+                    return $(go.TreeLayout,
+                        {
+                            angle: 90
+                        });
+                }
+            }
+
             var myDiagram =
                 $(go.Diagram,
                     "myDiagramDiv", // must be the ID or reference to div
                     {
-                        layout: $(go.TreeLayout,
-                            {
-                                angle: 90
-                            })
+                        layout: getLayout()
                     });
+
+            var hideWhenEmpty = function(prop) {
+                return new go.Binding("height",
+                    prop,
+                    function(x) {
+                        if (x === "") return 0;
+                        else return undefined;
+                    });
+            };
 
             myDiagram.nodeTemplate =
                 $(go.Node, "Auto",
@@ -57,10 +74,7 @@
                                 alignment: go.Spot.Center,
                                 font: "bold 12pt sans-serif"
                             },
-                            new go.Binding("height", "name", function (x) {
-                                if (x === "") return 0;
-                                else return undefined;
-                            }),
+                            hideWhenEmpty("name"),
                             new go.Binding("text", "name")),
                         $(go.TextBlock,
                             {
@@ -69,6 +83,7 @@
                                 spacingAbove: 2,
                                 spacingBelow: 2
                             },
+                            hideWhenEmpty("desc"),
                             new go.Binding("text", "desc"))
                     )
                 );
