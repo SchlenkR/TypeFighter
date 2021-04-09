@@ -87,15 +87,13 @@ type GraphItem =
     | Edge of Edge
 
 let createConstraintGraph (exp: Annotated<TExp>) =
-    let allNodes = System.Collections.Generic.Dictionary<TyVar, IndexedNode>()
     let nextId = Incr((-)).next
     let withId x = (nextId(), x)
-    let addVarNode (tyvar: TyVar) =
+    let makeVarNode (tyvar: TyVar) =
         let node = { tyvar = tyvar; cachedConstr = None }
         let nodei = withId (Var node)
-        allNodes.Add(tyvar, nodei)
         nodei
-    let addSourceNode (tyname: string) =
+    let makeSourceNode (tyname: string) =
         Source (CBaseType tyname) |> withId
     let connect a b c =
         { fromNode = a; toNode = b; cachedConstr = c }
@@ -123,71 +121,66 @@ let createConstraintGraph (exp: Annotated<TExp>) =
             yield Edge esourcefunc
             yield Edge efunctarget
         ]
-    let rec constrainExp (exp: Annotated<TExp>) =
-        [
-            match exp.annotated with
-            | TELit x ->
-                let node = addVarNode exp.tyvar
-                let nsource = addSourceNode x.typeName
-                let edge = connect nsource node None
 
+    let findNode (tyvar: TyVar) (allNodes: IndexedNode list) =
+        allNodes |> List.find (fun ix ->
+            match snd ix with 
+            | Var var when var.tyvar = tyvar -> true
+            | _ -> false)
+
+    let rec constrainExp (exp: Annotated<TExp>) (allNodes: IndexedNode list) =
+        match exp.annotated with
+        | TELit x ->
+            let node = makeVarNode exp.tyvar
+            let nsource = makeSourceNode x.typeName
+            let edge = connect nsource node None
+            node, [
                 yield Node node
                 yield Node nsource
-                yield Edge edge
-            | TEVar ident ->
-                let node = addVarNode exp.tyvar
-                
-                // there has to be a node in the allNodes
-                let edge =
-                    let tyvarIdent = exp.env |> Env.resolve ident
-                    connect allNodes.[tyvarIdent] node None
-                
+                yield Edge edge ]
+        | TEVar ident ->
+            let node = makeVarNode exp.tyvar
+            let edge =
+                let tyvarIdent = exp.env |> Env.resolve ident
+                connect (findNode tyvarIdent allNodes) node None
+            node, [ 
                 yield Node node
-                yield Edge edge
-            | TEApp (e1, e2) ->
-                yield! constrainExp e1
-                yield! constrainExp e2
-
-                let ne1 = allNodes.[e1.tyvar]
-                let ne2 = allNodes.[e2.tyvar]
-
-                let node = addVarNode exp.tyvar
+                yield Edge edge ]
+        | TEApp (e1, e2) ->
+            let ne1, e1Nodes = constrainExp e1 allNodes
+            let ne2, e2Nodes = constrainExp e2 allNodes
+            let node = makeVarNode exp.tyvar
+            node, [
+                yield! e1Nodes
+                yield! e2Nodes
                 yield Node node
-
                 yield! makeFunction ne2 node ne1
-                yield! applyFunction ne1 node
-            | TEFun (ident, body) ->
-                let nident = addVarNode ident.tyvar
+                yield! applyFunction ne1 node ]
+        | TEFun (ident, body) ->
+            let nident = makeVarNode ident.tyvar
+            let nbody,bodyNodes = constrainExp body (nident :: allNodes)
+            let node = makeVarNode exp.tyvar
+            node, [
                 yield Node nident
-                
-                yield! constrainExp body
-
-                let nbody = allNodes.[body.tyvar]
-
-                let node = addVarNode exp.tyvar
                 yield Node node
-
+                yield! bodyNodes
                 yield! makeFunction nident nbody node
-            | TELet (ident, e, body) ->
-                let nident = body.env |> Env.resolve ident |> addVarNode
-                yield Node nident
-
-                yield! constrainExp e
-                yield! constrainExp body
-
-                let ne = allNodes.[e.tyvar]
-                let nbody = allNodes.[body.tyvar]
-
-                let node = addVarNode exp.tyvar
-
-                let ebodynode = connect nbody node None
-                let eeident = connect ne nident None
-
-                yield Node node
-                yield Edge ebodynode
-                yield Edge eeident
             ]
-    constrainExp exp
+        | TELet (ident, e, body) ->
+            let nident = body.env |> Env.resolve ident |> makeVarNode
+            let allNodes = nident :: allNodes
+            let ne, enodes = constrainExp e allNodes
+            let nbody, bodyNodes =  constrainExp body allNodes
+            let node = makeVarNode exp.tyvar
+            node, [
+                Node node
+                Edge (connect nbody node None)
+                Edge (connect ne nident None)
+                Node nident
+                yield! enodes
+                yield! bodyNodes
+            ]
+    constrainExp exp [] |> snd
 
 module GraphVisu =
     open Visu
@@ -303,7 +296,7 @@ let showAst exp =
     annotate env exp |> GraphVisu.showAst
 let showConstraintGraph exp =
     annotate env exp 
-    |> createConstraintGraph 
+    |> createConstraintGraph
     |> GraphVisu.showConstraintGraph
 
 let idExp = EFun("x", EVar "x")
