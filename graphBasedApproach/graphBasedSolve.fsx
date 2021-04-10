@@ -134,11 +134,14 @@ type [<ReferenceEquality>] ConnectedNode =
       mutable constr: Constraint option
       incoming: ResizeArray<ConnectedEdge>
       outgoing: ResizeArray<ConnectedEdge> }
+
 and [<ReferenceEquality>] ConnectedEdge =
     { mutable constr: Constraint option
       fromNode: ConnectedNode
       toNode: ConnectedNode }
+
 and ConnectedGraph(graph: GraphItem list) =
+    let removedNodesList = ResizeArray<ConnectedNode>()
     let nodesList = 
         let edges = Graph.getEdges graph
         let nodes = Graph.getNodes graph
@@ -162,23 +165,28 @@ and ConnectedGraph(graph: GraphItem list) =
                 toNode.incoming.Add edge
             //yield connectedEdge ]
         ResizeArray connectedNodesLookup.Values
-    member this.nodes = nodesList
-    member this.getVarNodes() =
+    member _.nodes = nodesList.AsReadOnly()
+    member _.removedNodes = removedNodesList.AsReadOnly()
+    member _.getVarNodes() =
         nodesList |> Seq.choose (fun x -> 
             match x.n with 
             | Var var -> Some {| x with var = var |}
             | _ -> None)
-    member this.getPolyNodes() =
+    member _.getPolyNodes() =
         nodesList |> Seq.filter (fun n -> n.incoming.Count = 0)
     member this.getRootNode() =
         this.getVarNodes() |> Seq.sortBy (fun x -> x.var) |> Seq.head
-    member this.remove (node: ConnectedNode) =
-        if node.outgoing.Count > 0 then failwith "can only remove sinks"
+    member _.remove (node: ConnectedNode) =
+        if node.outgoing.Count > 0
+            then failwith "can only remove sinks"
         nodesList.RemoveSafe node
-        [ for incomingEdge in node.incoming do
-            let incomingNode = incomingEdge.fromNode
-            incomingNode.outgoing.RemoveSafe incomingEdge
-            yield incomingNode ]
+        removedNodesList.Add node
+        let affectedNodes =
+            [ for incomingEdge in node.incoming do
+                let incomingNode = incomingEdge.fromNode
+                incomingNode.outgoing.RemoveSafe incomingEdge
+                yield incomingNode ]
+        {| affectedNodes = affectedNodes |}
 
 let createConstraintGraph (exp: Annotated<TExp>) =
     let rec generateGraph (exp: Annotated<TExp>) (allNodes: Node list) =
@@ -251,11 +259,17 @@ let solve (unconnectedNodes: GraphItem list) =
 
     // Nodes that have no outgoing edges (except for the root node) can be ignored:
     // Remove them (recursively) from the graph.
-    let removeSinks (nodes: ConnectedNode seq) =
-        let sinks = nodes |> Seq.filter (fun n -> n.outgoing.Count = 0) |> Seq.toList
-        for s in sinks do
+    let rec removeSinks (nodes: ConnectedNode seq) =
+        let sinks =
+            nodes 
+            |> Seq.filter (fun n -> n.outgoing.Count = 0) 
+            |> Seq.toList
+        [ for s in sinks do
             printfn $"Removing: {s}"
-            graph.remove s |> ignore
+            yield! (graph.remove s).affectedNodes ]
+        |> List.distinct
+        |> removeSinks
+        
     removeSinks graph.nodes
 
     // already visited and cannot do anything: ERROR
@@ -352,7 +366,6 @@ module GraphVisu =
             ]
 
         writeGraph jsNodes jsLinks Layouts.graph
-
 
 
 
