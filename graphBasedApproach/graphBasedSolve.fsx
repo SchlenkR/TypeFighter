@@ -100,6 +100,40 @@ and [<ReferenceEquality>] ConnectedEdge =
       toNode: ConnectedNode }
 
 module Graph =
+    let makeNode id x = { i = id; n = x; }
+    let makeVarNode id (tyvar: TyVar) = makeNode id (Var tyvar)
+    let makeSourceNode id (tyname: string) = makeNode id (Source (CBaseType tyname))
+    let makeOpNode id op = makeNode id (Op op)
+    let connect a b = { fromNode = a; toNode = b }
+    let makeFuncNode id n1 n2 ntarget =
+        [
+            let nfunc = makeOpNode id MakeFunc
+
+            let e1func = connect n1 nfunc
+            let e2func = connect n2 nfunc
+            let efunctarget = connect nfunc ntarget
+
+            yield Node nfunc
+            yield Edge e1func
+            yield Edge e2func
+            yield Edge efunctarget
+        ]
+    let makeApplyFuncNode id nsource ntarget =
+        [
+            let nfunc = makeOpNode id ApplyFunc
+
+            let esourcefunc = connect nsource nfunc
+            let efunctarget = connect nfunc ntarget
+
+            yield Node nfunc
+            yield Edge esourcefunc
+            yield Edge efunctarget
+        ]
+    let findNode (tyvar: TyVar) (allNodes: IndexedNode list) =
+        allNodes |> List.find (fun x ->
+            match x.n with 
+            | Var x when x = tyvar -> true
+            | _ -> false)
     let getAllNodes (items: GraphItem list) =
         items |> List.choose (fun x -> match x with | Node x -> Some x | _ -> None)
     let getAllEdges (items: GraphItem list) =
@@ -130,88 +164,54 @@ module Graph =
 
 let createConstraintGraph (exp: Annotated<TExp>) =
     let nextId = Count.down()
-    let makeNode x = { i = nextId(); n = x; }
-    let makeVarNode (tyvar: TyVar) = makeNode (Var tyvar)
-    let makeSourceNode (tyname: string) =
-        makeNode (Source (CBaseType tyname))
-    let makeOpNode op = makeNode (Op op)
-    let connect a b = { fromNode = a; toNode = b }
-    let makeFunction n1 n2 ntarget =
-        [
-            let nfunc = makeOpNode MakeFunc
 
-            let e1func = connect n1 nfunc
-            let e2func = connect n2 nfunc
-            let efunctarget = connect nfunc ntarget
-
-            yield Node nfunc
-            yield Edge e1func
-            yield Edge e2func
-            yield Edge efunctarget
-        ]
-    let applyFunction nsource ntarget =
-        [
-            let nfunc = makeOpNode ApplyFunc
-
-            let esourcefunc = connect nsource nfunc
-            let efunctarget = connect nfunc ntarget
-
-            yield Node nfunc
-            yield Edge esourcefunc
-            yield Edge efunctarget
-        ]
-    let findNode (tyvar: TyVar) (allNodes: IndexedNode list) =
-        allNodes |> List.find (fun x ->
-            match x.n with 
-            | Var x when x = tyvar -> true
-            | _ -> false)
     let rec generateGraph (exp: Annotated<TExp>) (allNodes: IndexedNode list) =
         match exp.annotated with
         | TELit x ->
-            let node = makeVarNode exp.tyvar
-            let nsource = makeSourceNode x.typeName
-            let edge = connect nsource node
+            let node = Graph.makeVarNode (nextId()) exp.tyvar
+            let nsource = Graph.makeSourceNode (nextId()) x.typeName
+            let edge = Graph.connect nsource node
             node, [
                 yield Node node
                 yield Node nsource
                 yield Edge edge ]
         | TEVar ident ->
-            let node = makeVarNode exp.tyvar
+            let node = Graph.makeVarNode (nextId()) exp.tyvar
             let edge =
                 let tyvarIdent = exp.env |> Env.resolve ident
-                connect (findNode tyvarIdent allNodes) node
+                Graph.connect (Graph.findNode tyvarIdent allNodes) node
             node, [ 
                 yield Node node
                 yield Edge edge ]
         | TEApp (e1, e2) ->
             let ne1, e1Nodes = generateGraph e1 allNodes
             let ne2, e2Nodes = generateGraph e2 allNodes
-            let node = makeVarNode exp.tyvar
+            let node = Graph.makeVarNode (nextId()) exp.tyvar
             node, [
                 yield! e1Nodes
                 yield! e2Nodes
                 yield Node node
-                yield! makeFunction ne2 node ne1
-                yield! applyFunction ne1 node ]
+                yield! Graph.makeFuncNode (nextId()) ne2 node ne1
+                yield! Graph.makeApplyFuncNode (nextId()) ne1 node ]
         | TEFun (ident, body) ->
-            let nident = makeVarNode ident.tyvar
+            let nident = Graph.makeVarNode (nextId()) ident.tyvar
             let nbody,bodyNodes = generateGraph body (nident :: allNodes)
-            let node = makeVarNode exp.tyvar
+            let node = Graph.makeVarNode (nextId()) exp.tyvar
             node, [
                 yield Node nident
                 yield Node node
                 yield! bodyNodes
-                yield! makeFunction nident nbody node ]
+                yield! Graph.makeFuncNode (nextId()) nident nbody node ]
         | TELet (ident, e, body) ->
-            let nident = body.env |> Env.resolve ident |> makeVarNode
+            let nident = body.env |> Env.resolve ident |> Graph.makeVarNode (nextId())
             let allNodes = nident :: allNodes
             let ne, enodes = generateGraph e allNodes
             let nbody, bodyNodes =  generateGraph body allNodes
-            let node = makeVarNode exp.tyvar
+            let node = Graph.makeVarNode (nextId()) exp.tyvar
             node, [
                 yield Node node
-                yield Edge (connect nbody node)
-                yield Edge (connect ne nident)
+                yield Edge (Graph.connect nbody node)
+                yield Edge (Graph.connect ne nident)
                 yield Node nident
                 yield! enodes
                 yield! bodyNodes ]
@@ -234,21 +234,23 @@ let solve (graph: GraphItem list) =
         for e in edges do
             e.constr <- Some constr
     
-    // constrain all poly nodes
-    for x in allPolyNodes do
-        let outgoingEdges = x.outgoing
-        match x.n with
-        | Source c -> applyConstraint c outgoingEdges
-        | Var tyvar ->
-            let constr = CPoly [ tyvar ]
-            x.constr <- Some constr
-            applyConstraint constr outgoingEdges
-        | Op _ -> failwith "Operator node without incoming edges detected."
+    //// constrain all poly nodes
+    //for x in allPolyNodes do
+    //    let outgoingEdges = x.outgoing
+    //    match x.n with
+    //    | Source c -> applyConstraint c outgoingEdges
+    //    | Var tyvar ->
+    //        let constr = CPoly [ tyvar ]
+    //        x.constr <- Some constr
+    //        applyConstraint constr outgoingEdges
+    //    | Op _ -> failwith "Operator node without incoming edges detected."
 
-    let visitedNodes = ResizeArray<int>()
-    let startNode = connectedNodes |> List.sortBy (fun x -> x.n) |> List.head
-    startNode
+    let rootNode = connectedNodes |> List.sortBy (fun x -> x.n) |> List.head
+    rootNode
 
+    // - Nodes with no incoming edges are forall constrained
+    // - Nodes that have no outgoing edges (except for the root node) can be ignored
+    //   - OPT: They can be removed (recursively) from the graph
     // already visited and cannot do anything: ERROR
 
 
