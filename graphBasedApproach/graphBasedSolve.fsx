@@ -221,8 +221,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
 let solve (graph: GraphItem list) =
     let allEdges = Graph.getAllEdges graph
     let allNodes = Graph.getAllNodes graph
-    let connectedNodes,connectedEdges =
-        Graph.toConnectedGraph allNodes allEdges
+    let connectedNodes = Graph.toConnectedGraph allNodes allEdges |> fst
     let allVarNodes =
         connectedNodes |> List.choose (fun x -> 
             match x.n with 
@@ -247,6 +246,9 @@ let solve (graph: GraphItem list) =
 
     let rootNode = connectedNodes |> List.sortBy (fun x -> x.n) |> List.head
     rootNode
+
+    //let removeIrrelevantNodes (nodes: ConnectedNode list) =
+    //    let irrelevantNodes = nodes |> List.filter (fun n -> n.outgoing.Count = 0)
 
     // - Nodes with no incoming edges are forall constrained
     // - Nodes that have no outgoing edges (except for the root node) can be ignored
