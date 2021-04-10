@@ -222,39 +222,39 @@ let createConstraintGraph (exp: Annotated<TExp>) =
     generateGraph exp [] |> snd
 
 let solve (graph: GraphItem list) =
-    let connectedNodes = Graph.connect graph |> fst
+    let allNodes = Graph.connect graph |> fst
     let allVarNodes =
-        connectedNodes |> List.choose (fun x -> 
+        allNodes |> List.choose (fun x -> 
             match x.n with 
             | Var var -> Some {| x with var = var |}
             | _ -> None)
     let allPolyNodes =
-        connectedNodes |> List.filter (fun n -> n.incoming.Count = 0)
+        allNodes |> List.filter (fun n -> n.incoming.Count = 0)
     let applyConstraint constr (edges: ConnectedEdge seq) =
         for e in edges do
             e.constr <- Some constr
     
-    //// constrain all poly nodes
-    //for x in allPolyNodes do
-    //    let outgoingEdges = x.outgoing
-    //    match x.n with
-    //    | Source c -> applyConstraint c outgoingEdges
-    //    | Var tyvar ->
-    //        let constr = CPoly [ tyvar ]
-    //        x.constr <- Some constr
-    //        applyConstraint constr outgoingEdges
-    //    | Op _ -> failwith "Operator node without incoming edges detected."
+    // Nodes with no incoming edges are forall constrained
+    for x in allPolyNodes do
+        let outgoingEdges = x.outgoing
+        match x.n with
+        | Source c -> applyConstraint c outgoingEdges
+        | Var tyvar ->
+            let constr = CPoly [ tyvar ]
+            x.constr <- Some constr
+            applyConstraint constr outgoingEdges
+        | Op _ -> failwith "Operator node without incoming edges detected."
 
-    let rootNode = connectedNodes |> List.sortBy (fun x -> x.n) |> List.head
-    rootNode
+    // Nodes that have no outgoing edges (except for the root node) can be ignored:
+    // Remove them (recursively) from the graph.
+    //let removeSinks (nodes: ConnectedNode list) =
+    //    let sinks = nodes |> List.filter (fun n -> n.outgoing.Count = 0)
 
-    //let removeIrrelevantNodes (nodes: ConnectedNode list) =
-    //    let irrelevantNodes = nodes |> List.filter (fun n -> n.outgoing.Count = 0)
 
-    // - Nodes with no incoming edges are forall constrained
-    // - Nodes that have no outgoing edges (except for the root node) can be ignored
-    //   - OPT: They can be removed (recursively) from the graph
     // already visited and cannot do anything: ERROR
+
+    let rootNode = allNodes |> List.sortBy (fun x -> x.n) |> List.head
+    rootNode
 
 
 module GraphVisu =
