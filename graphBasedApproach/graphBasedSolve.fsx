@@ -31,14 +31,17 @@ module Env =
         | None -> failwith $"Variable '{varName}' is unbound."
         | Some t -> t
 
-type Incr(f) =
-    let mutable varCounter = 0
-    member this.next() =
-        varCounter <- f varCounter 1
-        varCounter
+module Count =
+    let create f =
+        let mutable varCounter = 0
+        fun () ->
+            varCounter <- f varCounter 1
+            varCounter
+    let up () = create (+)
+    let down () = create (-)
 
 let annotate (env: Env) (exp: Exp) =
-    let newvar = Incr((+)).next
+    let newvar = Count.up()
 
     let rec annotate (env: Env) (exp: Exp) =
         { tyvar = newvar()
@@ -126,7 +129,7 @@ module Graph =
         (connectedNodes, connectedEdges)
 
 let createConstraintGraph (exp: Annotated<TExp>) =
-    let nextId = Incr((-)).next
+    let nextId = Count.down()
     let makeNode x = { i = nextId(); n = x; }
     let makeVarNode (tyvar: TyVar) = makeNode (Var tyvar)
     let makeSourceNode (tyname: string) =
