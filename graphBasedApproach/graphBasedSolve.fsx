@@ -40,6 +40,10 @@ module Count =
     let up () = create (+)
     let down () = create (-)
 
+type System.Collections.Generic.List<'a> with
+    member this.RemoveSafe(element: 'a) =
+        if this.Remove element = false then failwith "element is not in list."
+
 let annotate (env: Env) (exp: Exp) =
     let newvar = Count.up()
 
@@ -85,16 +89,6 @@ type GraphItem =
     | Node of Node
     | Edge of Edge
 
-type [<ReferenceEquality>] ConnectedNode =
-    { n: Node
-      mutable constr: Constraint option
-      incoming: ResizeArray<ConnectedEdge>
-      outgoing: ResizeArray<ConnectedEdge> }
-and [<ReferenceEquality>] ConnectedEdge =
-    { mutable constr: Constraint option
-      fromNode: ConnectedNode
-      toNode: ConnectedNode }
-
 module Node =
     let connect a b = { fromNode = a; toNode = b }
     let makeFuncNode n1 n2 ntarget =
@@ -126,36 +120,65 @@ module Node =
             match x with 
             | Var x when x = tyvar -> true
             | _ -> false)
+    let getInitialConstraint n =
+        match n with | Source c -> Some c | _ -> None
 
 module Graph =
-    let getAllNodes (graph: GraphItem list) =
+    let getNodes (graph: GraphItem list) =
         graph |> List.choose (fun x -> match x with | Node x -> Some x | _ -> None)
-    let getAllEdges (graph: GraphItem list) =
+    let getEdges (graph: GraphItem list) =
         graph |> List.choose (fun x -> match x with | Edge x -> Some x | _ -> None)
-    let connect (graph: GraphItem list) =
-        let edges = getAllEdges graph
-        let nodes = getAllNodes graph
+
+type [<ReferenceEquality>] ConnectedNode =
+    { n: Node
+      mutable constr: Constraint option
+      incoming: ResizeArray<ConnectedEdge>
+      outgoing: ResizeArray<ConnectedEdge> }
+and [<ReferenceEquality>] ConnectedEdge =
+    { mutable constr: Constraint option
+      fromNode: ConnectedNode
+      toNode: ConnectedNode }
+and ConnectedGraph(graph: GraphItem list) =
+    let nodesList = 
+        let edges = Graph.getEdges graph
+        let nodes = Graph.getNodes graph
         let connectedNodesLookup =
             nodes  
-            |> List.map (fun n -> 
+            |> List.map (fun n ->
                 let connectedItem =
                     { n = n
-                      constr = None
+                      constr = Node.getInitialConstraint n
                       incoming = ResizeArray()
                       outgoing = ResizeArray() }
                 (n, connectedItem))
             |> readOnlyDict
-        let connectedEdges = [
-            for edge in edges do
-                let connectedFrom = connectedNodesLookup.[edge.fromNode]
-                let connectedTo = connectedNodesLookup.[edge.toNode]
-                let connectedEdge = { fromNode = connectedFrom; toNode = connectedTo; constr = None }
-                do
-                    connectedFrom.outgoing.Add connectedEdge
-                    connectedTo.incoming.Add connectedEdge
-                yield connectedEdge ]
-        let connectedNodes = connectedNodesLookup.Values |> Seq.toList
-        (connectedNodes, connectedEdges)
+        
+        for edge in edges do
+            let fromNode = connectedNodesLookup.[edge.fromNode]
+            let toNode = connectedNodesLookup.[edge.toNode]
+            let edge = { fromNode = fromNode; toNode = toNode; constr = None }
+            do
+                fromNode.outgoing.Add edge
+                toNode.incoming.Add edge
+            //yield connectedEdge ]
+        ResizeArray connectedNodesLookup.Values
+    member this.nodes = nodesList
+    member this.getVarNodes() =
+        nodesList |> Seq.choose (fun x -> 
+            match x.n with 
+            | Var var -> Some {| x with var = var |}
+            | _ -> None)
+    member this.getPolyNodes() =
+        nodesList |> Seq.filter (fun n -> n.incoming.Count = 0)
+    member this.getRootNode() =
+        this.getVarNodes() |> Seq.sortBy (fun x -> x.var) |> Seq.head
+    member this.remove (node: ConnectedNode) =
+        if node.outgoing.Count > 0 then failwith "can only remove sinks"
+        nodesList.RemoveSafe node
+        [ for incomingEdge in node.incoming do
+            let incomingNode = incomingEdge.fromNode
+            incomingNode.outgoing.RemoveSafe incomingEdge
+            yield incomingNode ]
 
 let createConstraintGraph (exp: Annotated<TExp>) =
     let rec generateGraph (exp: Annotated<TExp>) (allNodes: Node list) =
@@ -208,49 +231,45 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 yield Node nident
                 yield! enodes
                 yield! bodyNodes ]
-
     generateGraph exp [] |> snd
 
-let solve (graph: GraphItem list) =
-    let allNodes = Graph.connect graph |> fst
-    let allVarNodes =
-        allNodes |> List.choose (fun x -> 
-            match x.n with 
-            | Var var -> Some {| x with var = var |}
-            | _ -> None)
-    let allPolyNodes =
-        allNodes |> List.filter (fun n -> n.incoming.Count = 0)
-    let applyConstraint constr (edges: ConnectedEdge seq) =
-        for e in edges do
-            e.constr <- Some constr
+let solve (unconnectedNodes: GraphItem list) =
+    let graph = ConnectedGraph unconnectedNodes
+    let setEdgeConstraint constr (edges: ConnectedEdge seq) =
+        for e in edges do e.constr <- Some constr
     
     // Nodes with no incoming edges are forall constrained
-    for x in allPolyNodes do
+    for x in graph.getPolyNodes() do
         let outgoingEdges = x.outgoing
         match x.n with
-        | Source c -> applyConstraint c outgoingEdges
+        | Source c -> setEdgeConstraint c outgoingEdges
         | Var tyvar ->
             let constr = CPoly [ tyvar ]
             x.constr <- Some constr
-            applyConstraint constr outgoingEdges
+            setEdgeConstraint constr outgoingEdges
         | Op _ -> failwith "Operator node without incoming edges detected."
 
     // Nodes that have no outgoing edges (except for the root node) can be ignored:
     // Remove them (recursively) from the graph.
-    //let removeSinks (nodes: ConnectedNode list) =
-    //    let sinks = nodes |> List.filter (fun n -> n.outgoing.Count = 0)
-
+    let removeSinks (nodes: ConnectedNode seq) =
+        let sinks = nodes |> Seq.filter (fun n -> n.outgoing.Count = 0) |> Seq.toList
+        for s in sinks do
+            printfn $"Removing: {s}"
+            graph.remove s |> ignore
+    removeSinks graph.nodes
 
     // already visited and cannot do anything: ERROR
 
-    let rootNode = allVarNodes |> List.sortBy (fun x -> x.var) |> List.head
-    rootNode
+    let rootNode = graph.getRootNode()
+    
+    graph
 
 
 module GraphVisu =
     open Visu
 
     let showTyvar (ident: string) (tyvar: TyVar) =
+
         $"{{{ident} : {tyvar}}}"
     let showTyvarAndEnv exp =
         let envVars =
@@ -262,6 +281,11 @@ module GraphVisu =
                 |> String.concat "\n"
                 |> fun s -> $"[\n{s} ]"
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
+
+    let showConstraint (c: Constraint option) =
+        match c with
+        | None -> "()"
+        | Some c -> string c
 
     let showAst (exp: Annotated<TExp>) =
         let rec flatten (node: TreeNode) =
@@ -301,33 +325,31 @@ module GraphVisu =
 
         createNodes exp |> flatten |> writeTree
 
-    let showConstraintGraph (items: GraphItem list) =
-        let indexedNodes = items |> Graph.getAllNodes |> List.indexed
+    let showConstraintGraph (graph: ConnectedGraph) =
+        let edges =
+            [ for n in graph.nodes do
+              yield! n.incoming
+              yield! n.outgoing ]
+            |> List.distinct
+        let indexedNodes = graph.nodes |> Seq.indexed |> Seq.toList
         let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
         let jsLinks =
-            items
-            |> List.choose (fun x -> match x with | Edge e -> Some e | _ -> None)
+            edges
             |> List.map (fun edge ->
                 { fromNode = nodesLookup.[edge.fromNode]
                   toNode = nodesLookup.[edge.toNode] })
         let jsNodes =
-            indexedNodes |> List.map (fun (i,n) ->
-                match n with
-                | Source constr ->
-                    { key = i
-                      name = "SOURCE"
-                      desc = string constr
-                      layout = NodeTypes.op }
-                | Var tyvar ->
-                    { key = i
-                      name = string tyvar
-                      desc = "()"
-                      layout = NodeTypes.var }
-                | Op op ->
-                    { key = i
-                      name = string op
-                      desc = "()"
-                      layout = NodeTypes.op } )
+            [ for i,x in indexedNodes do
+                let name, layout =
+                    match x.n with
+                    | Source _ -> "SOURCE", NodeTypes.op
+                    | Var tyvar -> string tyvar, NodeTypes.var
+                    | Op op -> string op, NodeTypes.op
+                { key = i
+                  name = name
+                  desc = showConstraint x.constr
+                  layout = layout }
+            ]
 
         writeGraph jsNodes jsLinks Layouts.graph
 
@@ -359,11 +381,13 @@ let showAst exp =
 let showConstraintGraph exp =
     annotate env exp 
     |> createConstraintGraph
+    |> ConnectedGraph
     |> GraphVisu.showConstraintGraph
 let showSolved exp =
     annotate env exp 
     |> createConstraintGraph
     |> solve
+    |> GraphVisu.showConstraintGraph
 
 let idExp = EFun("x", EVar "x")
 
@@ -383,8 +407,8 @@ ELet("f", idExp,
 )))
 //|> annotate env |> createConstraintGraph
 //|> showAst
-|> showConstraintGraph
-//|> showSolved
+//|> showConstraintGraph
+|> showSolved
 
 //idExp |> showSolved
 
