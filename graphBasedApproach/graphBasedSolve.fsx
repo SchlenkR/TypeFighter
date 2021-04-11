@@ -85,28 +85,45 @@ type NodeData =
 
 type [<ReferenceEquality>] Node =
     { data: NodeData
+      rank: int
       mutable constr: Constraint option
       incoming: ResizeArray<Edge>
       outgoing: ResizeArray<Edge> }
 and [<ReferenceEquality>] Edge =
-    { mutable constr: Constraint option
-      fromNode: Node
+    { fromNode: Node
       toNode: Node }
 and Graph =
     { root: Node 
       nodes: ResizeArray<Node> }
 
 module Graph =
-    let addNode n (nodes: ResizeArray<Node>) = 
+    let connectNodes (a: Node) (b: Node) =
+        let edge = { fromNode = a; toNode = b }
+        do
+            a.outgoing.Add edge
+            b.incoming.Add edge
+    let addNode n rank (nodes: ResizeArray<Node>) = 
         let node =
             { data = n
+              rank = rank
               constr = match n with | Source c -> Some c | _ -> None
               incoming = ResizeArray()
               outgoing = ResizeArray() }
         do
             nodes.Add node
         node
-    let addVarNode n (nodes: ResizeArray<Node>) = addNode (Var n) nodes
+    let addVarNode n (nodes: ResizeArray<Node>) = addNode (Var n) n nodes
+    let addFuncNode n1 n2 ntarget graph =
+        let nfunc = graph |> addNode (Op MakeFunc) ntarget.rank
+        do
+            connectNodes n1 nfunc
+            connectNodes n2 nfunc
+            connectNodes nfunc ntarget
+    let addApplyFuncNode nsource ntarget graph =
+        let napp = graph |> addNode (Op ApplyFunc) ntarget.rank
+        do
+            connectNodes nsource napp
+            connectNodes napp ntarget
     let getVarNodes (nodes: Node seq) =
         nodes |> Seq.choose (fun n -> 
             match n.data with 
@@ -114,23 +131,6 @@ module Graph =
             | _ -> None)
     let getPolyNodes(nodes: Node seq) =
         nodes |> Seq.filter (fun n -> n.incoming.Count = 0)
-    let connectNodes (a: Node) (b: Node) =
-        let edge = { fromNode = a; toNode = b; constr = None }
-        do
-            a.outgoing.Add edge
-            b.incoming.Add edge
-        ()
-    let addFuncNode n1 n2 ntarget graph =
-        let nfunc = graph |> addNode (Op MakeFunc)
-        do
-            connectNodes n1 nfunc
-            connectNodes n2 nfunc
-            connectNodes nfunc ntarget
-    let addApplyFuncNode nsource ntarget graph =
-        let napp = graph |> addNode (Op ApplyFunc)
-        do
-            connectNodes nsource napp
-            connectNodes napp ntarget
     let findNode (tyvar: TyVar) (nodes: Node seq) =
         nodes |> Seq.find (fun n ->
             match n.data with
@@ -143,7 +143,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
         match exp.annotated with
         | TELit x ->
             let node = nodes |> Graph.addVarNode exp.tyvar
-            let nsource = nodes |> Graph.addNode (Source (CBaseType x.typeName))
+            let nsource = nodes |> Graph.addNode (Source (CBaseType x.typeName)) 0
             do
                 Graph.connectNodes nsource node
             node
@@ -175,25 +175,20 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 Graph.connectNodes (generateGraph e) nident
             nlet
     let rootNode = generateGraph exp
-    { nodes = nodes
-      root = rootNode }
+    { nodes = nodes; root = rootNode }
 
 let solve (graph: Graph) =
-    let setEdgeConstraint constr (edges: Edge seq) =
-        for e in edges do e.constr <- Some constr
-    
     // Nodes with no incoming edges are forall constrained
     for x in Graph.getPolyNodes graph.nodes do
-        let outgoingEdges = x.outgoing
         match x.data with
-        | Source c -> setEdgeConstraint c outgoingEdges
         | Var tyvar ->
             let constr = CPoly [ tyvar ]
             x.constr <- Some constr
-            setEdgeConstraint constr outgoingEdges
         | Op _ -> failwith "Operator node without incoming edges detected."
+        | Source _ -> ()
 
-    // already visited and cannot do anything: ERROR
+    let processNode (n: Node) =
+        ()
     ()
 
 
