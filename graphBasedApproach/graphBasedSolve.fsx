@@ -93,46 +93,26 @@ and [<ReferenceEquality>] Edge =
       fromNode: Node
       toNode: Node }
 and Graph =
-    { nodes: ResizeArray<Node>
-      removedNodes: ResizeArray<Node>
-      mutable root: Node option }
+    { root: Node 
+      nodes: ResizeArray<Node> }
 
 module Graph =
-    let create () =
-        { removedNodes = ResizeArray()
-          nodes = ResizeArray()
-          root = None }
-    let addNode n (graph: Graph) = 
+    let addNode n (nodes: ResizeArray<Node>) = 
         let node =
             { data = n
               constr = match n with | Source c -> Some c | _ -> None
               incoming = ResizeArray()
               outgoing = ResizeArray() }
         do
-            graph.nodes.Add node
+            nodes.Add node
         node
-    let getVarNodes (graph: Graph) =
-        graph.nodes |> Seq.choose (fun n -> 
+    let getVarNodes (nodes: Node seq) =
+        nodes |> Seq.choose (fun n -> 
             match n.data with 
             | Var var -> Some {| n = n; var = var |}
             | _ -> None)
-    let getPolyNodes(graph: Graph) =
-        graph.nodes |> Seq.filter (fun n -> n.incoming.Count = 0)
-    let getRootNode(graph: Graph) =
-        getVarNodes graph |> Seq.sortBy (fun x -> x.var) |> Seq.head
-    let removeNode (node: Node) (graph: Graph) =
-        if node.outgoing.Count > 0
-            then failwith "can only remove sinks"
-        do
-            graph.nodes.RemoveSafe node
-            graph.removedNodes.Add node
-        let affectedNodes =
-            [ for incomingEdge in node.incoming do
-                let incomingNode = incomingEdge.fromNode
-                do
-                    incomingNode.outgoing.RemoveSafe incomingEdge
-                yield incomingNode ]
-        {| affectedNodes = affectedNodes |}
+    let getPolyNodes(nodes: Node seq) =
+        nodes |> Seq.filter (fun n -> n.incoming.Count = 0)
     let connectNodes (a: Node) (b: Node) =
         let edge = { fromNode = a; toNode = b; constr = None }
         do
@@ -150,66 +130,64 @@ module Graph =
         do
             connectNodes nsource napp
             connectNodes napp ntarget
-    let findNode (tyvar: TyVar) (graph: Graph) =
-        graph.nodes |> Seq.find (fun n ->
+    let findNode (tyvar: TyVar) (nodes: Node seq) =
+        nodes |> Seq.find (fun n ->
             match n.data with
             | Var v when v = tyvar -> true
             | _ -> false)        
 
 let createConstraintGraph (exp: Annotated<TExp>) =
-    let graph = Graph.create()
+    let nodes = ResizeArray()
     let rec generateGraph (exp: Annotated<TExp>) =
         match exp.annotated with
         | TELit x ->
-            let node = graph |> Graph.addNode (Var exp.tyvar)
-            let nsource = graph |> Graph.addNode(Source (CBaseType x.typeName))
+            let node = nodes |> Graph.addNode (Var exp.tyvar)
+            let nsource = nodes |> Graph.addNode(Source (CBaseType x.typeName))
             do
                 Graph.connectNodes nsource node
             node
         | TEVar ident ->
-            let node = graph |> Graph.addNode (Var exp.tyvar)
+            let node = nodes |> Graph.addNode (Var exp.tyvar)
             let tyvarIdent = exp.env |> Env.resolve ident
             do
-                Graph.connectNodes (graph |> Graph.findNode tyvarIdent) node
+                Graph.connectNodes (nodes |> Graph.findNode tyvarIdent) node
             node
         | TEApp (e1, e2) ->
             let ne1 = generateGraph e1
             let ne2 = generateGraph e2
-            let node = graph |> Graph.addNode (Var exp.tyvar)
+            let node = nodes |> Graph.addNode (Var exp.tyvar)
             do
-                graph |> Graph.addFuncNode ne2 node ne1
-                graph |> Graph.addApplyFuncNode ne1 node
+                nodes |> Graph.addFuncNode ne2 node ne1
+                nodes |> Graph.addApplyFuncNode ne1 node
             node
         | TEFun (ident, body) ->
-            let nident = graph |> Graph.addNode (Var ident.tyvar)
+            let nident = nodes |> Graph.addNode (Var ident.tyvar)
             let nbody = generateGraph body
-            let node = graph |> Graph.addNode (Var exp.tyvar)
+            let node = nodes |> Graph.addNode (Var exp.tyvar)
             do
-                graph |> Graph.addFuncNode nident nbody node
+                nodes |> Graph.addFuncNode nident nbody node
             node
         | TELet (ident, e, body) ->
             let nident =
                 let nodeData = body.env |> Env.resolve ident |> Var
-                graph |> Graph.addNode nodeData
+                nodes |> Graph.addNode nodeData
             let ne = generateGraph e
             let nbody =  generateGraph body
-            let node = graph |> Graph.addNode (Var exp.tyvar)
+            let node = nodes |> Graph.addNode (Var exp.tyvar)
             do
                 Graph.connectNodes nbody node
                 Graph.connectNodes ne nident
             node
     let rootNode = generateGraph exp
-    do
-        //graph.nodes.Add rootNode
-        graph.root <- Some rootNode
-    graph
+    { nodes = nodes
+      root = rootNode }
 
 let solve (graph: Graph) =
     let setEdgeConstraint constr (edges: Edge seq) =
         for e in edges do e.constr <- Some constr
     
     // Nodes with no incoming edges are forall constrained
-    for x in Graph.getPolyNodes graph do
+    for x in Graph.getPolyNodes graph.nodes do
         let outgoingEdges = x.outgoing
         match x.data with
         | Source c -> setEdgeConstraint c outgoingEdges
@@ -220,11 +198,6 @@ let solve (graph: Graph) =
         | Op _ -> failwith "Operator node without incoming edges detected."
 
     // already visited and cannot do anything: ERROR
-
-    let rootNode = graph |> Graph.getRootNode
-    if Some rootNode.n <> graph.root then
-        failwith "INCONSISTENT ROOT NODE"
-
     ()
 
 
@@ -356,11 +329,11 @@ let idExp = EFun("x", EVar "x")
 
 // polymorphic let
 (*
-let id x = x
-let f = id
-let res1 = f 99
-let res2 = f "Hello World"
-res2
+let id = fun x -> x in
+    let f = id in
+        let res1 = f 99 in
+            let res2 = f "Hello World" in
+                res2
 *)
 ELet("f", idExp,
     ELet("res1", EApp(EVar "f", cint 99),
