@@ -112,9 +112,9 @@ module Graph =
             graph.nodes.Add node
         node
     let getVarNodes (graph: Graph) =
-        graph.nodes |> Seq.choose (fun x -> 
-            match x.data with 
-            | Var var -> Some {| x with var = var |}
+        graph.nodes |> Seq.choose (fun n -> 
+            match n.data with 
+            | Var var -> Some {| n = n; var = var |}
             | _ -> None)
     let getPolyNodes(graph: Graph) =
         graph.nodes |> Seq.filter (fun n -> n.incoming.Count = 0)
@@ -199,7 +199,9 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 Graph.connectNodes ne nident
             node
     let rootNode = generateGraph exp
-    graph.root <- Some rootNode
+    do
+        //graph.nodes.Add rootNode
+        graph.root <- Some rootNode
     graph
 
 let solve (graph: Graph) =
@@ -217,25 +219,12 @@ let solve (graph: Graph) =
             setEdgeConstraint constr outgoingEdges
         | Op _ -> failwith "Operator node without incoming edges detected."
 
-    // Nodes that have no outgoing edges (except for the root node) can be ignored:
-    // Remove them (recursively) from the graph.
-    let rec removeSinks (nodes: Node seq) =
-        let sinks =
-            nodes 
-            |> Seq.filter (fun n -> n.outgoing.Count = 0) 
-            |> Seq.toList
-        [ for s in sinks do
-            yield! (graph |> Graph.removeNode s).affectedNodes ]
-        |> List.distinct
-        |> fun affectedNodes ->
-            if not affectedNodes.IsEmpty then
-                removeSinks affectedNodes
-        
-    removeSinks graph.nodes
-
     // already visited and cannot do anything: ERROR
 
     let rootNode = graph |> Graph.getRootNode
+    if Some rootNode.n <> graph.root then
+        failwith "INCONSISTENT ROOT NODE"
+
     ()
 
 
