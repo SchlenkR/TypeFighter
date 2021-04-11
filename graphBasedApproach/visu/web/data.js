@@ -58,7 +58,7 @@ window.nodeDataArray = [
   {
     "key": 9,
     "name": "SOURCE",
-    "desc": "CBaseType \"String\"",
+    "desc": "Complete (CBaseType \"String\")",
     "fig": "Ellipse"
   },
   {
@@ -94,7 +94,7 @@ window.nodeDataArray = [
   {
     "key": 15,
     "name": "SOURCE",
-    "desc": "CBaseType \"Int\"",
+    "desc": "Complete (CBaseType \"Int\")",
     "fig": "Ellipse"
   },
   {
@@ -118,7 +118,7 @@ window.nodeDataArray = [
   {
     "key": 19,
     "name": "4",
-    "desc": "CPoly [4]",
+    "desc": "Complete (CPoly [4])",
     "fig": "Rectangle"
   },
   {
@@ -147,11 +147,11 @@ window.linkDataArray = [
   },
   {
     "from": 0,
-    "to": 7
+    "to": 13
   },
   {
     "from": 0,
-    "to": 13
+    "to": 7
   },
   {
     "from": 3,
@@ -227,11 +227,11 @@ window.linkDataArray = [
   },
   {
     "from": 19,
-    "to": 21
+    "to": 22
   },
   {
     "from": 19,
-    "to": 22
+    "to": 21
   },
   {
     "from": 22,

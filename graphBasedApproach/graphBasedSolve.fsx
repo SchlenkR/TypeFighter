@@ -1,4 +1,6 @@
 ﻿
+open System.Collections.Generic
+
 #load "./visu/visu.fsx"
 
 type Lit = { typeName: string; value: string }
@@ -40,9 +42,9 @@ module Count =
     let up () = create (+)
     let down () = create (-)
 
-type System.Collections.Generic.List<'a> with
-    member this.RemoveSafe(element: 'a) =
-        if this.Remove element = false then failwith "element is not in list."
+type SortedSet<'a> with
+    member this.AddSafe(element: 'a) =
+        if not (this.Add element) then failwith "element could not be added."
 
 let annotate (env: Env) (exp: Exp) =
     let newvar = Count.up()
@@ -74,7 +76,12 @@ type Constraint =
     | CClass of string * TyVar list
     | CBaseType of string
     | CFun of Constraint * Constraint
-    
+type ConstraintState =
+    | Unknown
+    | Partial of Constraint
+    | UnificationError of Constraint * Constraint
+    | Complete of Constraint
+
 type Op =
     | MakeFunc
     | ApplyFunc
@@ -82,33 +89,42 @@ type NodeData =
     | Source of Constraint
     | Var of TyVar
     | Op of Op
-
 type [<ReferenceEquality>] Node =
     { data: NodeData
       rank: int
-      mutable constr: Constraint option
+      mutable constr: ConstraintState
       incoming: ResizeArray<Edge>
-      outgoing: ResizeArray<Edge> }
-and [<ReferenceEquality>] Edge =
+      outgoing: SortedSet<Edge> }
+and Edge =
     { fromNode: Node
       toNode: Node }
 and Graph =
     { root: Node 
       nodes: ResizeArray<Node> }
 
+module Constraint =
+    let unify (a: ConstraintState) (b: ConstraintState) =
+        match (a,b) with
+        | UnificationError _, _ -> a
+        | _, UnificationError _ -> b
+        | _ -> Unknown
+
 module Graph =
     let connectNodes (a: Node) (b: Node) =
         let edge = { fromNode = a; toNode = b }
         do
-            a.outgoing.Add edge
+            a.outgoing.AddSafe edge
             b.incoming.Add edge
-    let addNode n rank (nodes: ResizeArray<Node>) = 
+    let addNode n rank (nodes: ResizeArray<Node>) =
+        let edgeRankComparer =
+            { new IComparer<Edge> with
+                member _.Compare(a, b) = a.toNode.rank.CompareTo(b.toNode.rank) }
         let node =
             { data = n
               rank = rank
-              constr = match n with | Source c -> Some c | _ -> None
+              constr = match n with | Source c -> Complete c | _ -> Unknown
               incoming = ResizeArray()
-              outgoing = ResizeArray() }
+              outgoing = SortedSet(edgeRankComparer) }
         do
             nodes.Add node
         node
@@ -124,11 +140,6 @@ module Graph =
         do
             connectNodes nsource napp
             connectNodes napp ntarget
-    let getVarNodes (nodes: Node seq) =
-        nodes |> Seq.choose (fun n -> 
-            match n.data with 
-            | Var var -> Some {| n = n; var = var |}
-            | _ -> None)
     let getPolyNodes(nodes: Node seq) =
         nodes |> Seq.filter (fun n -> n.incoming.Count = 0)
     let findNode (tyvar: TyVar) (nodes: Node seq) =
@@ -183,11 +194,16 @@ let solve (graph: Graph) =
         match x.data with
         | Var tyvar ->
             let constr = CPoly [ tyvar ]
-            x.constr <- Some constr
+            x.constr <- Complete constr
         | Op _ -> failwith "Operator node without incoming edges detected."
         | Source _ -> ()
 
     let processNode (n: Node) =
+        // merge incoming constraints
+        let resultingConstraint =
+            n.incoming
+            |> Seq.map (fun e -> e.fromNode.constr)
+            |> Seq.reduce Constraint.unify
         ()
     ()
 
@@ -209,10 +225,10 @@ module GraphVisu =
                 |> fun s -> $"[\n{s} ]"
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
 
-    let showConstraint (c: Constraint option) =
+    let showConstraint (c: ConstraintState) =
         match c with
-        | None -> "()"
-        | Some c -> string c
+        | Unknown -> "()"
+        | _ -> string c
 
     let showAst (exp: Annotated<TExp>) =
         let rec flatten (node: TreeNode) =
