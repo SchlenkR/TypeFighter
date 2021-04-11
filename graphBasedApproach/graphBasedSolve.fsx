@@ -106,6 +106,7 @@ module Graph =
         do
             nodes.Add node
         node
+    let addVarNode n (nodes: ResizeArray<Node>) = addNode (Var n) nodes
     let getVarNodes (nodes: Node seq) =
         nodes |> Seq.choose (fun n -> 
             match n.data with 
@@ -141,13 +142,13 @@ let createConstraintGraph (exp: Annotated<TExp>) =
     let rec generateGraph (exp: Annotated<TExp>) =
         match exp.annotated with
         | TELit x ->
-            let node = nodes |> Graph.addNode (Var exp.tyvar)
-            let nsource = nodes |> Graph.addNode(Source (CBaseType x.typeName))
+            let node = nodes |> Graph.addVarNode exp.tyvar
+            let nsource = nodes |> Graph.addNode (Source (CBaseType x.typeName))
             do
                 Graph.connectNodes nsource node
             node
         | TEVar ident ->
-            let node = nodes |> Graph.addNode (Var exp.tyvar)
+            let node = nodes |> Graph.addVarNode exp.tyvar
             let tyvarIdent = exp.env |> Env.resolve ident
             do
                 Graph.connectNodes (nodes |> Graph.findNode tyvarIdent) node
@@ -155,29 +156,24 @@ let createConstraintGraph (exp: Annotated<TExp>) =
         | TEApp (e1, e2) ->
             let ne1 = generateGraph e1
             let ne2 = generateGraph e2
-            let node = nodes |> Graph.addNode (Var exp.tyvar)
+            let napp = nodes |> Graph.addVarNode exp.tyvar
             do
-                nodes |> Graph.addFuncNode ne2 node ne1
-                nodes |> Graph.addApplyFuncNode ne1 node
-            node
+                nodes |> Graph.addFuncNode ne2 napp ne1
+                nodes |> Graph.addApplyFuncNode ne1 napp
+            napp
         | TEFun (ident, body) ->
-            let nident = nodes |> Graph.addNode (Var ident.tyvar)
-            let nbody = generateGraph body
-            let node = nodes |> Graph.addNode (Var exp.tyvar)
+            let nident = nodes |> Graph.addVarNode ident.tyvar
+            let nfun = nodes |> Graph.addVarNode exp.tyvar
             do
-                nodes |> Graph.addFuncNode nident nbody node
-            node
+                nodes |> Graph.addFuncNode nident (generateGraph body) nfun
+            nfun
         | TELet (ident, e, body) ->
-            let nident =
-                let nodeData = body.env |> Env.resolve ident |> Var
-                nodes |> Graph.addNode nodeData
-            let ne = generateGraph e
-            let nbody =  generateGraph body
-            let node = nodes |> Graph.addNode (Var exp.tyvar)
+            let nident = nodes |> Graph.addVarNode (Env.resolve ident body.env)
+            let nlet = nodes |> Graph.addVarNode exp.tyvar
             do
-                Graph.connectNodes nbody node
-                Graph.connectNodes ne nident
-            node
+                Graph.connectNodes (generateGraph body) nlet
+                Graph.connectNodes (generateGraph e) nident
+            nlet
     let rootNode = generateGraph exp
     { nodes = nodes
       root = rootNode }
