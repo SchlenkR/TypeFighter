@@ -3,7 +3,10 @@ open System.Collections.Generic
 
 #load "./visu/visu.fsx"
 
-type Lit = { typeName: string; value: string }
+type Lit =
+    | LString of string
+    | LNum of float
+    | LBool of bool
 type Exp =
     | ELit of Lit
     | EVar of string
@@ -23,6 +26,19 @@ type TExp =
     | TEApp of Annotated<TExp> * Annotated<TExp>
     | TEFun of Annotated<Ident> * Annotated<TExp>
     | TELet of Ident * Annotated<TExp> * Annotated<TExp>
+
+module Lit =
+    let getDotnetTypeName (l: Lit) =
+        match l with
+        | LString _ -> typeof<string>
+        | LNum _ -> typeof<double>
+        | LBool _ -> typeof<bool>
+        |> fun t -> t.FullName
+    let getValue (l: Lit) =
+        match l with
+        | LString x -> x :> obj
+        | LNum x -> x :> obj
+        | LBool x -> x :> obj
 
 module Env =
     let empty : Env = Map.empty
@@ -154,7 +170,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
         match exp.annotated with
         | TELit x ->
             let node = nodes |> Graph.addVarNode exp.tyvar
-            let nsource = nodes |> Graph.addNode (Source (CBaseType x.typeName)) 0
+            let nsource = nodes |> Graph.addNode (Source (CBaseType (Lit.getDotnetTypeName x))) 0
             do
                 Graph.connectNodes nsource node
             node
@@ -241,7 +257,7 @@ module GraphVisu =
         let rec createNodes (exp: Annotated<TExp>) =
             match exp.annotated with
             | TELit x ->
-                TreeNode.var $"Lit ({x.value}: {x.typeName})" (showTyvarAndEnv exp) []
+                TreeNode.var $"Lit ({Lit.getValue x}: {Lit.getDotnetTypeName x})" (showTyvarAndEnv exp) []
             | TEVar ident ->
                 let tyvar = Env.resolve ident exp.env                
                 TreeNode.var $"Var {showTyvar ident tyvar}" (showTyvarAndEnv exp) []
@@ -309,9 +325,9 @@ module Dsl =
            float = "Float"
            string = "String" |}
            
-    let cint (x: int) = ELit { typeName = knownBaseTypes.int; value = string x }
-    let cfloat (x: float) = ELit { typeName = knownBaseTypes.float; value = string x }
-    let cstr (x: string) = ELit { typeName = knownBaseTypes.string; value = x }
+    let cstr x = ELit (LString x)
+    let cnum x = ELit (LNum x)
+    let cbool x = ELit (LBool x)
 
 //let env : Env = Map.ofList [
 //    "libcall_add", tfun(tint, tfun(tint, tint))
@@ -343,7 +359,7 @@ let id = fun x -> x in
                 res2
 *)
 ELet("f", idExp,
-    ELet("res1", EApp(EVar "f", cint 99),
+    ELet("res1", EApp(EVar "f", cnum 99.0),
         ELet("res2", EApp(EVar "f", cstr "HelloWorld"),
             EVar("res2")
 )))
