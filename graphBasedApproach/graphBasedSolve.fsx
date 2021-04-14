@@ -7,6 +7,7 @@ type Lit =
     | LString of string
     | LNum of float
     | LBool of bool
+    | LList of List<Lit>
 type Exp =
     | ELit of Lit
     | EVar of string
@@ -30,15 +31,16 @@ type TExp =
 module Lit =
     let getDotnetTypeName (l: Lit) =
         match l with
-        | LString _ -> typeof<string>
-        | LNum _ -> typeof<double>
-        | LBool _ -> typeof<bool>
-        |> fun t -> t.FullName
+        | LString _ -> "string"
+        | LNum _ -> "double"
+        | LBool _ -> "bool"
+        | LList _ -> "list"
     let getValue (l: Lit) =
         match l with
         | LString x -> x :> obj
         | LNum x -> x :> obj
         | LBool x -> x :> obj
+        | LList x -> x :> obj
 
 module Env =
     let empty : Env = Map.empty
