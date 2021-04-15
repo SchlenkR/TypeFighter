@@ -7,7 +7,6 @@ type Lit =
     | LString of string
     | LNum of float
     | LBool of bool
-    | LList of List<Lit>
 type Exp =
     | ELit of Lit
     | EVar of string
