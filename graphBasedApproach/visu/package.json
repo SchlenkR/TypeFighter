@@ -1,9 +1,15 @@
 {
-  "name": "example",
+  "name": "visu",
   "version": "1.0.0",
   "description": "",
+  "main": "offlineGen.js",
   "dependencies": {
-    "puppeteer": "2.0.0"
+    "puppeteer": "^8.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
 }
