@@ -49,6 +49,17 @@
                         "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom
                     });
 
+            // default
+            myDiagram.linkTemplate =
+                $(go.Link, // the whole link panel
+                    $(go.Shape), // the link shape
+                    $(go.Shape, // the arrowhead
+                        {
+                            toArrow: "OpenTriangle",
+                            fill: null
+                        })
+                );
+
             inst.init($, myDiagram);
 
             myDiagram.animationManager.initialAnimationStyle = go.AnimationManager.None;

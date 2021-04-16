@@ -64,16 +64,6 @@ function graphLayout() {
                         new go.Binding("text", "desc"))
                 )
             );
-
-        myDiagram.linkTemplate =
-            $(go.Link, // the whole link panel
-                $(go.Shape), // the link shape
-                $(go.Shape, // the arrowhead
-                    {
-                        toArrow: "OpenTriangle",
-                        fill: null
-                    })
-            );
     };
 
     return inst;

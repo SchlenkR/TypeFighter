@@ -33,13 +33,11 @@ module Lit =
         | LString _ -> "string"
         | LNum _ -> "double"
         | LBool _ -> "bool"
-        | LList _ -> "list"
     let getValue (l: Lit) =
         match l with
         | LString x -> x :> obj
         | LNum x -> x :> obj
         | LBool x -> x :> obj
-        | LList x -> x :> obj
 
 module Env =
     let empty : Env = Map.empty
@@ -311,8 +309,7 @@ module GraphVisu =
                   layout = layout }
             ]
 
-        printfn "WRITING!!!"
-        writeGraph jsNodes jsLinks Layouts.graph
+        writeGraph jsNodes jsLinks
 
 
 
@@ -365,7 +362,7 @@ ELet("f", idExp,
             EVar("res2")
 )))
 //|> annotate env |> createConstraintGraph
-//|> showAst
+|> showAst
 //|> showConstraintGraph
-|> showSolved
+//|> showSolved
 

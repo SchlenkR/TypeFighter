@@ -1,244 +1,122 @@
 
-window.layout = "graph";
+window.layout = "tree";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "2",
-    "desc": "()",
+    "name": "let f = {e1 : 3} in {e2 : 6}",
+    "desc": "var = 1\nenv = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "1",
-    "desc": "()",
+    "name": "fun {x : 4} -> {e : 5}",
+    "desc": "var = 3\nenv = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "7",
-    "desc": "()",
+    "name": "Var {x : 4}",
+    "desc": "var = 5\nenv = [ {x : 4} ]",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "6",
-    "desc": "()",
+    "name": "let res1 = {e1 : 8} in {e2 : 11}",
+    "desc": "var = 6\nenv = [ {f : 2} ]",
     "fig": "Rectangle"
   },
   {
     "key": 4,
-    "name": "12",
-    "desc": "()",
+    "name": "App",
+    "desc": "var = 8\nenv = [ {f : 2} ]",
     "fig": "Rectangle"
   },
   {
     "key": 5,
-    "name": "11",
-    "desc": "()",
+    "name": "Var {f : 2}",
+    "desc": "var = 9\nenv = [ {f : 2} ]",
     "fig": "Rectangle"
   },
   {
     "key": 6,
-    "name": "16",
-    "desc": "()",
+    "name": "Lit (99: double)",
+    "desc": "var = 10\nenv = [ {f : 2} ]",
     "fig": "Rectangle"
   },
   {
     "key": 7,
-    "name": "14",
-    "desc": "()",
+    "name": "let res2 = {e1 : 13} in {e2 : 16}",
+    "desc": "var = 11\nenv = [\n-  {f : 2}\n-  {res1 : 7} ]",
     "fig": "Rectangle"
   },
   {
     "key": 8,
-    "name": "15",
-    "desc": "()",
+    "name": "App",
+    "desc": "var = 13\nenv = [\n-  {f : 2}\n-  {res1 : 7} ]",
     "fig": "Rectangle"
   },
   {
     "key": 9,
-    "name": "SOURCE",
-    "desc": "Complete (CBaseType \"String\")",
-    "fig": "Ellipse"
+    "name": "Var {f : 2}",
+    "desc": "var = 14\nenv = [\n-  {f : 2}\n-  {res1 : 7} ]",
+    "fig": "Rectangle"
   },
   {
     "key": 10,
-    "name": "13",
-    "desc": "()",
+    "name": "Lit (HelloWorld: string)",
+    "desc": "var = 15\nenv = [\n-  {f : 2}\n-  {res1 : 7} ]",
     "fig": "Rectangle"
   },
   {
     "key": 11,
-    "name": "MakeFunc",
-    "desc": "()",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 12,
-    "name": "ApplyFunc",
-    "desc": "()",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 13,
-    "name": "9",
-    "desc": "()",
+    "name": "Var {res2 : 12}",
+    "desc": "var = 16\nenv = [\n-  {f : 2}\n-  {res1 : 7}\n-  {res2 : 12} ]",
     "fig": "Rectangle"
-  },
-  {
-    "key": 14,
-    "name": "10",
-    "desc": "()",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 15,
-    "name": "SOURCE",
-    "desc": "Complete (CBaseType \"Int\")",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 16,
-    "name": "8",
-    "desc": "()",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 17,
-    "name": "MakeFunc",
-    "desc": "()",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 18,
-    "name": "ApplyFunc",
-    "desc": "()",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 19,
-    "name": "4",
-    "desc": "Complete (CPoly [4])",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 20,
-    "name": "3",
-    "desc": "()",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 21,
-    "name": "5",
-    "desc": "()",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 22,
-    "name": "MakeFunc",
-    "desc": "()",
-    "fig": "Ellipse"
   }
 ];
 window.linkDataArray = [
   {
-    "from": 20,
-    "to": 0
-  },
-  {
     "from": 0,
-    "to": 13
-  },
-  {
-    "from": 0,
-    "to": 7
-  },
-  {
-    "from": 3,
     "to": 1
   },
   {
-    "from": 16,
-    "to": 2
-  },
-  {
-    "from": 5,
+    "from": 0,
     "to": 3
   },
   {
-    "from": 10,
+    "from": 1,
+    "to": 2
+  },
+  {
+    "from": 3,
     "to": 4
+  },
+  {
+    "from": 3,
+    "to": 7
+  },
+  {
+    "from": 4,
+    "to": 5
   },
   {
     "from": 4,
     "to": 6
   },
   {
-    "from": 6,
-    "to": 5
-  },
-  {
-    "from": 11,
-    "to": 7
-  },
-  {
     "from": 7,
-    "to": 12
-  },
-  {
-    "from": 9,
     "to": 8
   },
   {
+    "from": 7,
+    "to": 11
+  },
+  {
     "from": 8,
-    "to": 11
+    "to": 9
   },
   {
-    "from": 12,
+    "from": 8,
     "to": 10
-  },
-  {
-    "from": 10,
-    "to": 11
-  },
-  {
-    "from": 17,
-    "to": 13
-  },
-  {
-    "from": 13,
-    "to": 18
-  },
-  {
-    "from": 15,
-    "to": 14
-  },
-  {
-    "from": 14,
-    "to": 17
-  },
-  {
-    "from": 18,
-    "to": 16
-  },
-  {
-    "from": 16,
-    "to": 17
-  },
-  {
-    "from": 19,
-    "to": 22
-  },
-  {
-    "from": 19,
-    "to": 21
-  },
-  {
-    "from": 22,
-    "to": 20
-  },
-  {
-    "from": 21,
-    "to": 22
   }
 ];

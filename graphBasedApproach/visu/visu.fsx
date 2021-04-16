@@ -1,6 +1,5 @@
 #r "nuget: Newtonsoft.Json"
 
-open System
 open System.IO
 open Newtonsoft.Json
 
@@ -44,10 +43,7 @@ type JsLink =
     { [<JsonProperty "from">] fromNode: int
       [<JsonProperty "to">] toNode: int }
 
-let writeGraph (jsNodes: JsNode list) (jsLinks: JsLink list) (layout: string) =
-    let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
-    let linksJson = JsonConvert.SerializeObject(jsLinks, Formatting.Indented)
-
+let writeData (nodesJson: string) (linksJson: string) (layout: string) =
     let json = $"
 window.layout = \"{layout}\";
 window.nodeDataArray = {nodesJson};
@@ -76,8 +72,16 @@ let writeTree (nodes: TreeNode list) =
                     { fromNode = n.key; toNode = c.key }
         ]
     
-    writeGraph jsNodes jsLinks Layouts.tree
+    let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
+    let linksJson = JsonConvert.SerializeObject(jsLinks, Formatting.Indented)
 
+    writeData nodesJson linksJson Layouts.tree
+
+let writeGraph (jsNodes: JsNode list) (jsLinks: JsLink list) (layout: string) =
+    let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
+    let linksJson = JsonConvert.SerializeObject(jsLinks, Formatting.Indented)
+    
+    writeData nodesJson linksJson Layouts.graph
 
 
 //module Test =
