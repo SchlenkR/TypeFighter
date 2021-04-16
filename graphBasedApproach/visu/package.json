@@ -3,10 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "dependencies": {
-    "puppeteer": "2.0.0",
-    "mocha": "^5.2.0"
+    "puppeteer": "2.0.0"
   },
-  "devDependencies": {
-    "file-system": "^2.2.2"
-  }
+  "devDependencies": {}
 }
