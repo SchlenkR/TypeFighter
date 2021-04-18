@@ -57,10 +57,6 @@ module Count =
     let up () = create (+)
     let down () = create (-)
 
-type SortedSet<'a> with
-    member this.AddSafe(element: 'a) =
-        if not (this.Add element) then failwith "element could not be added."
-
 let annotate (env: Env) (exp: Exp) =
     let newvar = Count.up()
 
@@ -86,16 +82,12 @@ let annotate (env: Env) (exp: Exp) =
     annotate env exp
 
 type Constraint =
-    | CUnknown
-    | CPoly of TyVar list
+    | CPoly of int
     | CClass of string * TyVar list
-    | CBaseType of string
     | CFun of Constraint * Constraint
 type ConstraintState =
-    | Unknown
-    | Partial of Constraint
-    | UnificationError of Constraint * Constraint
-    | Complete of Constraint
+    | UnificationError of (Constraint * Constraint) list
+    | Constrained of Constraint
 
 type Op =
     | MakeFunc
@@ -104,42 +96,75 @@ type NodeData =
     | Source of Constraint
     | Var of TyVar
     | Op of Op
-type [<ReferenceEquality>] Node =
+type
+    [<ReferenceEquality>]
+    Node =
     { data: NodeData
       rank: int
-      mutable constr: ConstraintState
-      incoming: ResizeArray<Edge>
-      outgoing: SortedSet<Edge> }
-and Edge =
+      mutable constr: ConstraintState option
+      mutable incoming: Edge list
+      mutable outgoing: Edge list }
+and 
+    [<CustomEquality; CustomComparison>]
+    Edge =
     { fromNode: Node
       toNode: Node }
+    interface System.IComparable with
+        member this.CompareTo other =
+            let other = other :?> Edge
+            this.GetHashCode().CompareTo(other.GetHashCode())
+    override this.Equals other =
+        let other = other :?> Edge
+        this.fromNode = other.fromNode && this.toNode = other.toNode
+    override this.GetHashCode ()=
+        hash (this.fromNode, this.toNode)
+
 and Graph =
     { root: Node 
       nodes: ResizeArray<Node> }
 
 module Constraint =
-    let unify (a: ConstraintState) (b: ConstraintState) =
-        match (a,b) with
-        | UnificationError _, _ -> a
-        | _, UnificationError _ -> b
-        | _ -> Unknown
+    let zip f (a: ConstraintState) (b: ConstraintState) =
+        match a,b with
+        | UnificationError a, UnificationError b ->
+            UnificationError (a @ b)
+        | _, UnificationError x
+        | UnificationError x, _ ->
+            UnificationError x
+        | Constrained a, Constrained b ->
+            f a b
+    let unify =
+        let rec unifyC (a: Constraint) (b: Constraint) =
+            match a,b with
+            | CPoly _, _ ->
+                Constrained b
+            | _, CPoly _ ->
+                Constrained a
+            | CClass (n', vars'), CClass (n'', vars'') ->
+                failwith "class-class"
+            | CClass (n, vars), CFun (f, g)
+            | CFun (f, g), CClass (n, vars) ->
+                failwith "class-class"
+            | CFun (f', g'), CFun (f'', g'') -> 
+                let f = unifyC f' f''
+                let g = unifyC g' g''
+                zip (fun a b -> Constrained(CFun (a,b))) f g
+        zip unifyC
+
 
 module Graph =
-    let connectNodes (a: Node) (b: Node) =
-        let edge = { fromNode = a; toNode = b }
+    let connectNodes (fromNode: Node) (toNode: Node) =
+        let edge = { fromNode = fromNode; toNode = toNode }
         do
-            a.outgoing.AddSafe edge
-            b.incoming.Add edge
+            fromNode.outgoing <- edge :: fromNode.outgoing
+            toNode.incoming <- edge :: toNode.incoming
     let addNode n rank (nodes: ResizeArray<Node>) =
-        let edgeRankComparer =
-            { new IComparer<Edge> with
-                member _.Compare(a, b) = a.toNode.rank.CompareTo(b.toNode.rank) }
         let node =
             { data = n
               rank = rank
-              constr = match n with | Source c -> Complete c | _ -> Unknown
-              incoming = ResizeArray()
-              outgoing = SortedSet(edgeRankComparer) }
+              constr = match n with | Source c -> Some(Constrained c) | _ -> None
+              incoming = []
+              outgoing = [] }
         do
             nodes.Add node
         node
@@ -155,8 +180,13 @@ module Graph =
         do
             connectNodes nsource napp
             connectNodes napp ntarget
-    let getPolyNodes(nodes: Node seq) =
-        nodes |> Seq.filter (fun n -> n.incoming.Count = 0)
+
+    /// nodes with no incoming edges
+    let getSources (nodes: Node seq) =
+        nodes
+        |> Seq.filter (fun n -> n.incoming.Length = 0)
+        |> Seq.toList
+
     let findNode (tyvar: TyVar) (nodes: Node seq) =
         nodes |> Seq.find (fun n ->
             match n.data with
@@ -169,7 +199,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
         match exp.annotated with
         | TELit x ->
             let node = nodes |> Graph.addVarNode exp.tyvar
-            let nsource = nodes |> Graph.addNode (Source (CBaseType (Lit.getDotnetTypeName x))) 0
+            let nsource = nodes |> Graph.addNode (Source(CClass((Lit.getDotnetTypeName x), []))) 0
             do
                 Graph.connectNodes nsource node
             node
@@ -203,23 +233,58 @@ let createConstraintGraph (exp: Annotated<TExp>) =
     let rootNode = generateGraph exp
     { nodes = nodes; root = rootNode }
 
-let solve (graph: Graph) =
-    // Nodes with no incoming edges are forall constrained
-    for x in Graph.getPolyNodes graph.nodes do
-        match x.data with
-        | Var tyvar ->
-            let constr = CPoly [ tyvar ]
-            x.constr <- Complete constr
-        | Op _ -> failwith "Operator node without incoming edges detected."
-        | Source _ -> ()
+type ProcessResult =
+    | Backtrack
 
-    let processNode (n: Node) =
-        // merge incoming constraints
-        let resultingConstraint =
-            n.incoming
-            |> Seq.map (fun e -> e.fromNode.constr)
-            |> Seq.reduce Constraint.unify
+let solve (graph: Graph) =
+    let waitingForCompletion : ResizeArray<Node> = ResizeArray()
+
+    let rec processNode (n: Node) (comingFrom: Edge list) =
+
+        let incomingConstraints =
+            n.incoming |> Seq.choose (fun e -> e.fromNode.constr) |> Seq.toList
+
+        // backtrack if not all incoming edges are constrained
+        if incomingConstraints.Length <> n.incoming.Length then
+            let wasWaiting = waitingForCompletion.Remove(n)
+            if not wasWaiting then
+                waitingForCompletion.Add(n)
+            ()
+        else
+            // merge incoming constraints
+            let resultingConstraint =
+                match incomingConstraints, n.data with
+                | [], Source c -> Constrained c
+                | [], Var tyvar -> Constrained (CPoly tyvar)
+                | [a; b], Op (MakeFunc) ->
+                    Constraint.zip (fun a b -> Constrained (CFun (a, b))) a b
+                | [Constrained (CFun (_,b))], Op (ApplyFunc) ->
+                    Constrained b
+                | constraints, Var _ ->
+                    constraints |> Seq.reduce Constraint.unify
+                | _ ->
+                    failwith $"Error merging constraints: Invalid graph! Merging {incomingConstraints} for {n.data}"
+
+            // TODO: on error, we could terminate earlier
+            n.constr <- Some resultingConstraint
+
+            // wohin als nächstes:
+            // Edges, die noch gar nicht gegangen wurden
+            let unprocessedEdges = (Set.ofList n.outgoing) - (Set.ofList comingFrom)
+            for unprocessedEdge in unprocessedEdges do
+                processNode unprocessedEdge.toNode (comingFrom @ [unprocessedEdge])
+
         ()
+
+    let rec processNodes (nodes: Node list) =
+        for n in nodes do
+            processNode n []
+        processNodes (Seq.toList waitingForCompletion)
+
+    // we start with the root nodes
+    let sourceNodes = Graph.getSources graph.nodes
+    processNodes sourceNodes
+
     ()
 
 
@@ -240,13 +305,13 @@ module GraphVisu =
                 |> fun s -> $"[\n{s} ]"
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
 
-    let showConstraint (c: ConstraintState) =
+    let showConstraint (c: ConstraintState option) =
         match c with
-        | Unknown -> "()"
-        | _ -> string c
+        | None -> "()"
+        | Some c -> string c
 
     let showAst (exp: Annotated<TExp>) =
-        let rec flatten (node: TreeNode) =
+        let rec flatten (node: Tree.Node) =
             [
                 yield node
                 for c in node.children do
@@ -256,19 +321,19 @@ module GraphVisu =
         let rec createNodes (exp: Annotated<TExp>) =
             match exp.annotated with
             | TELit x ->
-                TreeNode.var $"Lit ({Lit.getValue x}: {Lit.getDotnetTypeName x})" (showTyvarAndEnv exp) []
+                Tree.var $"Lit ({Lit.getValue x}: {Lit.getDotnetTypeName x})" (showTyvarAndEnv exp) []
             | TEVar ident ->
                 let tyvar = Env.resolve ident exp.env                
-                TreeNode.var $"Var {showTyvar ident tyvar}" (showTyvarAndEnv exp) []
+                Tree.var $"Var {showTyvar ident tyvar}" (showTyvarAndEnv exp) []
             | TEApp (e1, e2) ->
                 let child1 = createNodes e1
                 let child2 = createNodes e2
             
-                TreeNode.var $"App" (showTyvarAndEnv exp) [ child1; child2 ]
+                Tree.var $"App" (showTyvarAndEnv exp) [ child1; child2 ]
             | TEFun (ident, body) ->
                 let child = createNodes body
 
-                TreeNode.var
+                Tree.var
                     $"""fun {showTyvar ident.annotated ident.tyvar} -> {showTyvar "e" body.tyvar}"""
                     (showTyvarAndEnv exp)
                     [child]
@@ -276,12 +341,12 @@ module GraphVisu =
                 let child1 = createNodes e
                 let child2 = createNodes body
 
-                TreeNode.var
+                Tree.var
                     $"""let {ident} = {showTyvar "e1" e.tyvar} in {showTyvar "e2" body.tyvar}"""
                     (showTyvarAndEnv exp)
                     [ child1; child2 ]
 
-        createNodes exp |> flatten |> writeTree
+        createNodes exp |> flatten |> Tree.write
 
     let showConstraintGraph (graph: Graph) =
         let edges =
@@ -309,7 +374,7 @@ module GraphVisu =
                   layout = layout }
             ]
 
-        writeGraph jsNodes jsLinks
+        Graph.write jsNodes jsLinks
 
 
 
@@ -362,7 +427,7 @@ ELet("f", idExp,
             EVar("res2")
 )))
 //|> annotate env |> createConstraintGraph
-|> showAst
+//|> showAst
 //|> showConstraintGraph
-//|> showSolved
+|> showSolved
 

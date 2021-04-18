@@ -7,10 +7,10 @@ function graphLayout() {
             {
                 randomNumberGenerator: null, // deterministic layout
                 maxIterations: 10000,
-                defaultElectricalCharge: 300,
-                defaultSpringLength: 100,
-                defaultSpringStiffness: 0.05,
-                moveLimit: 10
+                defaultElectricalCharge: 100
+            //    defaultSpringLength: 100,
+            //    defaultSpringStiffness: 0.01,
+            //    moveLimit: 50
             });
     }
 
