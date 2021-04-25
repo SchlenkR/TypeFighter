@@ -1,6 +1,4 @@
 ﻿
-open System.Collections.Generic
-
 #load "./visu/visu.fsx"
 
 type Lit =
@@ -31,7 +29,7 @@ module Lit =
     let getDotnetTypeName (l: Lit) =
         match l with
         | LString _ -> "string"
-        | LNum _ -> "double"
+        | LNum _ -> "num"
         | LBool _ -> "bool"
     let getValue (l: Lit) =
         match l with
@@ -48,7 +46,7 @@ module Env =
         | None -> failwith $"Variable '{varName}' is unbound."
         | Some t -> t
 
-module Count =
+module Counter =
     let create f =
         let mutable varCounter = 0
         fun () ->
@@ -58,7 +56,7 @@ module Count =
     let down () = create (-)
 
 let annotate (env: Env) (exp: Exp) =
-    let newvar = Count.up()
+    let newvar = Counter.up()
 
     let rec annotate (env: Env) (exp: Exp) =
         { tyvar = newvar()
@@ -81,105 +79,108 @@ let annotate (env: Env) (exp: Exp) =
           env = env }
     annotate env exp
 
+type GenTyVar = int
+type Tau =
+    | TGenVar of GenTyVar
+    | TApp of string * Tau list
+    | TFun of Tau * Tau
+type Forall = GenTyVar list * Tau
+type Sigma =
+    | Forall of Forall
 type Constraint =
-    | CPoly of int
-    | CClass of string * TyVar list
-    | CFun of Constraint * Constraint
+    | CTau of Tau
+    | CSigma of Sigma
 type ConstraintState =
-    | UnificationError of (Constraint * Constraint) list
+    | UnificationError of string
     | Constrained of Constraint
 
 type Op =
-    | MakeFunc
-    | ApplyFunc
+    | MakeFun
+    | ApplyFun
 type NodeData =
     | Source of Constraint
     | Var of TyVar
     | Op of Op
-type
-    [<ReferenceEquality>]
-    Node =
+type [<ReferenceEquality>] Node =
     { data: NodeData
-      rank: int
       mutable constr: ConstraintState option
       mutable incoming: Edge list
       mutable outgoing: Edge list }
-and 
-    [<CustomEquality; CustomComparison>]
-    Edge =
+and [<CustomEquality; CustomComparison>] Edge =
     { fromNode: Node
       toNode: Node }
-    interface System.IComparable with
-        member this.CompareTo other =
+        interface System.IComparable with
+            member this.CompareTo(other) =
+                this.GetHashCode().CompareTo((other :?> Edge).GetHashCode())
+        override this.Equals(other) =
             let other = other :?> Edge
-            this.GetHashCode().CompareTo(other.GetHashCode())
-    override this.Equals other =
-        let other = other :?> Edge
-        this.fromNode = other.fromNode && this.toNode = other.toNode
-    override this.GetHashCode ()=
-        hash (this.fromNode, this.toNode)
+            this.fromNode = other.fromNode && this.toNode = other.toNode
+        override this.GetHashCode() = hash (this.fromNode, this.toNode)
 
 and Graph =
     { root: Node 
       nodes: ResizeArray<Node> }
 
 module Constraint =
+    let norm c : Forall =
+        match c with
+        | CSigma(Forall(vars,tau)) -> vars,tau
+        | CTau tau -> [],tau
+
+    let denorm (vars,tau) =
+        match vars with
+        | [] -> CTau tau
+        | _ -> CSigma(Forall (vars,tau))
+
+    let rec makeFun (a: Constraint) (b: Constraint) =
+        match norm a, norm b with
+        | (args1, tau1), (args2, tau2) ->
+            let args = set (args1 @ args2) |> Set.toList
+            denorm (args, TFun(tau1, tau2))
+
     let zip f (a: ConstraintState) (b: ConstraintState) =
         match a,b with
         | UnificationError a, UnificationError b ->
-            UnificationError (a @ b)
+            UnificationError $"{a} AND {b}"
         | _, UnificationError x
         | UnificationError x, _ ->
             UnificationError x
         | Constrained a, Constrained b ->
             f a b
-    let unify =
-        let rec unifyC (a: Constraint) (b: Constraint) =
-            match a,b with
-            | CPoly _, _ ->
-                Constrained b
-            | _, CPoly _ ->
-                Constrained a
-            | CClass (n', vars'), CClass (n'', vars'') ->
-                failwith "class-class"
-            | CClass (n, vars), CFun (f, g)
-            | CFun (f, g), CClass (n, vars) ->
-                failwith "class-class"
-            | CFun (f', g'), CFun (f'', g'') -> 
-                let f = unifyC f' f''
-                let g = unifyC g' g''
-                zip (fun a b -> Constrained(CFun (a,b))) f g
-        zip unifyC
 
-
-module Graph =
+module Node =
+    let getIncomingConstraints (n: Node) =
+        n.incoming |> Seq.choose (fun e -> e.fromNode.constr) |> Seq.toList
+    let getIncomingIncompleteEdges (n: Node) =
+        n.incoming |> Seq.filter (fun e -> Option.isNone e.fromNode.constr) |> Seq.toList
     let connectNodes (fromNode: Node) (toNode: Node) =
         let edge = { fromNode = fromNode; toNode = toNode }
         do
             fromNode.outgoing <- edge :: fromNode.outgoing
             toNode.incoming <- edge :: toNode.incoming
-    let addNode n rank (nodes: ResizeArray<Node>) =
+
+module Graph =
+    let addNode n (nodes: ResizeArray<Node>) =
         let node =
             { data = n
-              rank = rank
               constr = match n with | Source c -> Some(Constrained c) | _ -> None
               incoming = []
               outgoing = [] }
         do
             nodes.Add node
         node
-    let addVarNode n (nodes: ResizeArray<Node>) = addNode (Var n) n nodes
-    let addFuncNode n1 n2 ntarget graph =
-        let nfunc = graph |> addNode (Op MakeFunc) ntarget.rank
+    let addVarNode n nodes = addNode (Var n) nodes
+    let addFuncNode n1 n2 ntarget nodes =
+        let nfunc = nodes |> addNode (Op MakeFun)
         do
-            connectNodes n1 nfunc
-            connectNodes n2 nfunc
-            connectNodes nfunc ntarget
-    let addApplyFuncNode nsource ntarget graph =
-        let napp = graph |> addNode (Op ApplyFunc) ntarget.rank
+            Node.connectNodes n1 nfunc
+            Node.connectNodes n2 nfunc
+            Node.connectNodes nfunc ntarget
+    let addApplyFuncNode nsource ntarget nodes =
+        let napp = nodes |> addNode (Op ApplyFun)
         do
-            connectNodes nsource napp
-            connectNodes napp ntarget
+            Node.connectNodes nsource napp
+            Node.connectNodes napp ntarget
 
     /// nodes with no incoming edges
     let getSources (nodes: Node seq) =
@@ -191,7 +192,7 @@ module Graph =
         nodes |> Seq.find (fun n ->
             match n.data with
             | Var v when v = tyvar -> true
-            | _ -> false)        
+            | _ -> false)
 
 let createConstraintGraph (exp: Annotated<TExp>) =
     let nodes = ResizeArray()
@@ -199,15 +200,15 @@ let createConstraintGraph (exp: Annotated<TExp>) =
         match exp.annotated with
         | TELit x ->
             let node = nodes |> Graph.addVarNode exp.tyvar
-            let nsource = nodes |> Graph.addNode (Source(CClass((Lit.getDotnetTypeName x), []))) 0
+            let nsource = nodes |> Graph.addNode (Source(CTau(TApp(Lit.getDotnetTypeName x, []))))
             do
-                Graph.connectNodes nsource node
+                Node.connectNodes nsource node
             node
         | TEVar ident ->
             let node = nodes |> Graph.addVarNode exp.tyvar
             let tyvarIdent = exp.env |> Env.resolve ident
             do
-                Graph.connectNodes (nodes |> Graph.findNode tyvarIdent) node
+                Node.connectNodes (nodes |> Graph.findNode tyvarIdent) node
             node
         | TEApp (e1, e2) ->
             let ne1 = generateGraph e1
@@ -227,59 +228,92 @@ let createConstraintGraph (exp: Annotated<TExp>) =
             let nident = nodes |> Graph.addVarNode (Env.resolve ident body.env)
             let nlet = nodes |> Graph.addVarNode exp.tyvar
             do
-                Graph.connectNodes (generateGraph body) nlet
-                Graph.connectNodes (generateGraph e) nident
+                Node.connectNodes (generateGraph body) nlet
+                Node.connectNodes (generateGraph e) nident
             nlet
     let rootNode = generateGraph exp
     { nodes = nodes; root = rootNode }
 
-type ProcessResult =
-    | Backtrack
-
 let solve (graph: Graph) =
-    let waitingForCompletion : ResizeArray<Node> = ResizeArray()
 
-    let rec processNode (n: Node) (comingFrom: Edge list) =
+    let newGenVar = Counter.up()
 
-        let incomingConstraints =
-            n.incoming |> Seq.choose (fun e -> e.fromNode.constr) |> Seq.toList
+    let rec unify (a: Forall) (b: Forall) =
+        let (a1,t1), (a2,t2) = a,b
+        match t1, t2 with
+        | TApp (n1, taus1), TApp (n2, taus2)
+            when n1 = n2  && taus1.Length = taus2.Length ->
+            Error "TODO"
+        | TFun (ta1, ta2), _ -> 
+            Error "TODO"
+        | _ -> 
+            Error  $"Cannot unity types '{a}' and '{b}'." 
 
-        // backtrack if not all incoming edges are constrained
-        if incomingConstraints.Length <> n.incoming.Length then
-            let wasWaiting = waitingForCompletion.Remove(n)
-            if not wasWaiting then
-                waitingForCompletion.Add(n)
-            ()
+    let mergeConstraints incomingConstraints node =
+        // TODO: is there some list.toLookup (see below)?
+        let incomingError =
+            incomingConstraints 
+            |> List.choose (fun cs ->
+                match cs with | UnificationError _ -> Some cs | _ -> None)
+            |> List.tryHead
+        match incomingError with
+        | Some error -> error
+        | None ->
+            let incomingConstraints =
+                incomingConstraints |> List.choose (fun cs ->
+                    match cs with | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
+            match node.data, incomingConstraints with
+            | Source c, [] -> Constrained c
+            | Var _, [] ->
+                let freshGenVar = newGenVar()
+                Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar))))
+            | Op MakeFun, [ (varsa, taua); (varsb, taub) ] ->
+                let vars = varsa @ varsb |> List.distinct
+                Constrained(Constraint.denorm (vars, TFun (taua, taub)))
+            | Op ApplyFun, [ (vars, TFun (_, tb)) ] ->
+                Constrained(Constraint.denorm(vars, tb))
+            | Var _, forall :: foralls ->
+                let res =
+                    (Ok forall, foralls) 
+                    ||> List.fold (fun state curr -> 
+                        match state with
+                        | Error _ -> state
+                        | Ok c -> unify c curr)
+                match res with
+                | Error e -> UnificationError e
+                | Ok res -> Constrained(Constraint.denorm res)
+            | _ ->
+                UnificationError $"TODO: Implement unifier for: {incomingConstraints} and {node.data}"
+
+    let rec constrainNode (n: Node) (comingFrom: Edge list) =
+        printfn $"Processing node: {n.data}"
+
+        let incomingIncompleteEdges = Node.getIncomingIncompleteEdges n
+
+        if incomingIncompleteEdges.Length > 0 then
+            for e in incomingIncompleteEdges |> List.except comingFrom do
+                constrainNode e.fromNode [e]
         else
             // merge incoming constraints
             let resultingConstraint =
-                match incomingConstraints, n.data with
-                | [], Source c -> Constrained c
-                | [], Var tyvar -> Constrained (CPoly tyvar)
-                | [a; b], Op (MakeFunc) ->
-                    Constraint.zip (fun a b -> Constrained (CFun (a, b))) a b
-                | [Constrained (CFun (_,b))], Op (ApplyFunc) ->
-                    Constrained b
-                | constraints, Var _ ->
-                    constraints |> Seq.reduce Constraint.unify
-                | _ ->
-                    failwith $"Error merging constraints: Invalid graph! Merging {incomingConstraints} for {n.data}"
+                let incomingConstraints = Node.getIncomingConstraints n
+                mergeConstraints incomingConstraints n
 
             // TODO: on error, we could terminate earlier
             n.constr <- Some resultingConstraint
 
             // wohin als nächstes:
             // Edges, die noch gar nicht gegangen wurden
-            let unprocessedEdges = (Set.ofList n.outgoing) - (Set.ofList comingFrom)
+            let unprocessedEdges = n.outgoing |> List.except comingFrom
             for unprocessedEdge in unprocessedEdges do
-                processNode unprocessedEdge.toNode (comingFrom @ [unprocessedEdge])
+                constrainNode unprocessedEdge.toNode (comingFrom @ [unprocessedEdge])
 
         ()
 
     let rec processNodes (nodes: Node list) =
         for n in nodes do
-            processNode n []
-        processNodes (Seq.toList waitingForCompletion)
+            constrainNode n []
+        //processNodes (Seq.toList waitingForCompletion)
 
     // we start with the root nodes
     let sourceNodes = Graph.getSources graph.nodes
