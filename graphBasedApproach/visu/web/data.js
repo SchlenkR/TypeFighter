@@ -28,7 +28,7 @@ window.nodeDataArray = [
   {
     "key": 4,
     "name": "7 (Var)",
-    "desc": "ERROR: TODO",
+    "desc": "ERROR: Cannot unity types \"Seq<'a>\" and \"Seq<Number>\": TODO",
     "fig": "Rectangle"
   },
   {
@@ -64,7 +64,7 @@ window.nodeDataArray = [
   {
     "key": 10,
     "name": "8 (Abs)",
-    "desc": "ERROR: TODO",
+    "desc": "ERROR: Cannot unity types \"('a -> 'b)\" and \"(Number -> 'e)\": TODO",
     "fig": "Rectangle"
   },
   {

@@ -282,40 +282,65 @@ module ConstraintGraph =
         Graph(rootNode, nodes)
 
     let solve (graph: Graph) =
-
         let emptySubst : Subst list  = []
 
-        let rec unify (a: Forall) (b: Forall) : Result<Forall * Subst list, string> =
+        //let rec collectGenVars (t: Tau) =
+        //    match t with
+        //    | TGenVar a -> [a]
+        //    | TApp (_, a) -> a |> List.collect collectGenVars
+        //    | TFun (a, b) -> (collectGenVars a @ collectGenVars b)
+        //    |> List.distinct
+
+        let rec unify (a: Forall) (b: Forall) : Result<Tau * Subst list, string> =
             let (_,t1), (_,t2) = a,b
-            match t1,t2 with
-            | x,y when x = y ->
-                Ok (a, emptySubst)
-            | TGenVar x, _ ->
-                Ok (b, [ { genTyVar = x; constr = Constraint.denorm b } ])
-            | _, TGenVar x ->
-                Ok (a, [ { genTyVar = x; constr = Constraint.denorm a } ])
-            | TApp (n1, taus1), TApp (n2, taus2)
-                when n1 = n2  && taus1.Length = taus2.Length ->
-                Error "TODO"
-            | TFun (ta1, ta2), _ ->
-                Error "TODO"
-            | _ -> 
-                Error  $"""Cannot unity types "{Format.forall a}" and "{Format.forall b}"."""
+            let error (msg: string) = Error $"""Cannot unity types "{Format.forall a}" and "{Format.forall b}": {msg}"""
+            let rec unifyTaus t1 t2 =
+                match t1,t2 with
+                | x,y when x = y ->
+                    Ok (a, emptySubst)
+                | TGenVar x, _ ->
+                    Ok (b, [ { genTyVar = x; constr = Constraint.denorm b } ])
+                | _, TGenVar x ->
+                    Ok (a, [ { genTyVar = x; constr = Constraint.denorm a } ])
+                | TApp (_, taus1), TApp (_, taus2)
+                    when taus1.Length <> taus2.Length ->
+                        error "Arg count mismatch"
+                | TApp (n1,_), TApp (n2, _)
+                    when n1 <> n2 ->
+                        error "Type (name) mismatch"
+                | TApp (name, taus1), TApp (_, taus2) ->
+                    let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unifyTaus t1 t2 ]
+                    let rec allOk (fas: Forall list) (allSubsts: Subst list) remainingTaus =
+                        match remainingTaus with
+                        | [] -> Ok (fas, allSubsts)
+                        | x :: xs ->
+                            match x with
+                            | Ok (forall, substs) -> allOk (fas @ [forall]) (allSubsts @ substs) xs
+                            | Error e -> Error e
+                    let res = allOk [] [] unifiedTaus
+                    match res with
+                    | Ok (foralls, substs) ->
+                        Ok (Forall Constraint.denorm TApp (name, taus), substs)
+                    | Error e ->
+                        error e
+                | TFun (ta1, ta2), _ ->
+                    error "TODO"
+                | _ -> error "Unspecified cases"
+            unifyTaus t1 t2
 
         let merge incomingConstraints (node: Node) =
             let incomingError =
                 incomingConstraints 
                 |> List.choose (function | UnificationError _ as cs -> Some cs | _ -> None)
                 |> List.tryHead
+            let incomingConstraints =
+                incomingConstraints
+                |> List.choose (function | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
 
             match incomingError with
             | Some error ->
                 error, emptySubst
             | None ->
-                let incomingConstraints =
-                    incomingConstraints
-                    |> List.choose (function | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
-
                 match node.data, incomingConstraints with
                 | Op MakeFun, [ (varsa, taua); (varsb, taub) ] ->
                     let vars = varsa @ varsb |> List.distinct
@@ -350,7 +375,7 @@ module ConstraintGraph =
                 | _ ->
                     failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
-        let (|CanMerge|_|) (incoming: Edge list) =
+        let (|Mergeable|_|) (incoming: Edge list) =
             let constraints = incoming |> List.choose (fun e -> e.fromNode.constr)
             if constraints.Length = incoming.Length then Some constraints else None
 
@@ -358,7 +383,7 @@ module ConstraintGraph =
             let res = [
                 for node in unfinished do
                     match node.incoming with
-                    | CanMerge constraints ->
+                    | Mergeable constraints ->
                         let merged,substs = merge constraints node
                         do node.constr <- Some merged
                         yield Choice1Of3 node
