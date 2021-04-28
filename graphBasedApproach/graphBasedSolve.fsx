@@ -18,15 +18,11 @@ type Tau =
     | TGenVar of GenTyVar
     | TApp of string * Tau list
     | TFun of Tau * Tau
-type Forall = GenTyVar list * Tau
-type Constraint =
-    | CTau of Tau
-    | CSigma of Forall
 
 type TyVar = int
 type Ident = string
 type EnvItem =
-    | Extern of Constraint
+    | Extern of Tau
     | Intern of TyVar
 type Env = Map<Ident, EnvItem>
 type Annotated<'expr> =
@@ -119,32 +115,26 @@ module Format =
         | TEAbs _ -> "Abs"
         | TELet _ -> "Let"
 
+    // TODO: this is crap!
+    let genVar (x: GenTyVar) = $"'{char (x + 96)}"
+
     let rec tau (t: Tau) =
         match t with
-        | TGenVar genVar ->
-            $"'{char (genVar + 96)}"
+        | TGenVar x -> 
+            genVar x
         | TApp (name, args) ->
             match args with
             | [] -> name
             | _ ->
                 let args = args |> List.map tau |> String.concat ", "
                 $"{name}<{args}>"
-        | TFun (t1, t2) ->
+        | TFun (t1, t2) -> 
             $"({tau t1} -> {tau t2})"
 
-    let forall (fa: Forall) = tau (snd fa)
-
-    let constr (c: Constraint) =
-        match c with
-        | CTau t -> tau t
-        | CSigma fa -> forall fa
-        
     let envItem ident envItem =
         match envItem with
-        | Intern tv ->
-            $"{tyvar ident (string tv)}"
-        | Extern c ->
-            $"{tyvar ident (constr c)}"
+        | Intern tv -> $"{tyvar ident (string tv)}"
+        | Extern t -> $"{tyvar ident (tau t)}"
 
     let tyvarAndEnv exp =
         let envVars =
@@ -163,11 +153,12 @@ module ConstraintGraph =
 
     type ConstraintState =
         | UnificationError of string
-        | Constrained of Constraint
+        | Constrained of Tau
 
     type Subst =
         { genTyVar: GenTyVar
-          constr: Constraint }
+          constr: Tau
+          anchor: TyVar }
 
     type ArgOp =
         | In
@@ -176,7 +167,7 @@ module ConstraintGraph =
         | MakeFun
         | Arg of ArgOp
     type NodeData =
-        | Source of Constraint
+        | Source of Tau
         | Var of TyVar
         | Op of Op
 
@@ -192,16 +183,6 @@ module ConstraintGraph =
         member this.root = root
         member this.nodes = nodes
         member val substs: Subst list = [] with get, set
-
-    module Constraint =
-        let norm c : Forall =
-            match c with
-            | CSigma(vars,tau) -> vars,tau
-            | CTau tau -> [],tau
-        let denorm (vars,tau) =
-            match vars with
-            | [] -> CTau tau
-            | _ -> CSigma(Forall (vars,tau))
 
     module Graph =
         let connectNodes (fromNode: Node) (toNode: Node) =
@@ -235,7 +216,7 @@ module ConstraintGraph =
             match exp.annotated with
             | TELit x ->
                 let nlit = nodes |> Graph.addVarNode exp.tyvar
-                let nsource = nodes |> Graph.addNode (Source(CTau(TApp(Lit.getTypeName x, []))))
+                let nsource = nodes |> Graph.addNode (Source(TApp(Lit.getTypeName x, [])))
                 Graph.connectNodes nsource nlit
                 nlit
             | TEVar ident ->
@@ -291,17 +272,15 @@ module ConstraintGraph =
         //    | TFun (a, b) -> (collectGenVars a @ collectGenVars b)
         //    |> List.distinct
 
-        let rec unify (a: Forall) (b: Forall) : Result<Tau * Subst list, string> =
-            let (_,t1), (_,t2) = a,b
-            let error (msg: string) = Error $"""Cannot unity types "{Format.forall a}" and "{Format.forall b}": {msg}"""
+        let rec unify (a: Tau) (b: Tau) (anchor: TyVar) : Result<Tau * Subst list, string> =
+            let error (msg: string) = Error $"""Cannot unity types "{Format.tau a}" and "{Format.tau b}": {msg}"""
             let rec unifyTaus t1 t2 =
                 match t1,t2 with
                 | x,y when x = y ->
-                    Ok (a, emptySubst)
-                | TGenVar x, _ ->
-                    Ok (b, [ { genTyVar = x; constr = Constraint.denorm b } ])
-                | _, TGenVar x ->
-                    Ok (a, [ { genTyVar = x; constr = Constraint.denorm a } ])
+                    Ok (x, emptySubst)
+                | TGenVar x, y
+                | y, TGenVar x ->
+                    Ok (y, [ { genTyVar = x; constr = y; anchor = anchor } ])
                 | TApp (_, taus1), TApp (_, taus2)
                     when taus1.Length <> taus2.Length ->
                         error "Arg count mismatch"
@@ -310,23 +289,23 @@ module ConstraintGraph =
                         error "Type (name) mismatch"
                 | TApp (name, taus1), TApp (_, taus2) ->
                     let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unifyTaus t1 t2 ]
-                    let rec allOk (fas: Forall list) (allSubsts: Subst list) remainingTaus =
+                    let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
                         match remainingTaus with
-                        | [] -> Ok (fas, allSubsts)
+                        | [] -> Ok (taus, allSubsts)
                         | x :: xs ->
                             match x with
-                            | Ok (forall, substs) -> allOk (fas @ [forall]) (allSubsts @ substs) xs
+                            | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts @ substs) xs
                             | Error e -> Error e
                     let res = allOk [] [] unifiedTaus
                     match res with
-                    | Ok (foralls, substs) ->
-                        Ok (Forall Constraint.denorm TApp (name, taus), substs)
+                    | Ok (taus, substs) ->
+                        Ok (TApp (name, taus), substs)
                     | Error e ->
                         error e
                 | TFun (ta1, ta2), _ ->
                     error "TODO"
                 | _ -> error "Unspecified cases"
-            unifyTaus t1 t2
+            unifyTaus a b
 
         let merge incomingConstraints (node: Node) =
             let incomingError =
@@ -335,28 +314,27 @@ module ConstraintGraph =
                 |> List.tryHead
             let incomingConstraints =
                 incomingConstraints
-                |> List.choose (function | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
+                |> List.choose (function | Constrained tau -> Some tau | _ -> None)
 
             match incomingError with
             | Some error ->
                 error, emptySubst
             | None ->
                 match node.data, incomingConstraints with
-                | Op MakeFun, [ (varsa, taua); (varsb, taub) ] ->
-                    let vars = varsa @ varsb |> List.distinct
-                    Constrained(Constraint.denorm (vars, TFun (taua, taub))), emptySubst
-                | Op(Arg In), [ (vars, TFun (ta, _)) ] ->
-                    Constrained(Constraint.denorm(vars, ta)), emptySubst
-                | Op(Arg Out), [ (vars, TFun (_, tb)) ] ->
-                    Constrained(Constraint.denorm(vars, tb)), emptySubst
+                | Op MakeFun, [ t1; t2 ] ->
+                    Constrained(TFun (t1, t2)), emptySubst
+                | Op(Arg In), [ TFun (t1, _) ] ->
+                    Constrained(t1), emptySubst
+                | Op(Arg Out), [ TFun (_, t2) ] ->
+                    Constrained(t2), emptySubst
                 | Source c, [] ->
                     Constrained c, emptySubst
                 | Var _, [] ->
                     let freshGenVar = newGenVar()
-                    Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar)))), emptySubst
-                | Var _, [forall] ->
-                    Constrained(CSigma(forall)), emptySubst
-                | Var _, forall :: foralls ->
+                    Constrained(TGenVar freshGenVar), emptySubst
+                | Var _, [tau] ->
+                    Constrained(tau), emptySubst
+                | Var tyvar, forall :: foralls ->
                     let res =
                         // TODO: this looks weired - why 2 times (we have to merge substs)?
                         (Ok (forall, emptySubst), foralls)
@@ -364,14 +342,14 @@ module ConstraintGraph =
                             match state with
                             | Error _ as e -> e
                             | Ok (forall, substs) ->
-                                match unify forall curr with
+                                match unify forall curr tyvar with
                                 | Error msg -> Error (msg, substs)
                                 | Ok (unifiedFoarll, newSubsts) -> Ok(unifiedFoarll, substs @ newSubsts))
                     match res with
                     | Error (msg, substs) ->
                         UnificationError msg, substs
-                    | Ok (forall, substs) ->
-                        Constrained(Constraint.denorm forall), substs
+                    | Ok (tau, substs) ->
+                        Constrained(tau), substs
                 | _ ->
                     failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
@@ -492,7 +470,7 @@ module Visu =
                   name = name
                   desc =
                     match x.constr with
-                    | Some (Constrained c) -> Format.constr c
+                    | Some (Constrained tau) -> Format.tau tau
                     | Some (UnificationError e) -> $"ERROR: {e}"
                     | None -> "???"
                   layout = layout }
@@ -539,13 +517,13 @@ module EnvCfg =
             "add",
             let typ =
                 let typ = TFun(numberTyp, TFun(numberTyp, numberTyp))
-                Extern(CTau(typ))
+                Extern(typ)
             in typ
         let read =
             "read",
             let typ =
                 let typ = TFun(unitTyp, numberTyp)
-                Extern(CTau(typ))
+                Extern(typ)
             in typ
         let map =
             "map",
@@ -554,8 +532,8 @@ module EnvCfg =
                 let seqTyp = TApp(KnownTypeNames.seq, [TGenVar v1])
                 let projTyp = TFun(TGenVar v1, TGenVar v2)
                 let retTyp = TApp(KnownTypeNames.seq, [TGenVar v2])
-                let typ = Forall([v1; v2], TFun(seqTyp, TFun(projTyp, retTyp)))
-                Extern(CSigma(typ))
+                let typ = TFun(seqTyp, TFun(projTyp, retTyp))
+                Extern(typ)
             in typ
         let take =
             "take",
@@ -563,8 +541,8 @@ module EnvCfg =
                 let v1 = ConstraintGraph.newGenVar()
                 let seqTyp = TApp(KnownTypeNames.seq, [TGenVar v1])
                 let retTyp = TGenVar v1
-                let typ = Forall([v1], TFun(seqTyp, TFun(numberTyp, retTyp)))
-                Extern(CSigma(typ))
+                let typ = TFun(seqTyp, TFun(numberTyp, retTyp))
+                Extern(typ)
             in typ
         let skip =
             "skip",
@@ -572,14 +550,14 @@ module EnvCfg =
                 let v1 = ConstraintGraph.newGenVar()
                 let seqTyp = TApp(KnownTypeNames.seq, [TGenVar v1])
                 let retTyp = TGenVar v1
-                let typ = Forall([v1], TFun(seqTyp, TFun(numberTyp, retTyp)))
-                Extern(CSigma(typ))
+                let typ = TFun(seqTyp, TFun(numberTyp, retTyp))
+                Extern(typ)
             in typ
         let numbers =
             "Numbers",
             let typ =
                 let typ = TApp(KnownTypeNames.seq, [ TApp(KnownTypeNames.number, []) ])
-                Extern(CTau(typ))
+                Extern(typ)
             in typ
         //let demoContext =
         //    Compiler.contextArgName,

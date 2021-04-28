@@ -28,7 +28,7 @@ window.nodeDataArray = [
   {
     "key": 4,
     "name": "7 (Var)",
-    "desc": "ERROR: Cannot unity types \"Seq<'a>\" and \"Seq<Number>\": TODO",
+    "desc": "Seq<Number>",
     "fig": "Rectangle"
   },
   {
