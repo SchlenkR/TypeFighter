@@ -286,10 +286,14 @@ module ConstraintGraph =
         let emptySubst : Subst list  = []
 
         let rec unify (a: Forall) (b: Forall) : Result<Forall * Subst list, string> =
-            let (a1,t1), (a2,t2) = a,b
-            match t1, t2 with
+            let (_,t1), (_,t2) = a,b
+            match t1,t2 with
             | x,y when x = y ->
                 Ok (a, emptySubst)
+            | TGenVar x, _ ->
+                Ok (b, [ { genTyVar = x; constr = Constraint.denorm b } ])
+            | _, TGenVar x ->
+                Ok (a, [ { genTyVar = x; constr = Constraint.denorm a } ])
             | TApp (n1, taus1), TApp (n2, taus2)
                 when n1 = n2  && taus1.Length = taus2.Length ->
                 Error "TODO"
@@ -336,11 +340,11 @@ module ConstraintGraph =
                             | Error _ as e -> e
                             | Ok (forall, substs) ->
                                 match unify forall curr with
-                                | Error _ as e -> e
+                                | Error msg -> Error (msg, substs)
                                 | Ok (unifiedFoarll, newSubsts) -> Ok(unifiedFoarll, substs @ newSubsts))
                     match res with
-                    | Error e ->
-                        UnificationError e, emptySubst
+                    | Error (msg, substs) ->
+                        UnificationError msg, substs
                     | Ok (forall, substs) ->
                         Constrained(Constraint.denorm forall), substs
                 | _ ->
@@ -370,8 +374,8 @@ module ConstraintGraph =
             if unfinishedNodes <> newUnfinishedNodes
                     || finishedNodes <> newFinishedNodes
                     || substitutions <> newSubstitutions
-                then processNodes newUnfinishedNodes newFinishedNodes newSubstitutions
-                else newSubstitutions
+                then substitutions @ (processNodes newUnfinishedNodes newFinishedNodes newSubstitutions)
+                else substitutions @ newSubstitutions
         let substs = processNodes (graph.nodes |> Seq.toList) [] []
         graph.substs <- substs
 

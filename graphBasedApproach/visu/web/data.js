@@ -82,7 +82,7 @@ window.nodeDataArray = [
   {
     "key": 13,
     "name": "13 (Var)",
-    "desc": "ERROR: Cannot unity types \"Number\" and \"'e\".",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
