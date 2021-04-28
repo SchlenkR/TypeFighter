@@ -331,7 +331,7 @@ module ConstraintGraph =
                     Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar)))), emptySubst
                 | Var _, [forall] ->
                     Constrained(CSigma(forall)), emptySubst
-                | Var tyvar, forall :: foralls ->
+                | Var _, forall :: foralls ->
                     let res =
                         // TODO: this looks weired - why 2 times (we have to merge substs)?
                         (Ok (forall, emptySubst), foralls)
@@ -354,9 +354,9 @@ module ConstraintGraph =
             let constraints = incoming |> List.choose (fun e -> e.fromNode.constr)
             if constraints.Length = incoming.Length then Some constraints else None
 
-        let rec processNodes (unfinishedNodes : Node list) (finishedNodes : Node list) (substitutions : Subst list) =
+        let rec processNodes (unfinished : Node list) (finished: Node list) (substs : Subst list) =
             let res = [
-                for node in unfinishedNodes do
+                for node in unfinished do
                     match node.incoming with
                     | CanMerge constraints ->
                         let merged,substs = merge constraints node
@@ -368,14 +368,14 @@ module ConstraintGraph =
                 ]
 
             // TODO: find a better partitioning
-            let newUnfinishedNodes = res |> List.choose (function Choice2Of3 x -> Some x | _ -> None)
-            let newFinishedNodes = res |> List.choose (function Choice1Of3 x -> Some x | _ -> None)
-            let newSubstitutions = res |> List.choose (function Choice3Of3 x -> Some x | _ -> None)
-            if unfinishedNodes <> newUnfinishedNodes
-                    || finishedNodes <> newFinishedNodes
-                    || substitutions <> newSubstitutions
-                then substitutions @ (processNodes newUnfinishedNodes newFinishedNodes newSubstitutions)
-                else substitutions @ newSubstitutions
+            let newUnfinished = res |> List.choose (function Choice2Of3 x -> Some x | _ -> None)
+            let newFinished = res |> List.choose (function Choice1Of3 x -> Some x | _ -> None)
+            let newSubsts = res |> List.choose (function Choice3Of3 x -> Some x | _ -> None)
+            if unfinished <> newUnfinished
+                    || finished <> newFinished
+                    || substs <> newSubsts
+                then substs @ (processNodes newUnfinished newFinished newSubsts)
+                else substs @ newSubsts
         let substs = processNodes (graph.nodes |> Seq.toList) [] []
         graph.substs <- substs
 
