@@ -114,6 +114,10 @@ module ConstraintGraph =
         | UnificationError of string
         | Constrained of Constraint
 
+    type Subst =
+        { genTyVar: GenTyVar
+          constr: Constraint }
+
     type ArgOp =
         | ArgIn
         | ArgOut
@@ -124,6 +128,7 @@ module ConstraintGraph =
         | Source of Constraint
         | Var of TyVar
         | Op of Op
+
     type Node (data: NodeData, constr: ConstraintState option) =
         member this.data = data
         member val constr = constr with get, set
@@ -190,8 +195,7 @@ module ConstraintGraph =
             | TELit x ->
                 let nlit = nodes |> Graph.addVarNode exp.tyvar
                 let nsource = nodes |> Graph.addNode (Source(CTau(TApp(Lit.getTypeName x, []))))
-                do
-                    Graph.connectNodes nsource nlit
+                Graph.connectNodes nsource nlit
                 nlit
             | TEVar ident ->
                 let nvar = nodes |> Graph.addVarNode exp.tyvar
@@ -212,16 +216,14 @@ module ConstraintGraph =
                 let ne1 = generateGraph e1
                 let ne2 = generateGraph e2
                 let napp = nodes |> Graph.addVarNode exp.tyvar
-                do
-                    //Graph.connectNodes ne2 napp
-                    nodes |> Graph.addArgNode ArgOut ne1 napp
-                    nodes |> Graph.addArgNode ArgIn ne1 ne2
+                //Graph.connectNodes ne2 napp
+                nodes |> Graph.addArgNode ArgOut ne1 napp
+                nodes |> Graph.addArgNode ArgIn ne1 ne2
                 napp
             | TEAbs (ident, body) ->
                 let nident = nodes |> Graph.addVarNode ident.tyvar
                 let nabs = nodes |> Graph.addVarNode exp.tyvar
-                do
-                    nodes |> Graph.addFuncNode nident (generateGraph body) nabs
+                nodes |> Graph.addFuncNode nident (generateGraph body) nabs
                 nabs
             | TELet (ident, e, body) ->
                 let nident =
@@ -232,9 +234,8 @@ module ConstraintGraph =
                     | Extern c -> 
                         nodes |> Graph.addNode (Source c)
                 let nlet = nodes |> Graph.addVarNode exp.tyvar
-                do
-                    Graph.connectNodes (generateGraph body) nlet
-                    Graph.connectNodes (generateGraph e) nident
+                Graph.connectNodes (generateGraph body) nlet
+                Graph.connectNodes (generateGraph e) nident
                 nlet
         let rootNode = generateGraph exp
         Graph(rootNode, nodes)
@@ -290,43 +291,35 @@ module ConstraintGraph =
                 | _ ->
                     failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
-        let getIncomingConstraints (n: Node) =
-            n.incoming |> Seq.choose (fun e -> e.fromNode.constr) |> Seq.toList
-        
-        let getIncomingIncompleteEdges (n: Node) =
-            n.incoming |> Seq.filter (fun e -> Option.isNone e.fromNode.constr) |> Seq.toList
-
-        let allIncomingConstrained (edges: Edge seq) =
-            edges |> Seq.exists (fun e -> e.fromNode.constr |> Option.isNone) |> not
-
         let (|CanMerge|_|) (incoming: Edge list) =
-            let constraints = incoming |> List.map (fun e -> e.fromNode.constr) |> List.choose id
+            let constraints = incoming |> List.choose (fun e -> e.fromNode.constr)
             if constraints.Length = incoming.Length then Some constraints else None
 
-        let processNodes (graph: Graph) =
-            let unfinishedNodes = ResizeArray(graph.nodes)
-            let finishedNodes = ResizeArray<Node>()
-            let mutable changeOccurredInThisCycle = true
+        let rec processNodes (unfinishedNodes : Node list) (finishedNodes : Node list) (substitutions : Subst list) =
+            let res = [
+                for node in unfinishedNodes do
+                    match node.incoming with
+                    | CanMerge constraints ->
+                        let merged,substs = mergeConstraints constraints node
+                        do node.constr <- Some merged
+                        yield Choice1Of3 node
+                        yield! substs |> List.map Choice3Of3
+                    | _ ->
+                        yield Choice2Of3 node
+                ]
 
-            let finish node =
-                unfinishedNodes.Remove(node) |> ignore
-                finishedNodes.Add(node)
-            while unfinishedNodes.Count > 0 && changeOccurredInThisCycle do
-                changeOccurredInThisCycle <- false
-                for node in unfinishedNodes |> Seq.toList do
-                    if allIncomingConstrained node.incoming then
-                        finish node
-                    else
-                        match node.incoming with
-                        | CanMerge constraints ->
-                            let merged = mergeConstraints constraints node
-                            if Some merged <> node.constr then
-                                changeOccurredInThisCycle <- true
-                                node.constr <- Some merged
-                        | _ -> ()
+            // TODO: find a better partitioning
+            let newUnfinishedNodes = res |> List.choose (function Choice2Of3 x -> Some x | _ -> None)
+            let newFinishedNodes = res |> List.choose (function Choice1Of3 x -> Some x | _ -> None)
+            let newSubstitutions = res |> List.choose (function Choice3Of3 x -> Some x | _ -> None)
+            if unfinishedNodes <> newUnfinishedNodes
+                    || finishedNodes <> newFinishedNodes
+                    || substitutions <> newSubstitutions
+                then processNodes newUnfinishedNodes newFinishedNodes newSubstitutions
+        do processNodes (graph.nodes |> Seq.toList) [] []
 
-        processNodes graph
-
+        // mutable; anyway, we return the graph
+        graph
 
 
 module Visu =
@@ -475,9 +468,6 @@ module Visu =
 
 
 
-
-
-
 [<AutoOpen>]
 module Dsl =
     let Str x = Lit (LString x)
@@ -581,6 +571,11 @@ let showConstraintGraph env exp =
     let annoExp,allAnnoExp = AnnotatedAst.create env exp
     do annoExp |> ConstraintGraph.create |> Visu.showConstraintGraph allAnnoExp
     exp
+let showSolvedGraph env exp =
+    let annoExp,allAnnoExp = AnnotatedAst.create env exp
+    let graph = annoExp |> ConstraintGraph.create
+    do ConstraintGraph.solve graph |> Visu.showConstraintGraph allAnnoExp
+    exp
 
 
 (*
@@ -595,6 +590,7 @@ map Numbers (\number ->
 |> showUntypedAst
 |> showAnnotatedAst EnvCfg.fullEnv
 |> showConstraintGraph EnvCfg.fullEnv
+|> showSolvedGraph EnvCfg.fullEnv
 
 
 
