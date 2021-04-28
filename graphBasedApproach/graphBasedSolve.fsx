@@ -47,13 +47,11 @@ module Env =
         | Some t -> t
 
 module Counter =
-    let create f =
+    let up() =
         let mutable varCounter = 0
         fun () ->
-            varCounter <- f varCounter 1
+            varCounter <- varCounter + 1
             varCounter
-    let up () = create (+)
-    let down () = create (-)
 
 let annotate (env: Env) (exp: Exp) =
     let newvar = Counter.up()
@@ -132,22 +130,6 @@ module Constraint =
         | [] -> CTau tau
         | _ -> CSigma(Forall (vars,tau))
 
-    let rec makeFun (a: Constraint) (b: Constraint) =
-        match norm a, norm b with
-        | (args1, tau1), (args2, tau2) ->
-            let args = set (args1 @ args2) |> Set.toList
-            denorm (args, TFun(tau1, tau2))
-
-    let zip f (a: ConstraintState) (b: ConstraintState) =
-        match a,b with
-        | UnificationError a, UnificationError b ->
-            UnificationError $"{a} AND {b}"
-        | _, UnificationError x
-        | UnificationError x, _ ->
-            UnificationError x
-        | Constrained a, Constrained b ->
-            f a b
-
 module Node =
     let getIncomingConstraints (n: Node) =
         n.incoming |> Seq.choose (fun e -> e.fromNode.constr) |> Seq.toList
@@ -183,7 +165,7 @@ module Graph =
             Node.connectNodes napp ntarget
 
     /// nodes with no incoming edges
-    let getSources (nodes: Node seq) =
+    let getRoots (nodes: Node seq) =
         nodes
         |> Seq.filter (fun n -> n.incoming.Length = 0)
         |> Seq.toList
@@ -244,7 +226,7 @@ let solve (graph: Graph) =
         | TApp (n1, taus1), TApp (n2, taus2)
             when n1 = n2  && taus1.Length = taus2.Length ->
             Error "TODO"
-        | TFun (ta1, ta2), _ -> 
+        | TFun (ta1, ta2), _ ->
             Error "TODO"
         | _ -> 
             Error  $"Cannot unity types '{a}' and '{b}'." 
@@ -283,7 +265,7 @@ let solve (graph: Graph) =
                 | Error e -> UnificationError e
                 | Ok res -> Constrained(Constraint.denorm res)
             | _ ->
-                UnificationError $"TODO: Implement unifier for: {incomingConstraints} and {node.data}"
+                failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
     let rec constrainNode (n: Node) (comingFrom: Edge list) =
         printfn $"Processing node: {n.data}"
@@ -299,6 +281,9 @@ let solve (graph: Graph) =
                 let incomingConstraints = Node.getIncomingConstraints n
                 mergeConstraints incomingConstraints n
 
+            // remove connection to incoming constraints
+
+
             // TODO: on error, we could terminate earlier
             n.constr <- Some resultingConstraint
 
@@ -307,7 +292,6 @@ let solve (graph: Graph) =
             let unprocessedEdges = n.outgoing |> List.except comingFrom
             for unprocessedEdge in unprocessedEdges do
                 constrainNode unprocessedEdge.toNode (comingFrom @ [unprocessedEdge])
-
         ()
 
     let rec processNodes (nodes: Node list) =
@@ -316,8 +300,8 @@ let solve (graph: Graph) =
         //processNodes (Seq.toList waitingForCompletion)
 
     // we start with the root nodes
-    let sourceNodes = Graph.getSources graph.nodes
-    processNodes sourceNodes
+    let rootNodes = Graph.getRoots graph.nodes
+    processNodes rootNodes
 
     ()
 
