@@ -83,11 +83,9 @@ type Tau =
     | TApp of string * Tau list
     | TFun of Tau * Tau
 type Forall = GenTyVar list * Tau
-type Sigma =
-    | Forall of Forall
 type Constraint =
     | CTau of Tau
-    | CSigma of Sigma
+    | CSigma of Forall
 type ConstraintState =
     | UnificationError of string
     | Constrained of Constraint
@@ -99,30 +97,22 @@ type NodeData =
     | Source of Constraint
     | Var of TyVar
     | Op of Op
-type [<ReferenceEquality>] Node =
-    { data: NodeData
-      mutable constr: ConstraintState option
-      mutable incoming: Edge list
-      mutable outgoing: Edge list }
-and [<CustomEquality; CustomComparison>] Edge =
-    { fromNode: Node
-      toNode: Node }
-        interface System.IComparable with
-            member this.CompareTo(other) =
-                this.GetHashCode().CompareTo((other :?> Edge).GetHashCode())
-        override this.Equals(other) =
-            let other = other :?> Edge
-            this.fromNode = other.fromNode && this.toNode = other.toNode
-        override this.GetHashCode() = hash (this.fromNode, this.toNode)
-
-and Graph =
-    { root: Node 
-      nodes: ResizeArray<Node> }
+type Node (data: NodeData, constr: ConstraintState option) =
+    member this.data = data
+    member val constr = constr with get, set
+    member val incoming: Edge list = [] with get, set
+    member val outgoing: Edge list = [] with get, set
+and Edge (fromNode: Node, toNode: Node) =
+    member this.fromNode = fromNode
+    member this.toNode = toNode
+and Graph(root: Node, nodes: ResizeArray<Node>) =
+    member this.root = root
+    member this.nodes = nodes
 
 module Constraint =
     let norm c : Forall =
         match c with
-        | CSigma(Forall(vars,tau)) -> vars,tau
+        | CSigma(vars,tau) -> vars,tau
         | CTau tau -> [],tau
 
     let denorm (vars,tau) =
@@ -136,18 +126,14 @@ module Node =
     let getIncomingIncompleteEdges (n: Node) =
         n.incoming |> Seq.filter (fun e -> Option.isNone e.fromNode.constr) |> Seq.toList
     let connectNodes (fromNode: Node) (toNode: Node) =
-        let edge = { fromNode = fromNode; toNode = toNode }
+        let edge = Edge(fromNode, toNode)
         do
             fromNode.outgoing <- edge :: fromNode.outgoing
             toNode.incoming <- edge :: toNode.incoming
 
 module Graph =
     let addNode n (nodes: ResizeArray<Node>) =
-        let node =
-            { data = n
-              constr = match n with | Source c -> Some(Constrained c) | _ -> None
-              incoming = []
-              outgoing = [] }
+        let node = Node(n, match n with | Source c -> Some(Constrained c) | _ -> None)
         do
             nodes.Add node
         node
@@ -214,7 +200,7 @@ let createConstraintGraph (exp: Annotated<TExp>) =
                 Node.connectNodes (generateGraph e) nident
             nlet
     let rootNode = generateGraph exp
-    { nodes = nodes; root = rootNode }
+    Graph(rootNode, nodes)
 
 let solve (graph: Graph) =
 
@@ -231,7 +217,7 @@ let solve (graph: Graph) =
         | _ -> 
             Error  $"Cannot unity types '{a}' and '{b}'." 
 
-    let mergeConstraints incomingConstraints node =
+    let mergeConstraints incomingConstraints (node: Node) =
         // TODO: is there some list.toLookup (see below)?
         let incomingError =
             incomingConstraints 
@@ -294,16 +280,32 @@ let solve (graph: Graph) =
                 constrainNode unprocessedEdge.toNode (comingFrom @ [unprocessedEdge])
         ()
 
-    let rec processNodes (nodes: Node list) =
-        for n in nodes do
-            constrainNode n []
-        //processNodes (Seq.toList waitingForCompletion)
+    let allIncomingConstrained (edges: Edge seq) =
+        edges |> Seq.exists (fun e -> e.fromNode.constr |> Option.isNone) |> not
 
-    // we start with the root nodes
-    let rootNodes = Graph.getRoots graph.nodes
-    processNodes rootNodes
+    let (|CanMerge|_|) (incoming: Edge list) =
+        let constraints = incoming |> List.map (fun e -> e.fromNode.constr) |> List.choose id
+        if constraints.Length = incoming.Length then Some constraints else None
 
-    ()
+    let processNodes (graph: Graph) =
+        let unfinishedNodes = ResizeArray(graph.nodes)
+        let finishedNodes = ResizeArray<Node>()
+        let mutable changeOccurredInThisCycle = true
+        let finish node =
+            unfinishedNodes.Remove(node) |> ignore
+            finishedNodes.Add(node)
+        while unfinishedNodes.Count > 0 && changeOccurredInThisCycle do
+            for node in unfinishedNodes |> Seq.toList do
+                if allIncomingConstrained node.incoming then
+                    finish node
+                else
+                    match node.incoming with
+                    | CanMerge constraints ->
+                        let merged = mergeConstraints constraints
+
+                    | _ -> ()
+
+    processNodes graph
 
 
 module GraphVisu =
