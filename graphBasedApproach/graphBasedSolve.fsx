@@ -140,6 +140,7 @@ module ConstraintGraph =
     and Graph(root: Node, nodes: ResizeArray<Node>) =
         member this.root = root
         member this.nodes = nodes
+        member val substs: Subst list = [] with get, set
 
     module Constraint =
         let norm c : Forall =
@@ -242,7 +243,9 @@ module ConstraintGraph =
 
     let solve (graph: Graph) =
 
-        let rec unify (a: Forall) (b: Forall) =
+        let emptySubst : Subst list  = []
+
+        let rec unify (a: Forall) (b: Forall) : Result<Forall * Subst list, string> =
             let (a1,t1), (a2,t2) = a,b
             match t1, t2 with
             | TApp (n1, taus1), TApp (n2, taus2)
@@ -253,8 +256,7 @@ module ConstraintGraph =
             | _ -> 
                 Error  $"Cannot unity types '{a}' and '{b}'." 
 
-        let mergeConstraints incomingConstraints (node: Node) =
-            let emptySubst = []
+        let merge incomingConstraints (node: Node) =
             let incomingError =
                 incomingConstraints 
                 |> List.choose (function | UnificationError _ as cs -> Some cs | _ -> None)
@@ -283,16 +285,20 @@ module ConstraintGraph =
                     Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar)))), emptySubst
                 | Var _, forall :: foralls ->
                     let res =
-                        (Ok forall, foralls) 
+                        // TODO: this looks weired - why 2 times?
+                        (Ok (forall, emptySubst), foralls) 
                         ||> List.fold (fun state curr -> 
                             match state with
                             | Error _ -> state
-                            | Ok c -> unify c curr)
+                            | Ok (forall, substs) ->
+                                match unify forall curr with
+                                | Error _ -> state
+                                | Ok (unifiedFoarll, newSubsts) -> Ok(unifiedFoarll, substs @ newSubsts))
                     match res with
                     | Error e ->
                         UnificationError e, emptySubst
-                    | Ok res ->
-                        Constrained(Constraint.denorm res), emptySubst
+                    | Ok (forall, substs) ->
+                        Constrained(Constraint.denorm forall), substs
                 | _ ->
                     failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
@@ -305,7 +311,7 @@ module ConstraintGraph =
                 for node in unfinishedNodes do
                     match node.incoming with
                     | CanMerge constraints ->
-                        let merged,substs = mergeConstraints constraints node
+                        let merged,substs = merge constraints node
                         do node.constr <- Some merged
                         yield Choice1Of3 node
                         yield! substs |> List.map Choice3Of3
@@ -321,10 +327,9 @@ module ConstraintGraph =
                     || finishedNodes <> newFinishedNodes
                     || substitutions <> newSubstitutions
                 then processNodes newUnfinishedNodes newFinishedNodes newSubstitutions
-        do processNodes (graph.nodes |> Seq.toList) [] []
-
-        // mutable; anyway, we return the graph
-        graph
+                else newSubstitutions
+        let substs = processNodes (graph.nodes |> Seq.toList) [] []
+        graph.substs <- substs
 
 
 module Visu =
@@ -579,8 +584,9 @@ let showConstraintGraph env exp =
 let showSolvedGraph env exp =
     let annoExp,allAnnoExp = AnnotatedAst.create env exp
     let graph = annoExp |> ConstraintGraph.create
-    do ConstraintGraph.solve graph |> Visu.showConstraintGraph allAnnoExp
-    exp
+    do ConstraintGraph.solve graph
+    do graph |> Visu.showConstraintGraph allAnnoExp
+    graph.substs
 
 
 (*

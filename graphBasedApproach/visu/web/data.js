@@ -4,19 +4,19 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "2 (Env)",
-    "desc": "???",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
     "key": 1,
     "name": "1 (Let)",
-    "desc": "???",
+    "desc": "Seq<'b>",
     "fig": "Rectangle"
   },
   {
     "key": 2,
     "name": "6 (Var)",
-    "desc": "???",
+    "desc": "(Seq<'a> -> (('a -> 'b) -> Seq<'b>))",
     "fig": "Rectangle"
   },
   {
@@ -28,7 +28,7 @@ window.nodeDataArray = [
   {
     "key": 4,
     "name": "7 (Var)",
-    "desc": "???",
+    "desc": "Seq<'a>",
     "fig": "Rectangle"
   },
   {
@@ -40,37 +40,37 @@ window.nodeDataArray = [
   {
     "key": 6,
     "name": "5 (App)",
-    "desc": "???",
+    "desc": "(('a -> 'b) -> Seq<'b>)",
     "fig": "Rectangle"
   },
   {
     "key": 7,
-    "name": "Arg ArgOut",
-    "desc": "???",
+    "name": "Arg Out",
+    "desc": "(('a -> 'b) -> Seq<'b>)",
     "fig": "Ellipse"
   },
   {
     "key": 8,
-    "name": "Arg ArgIn",
-    "desc": "???",
+    "name": "Arg In",
+    "desc": "Seq<'a>",
     "fig": "Ellipse"
   },
   {
     "key": 9,
     "name": "9 (Env)",
-    "desc": "???",
+    "desc": "'e",
     "fig": "Rectangle"
   },
   {
     "key": 10,
     "name": "8 (Abs)",
-    "desc": "???",
+    "desc": "('a -> 'b)",
     "fig": "Rectangle"
   },
   {
     "key": 11,
     "name": "12 (Var)",
-    "desc": "???",
+    "desc": "(Number -> (Number -> Number))",
     "fig": "Rectangle"
   },
   {
@@ -82,79 +82,79 @@ window.nodeDataArray = [
   {
     "key": 13,
     "name": "13 (Var)",
-    "desc": "???",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
     "key": 14,
     "name": "11 (App)",
-    "desc": "???",
+    "desc": "(Number -> Number)",
     "fig": "Rectangle"
   },
   {
     "key": 15,
-    "name": "Arg ArgOut",
-    "desc": "???",
+    "name": "Arg Out",
+    "desc": "(Number -> Number)",
     "fig": "Ellipse"
   },
   {
     "key": 16,
-    "name": "Arg ArgIn",
-    "desc": "???",
+    "name": "Arg In",
+    "desc": "Number",
     "fig": "Ellipse"
   },
   {
     "key": 17,
     "name": "14 (Var)",
-    "desc": "???",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
     "key": 18,
     "name": "10 (App)",
-    "desc": "???",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
     "key": 19,
-    "name": "Arg ArgOut",
-    "desc": "???",
+    "name": "Arg Out",
+    "desc": "Number",
     "fig": "Ellipse"
   },
   {
     "key": 20,
-    "name": "Arg ArgIn",
-    "desc": "???",
+    "name": "Arg In",
+    "desc": "Number",
     "fig": "Ellipse"
   },
   {
     "key": 21,
     "name": "MakeFun",
-    "desc": "???",
+    "desc": "(Number -> 'e)",
     "fig": "Ellipse"
   },
   {
     "key": 22,
     "name": "4 (App)",
-    "desc": "???",
+    "desc": "Seq<'b>",
     "fig": "Rectangle"
   },
   {
     "key": 23,
-    "name": "Arg ArgOut",
-    "desc": "???",
+    "name": "Arg Out",
+    "desc": "Seq<'b>",
     "fig": "Ellipse"
   },
   {
     "key": 24,
-    "name": "Arg ArgIn",
-    "desc": "???",
+    "name": "Arg In",
+    "desc": "('a -> 'b)",
     "fig": "Ellipse"
   },
   {
     "key": 25,
     "name": "3 (Lit)",
-    "desc": "???",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
