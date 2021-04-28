@@ -119,8 +119,8 @@ module ConstraintGraph =
           constr: Constraint }
 
     type ArgOp =
-        | ArgIn
-        | ArgOut
+        | In
+        | Out
     type Op =
         | MakeFun
         | Arg of ArgOp
@@ -217,8 +217,8 @@ module ConstraintGraph =
                 let ne2 = generateGraph e2
                 let napp = nodes |> Graph.addVarNode exp.tyvar
                 //Graph.connectNodes ne2 napp
-                nodes |> Graph.addArgNode ArgOut ne1 napp
-                nodes |> Graph.addArgNode ArgIn ne1 ne2
+                nodes |> Graph.addArgNode Out ne1 napp
+                nodes |> Graph.addArgNode In ne1 ne2
                 napp
             | TEAbs (ident, body) ->
                 let nident = nodes |> Graph.addVarNode ident.tyvar
@@ -254,30 +254,33 @@ module ConstraintGraph =
                 Error  $"Cannot unity types '{a}' and '{b}'." 
 
         let mergeConstraints incomingConstraints (node: Node) =
-            // TODO: is there some list.toLookup (see below)?
+            let emptySubst = []
             let incomingError =
                 incomingConstraints 
-                |> List.choose (fun cs ->
-                    match cs with | UnificationError _ -> Some cs | _ -> None)
+                |> List.choose (function | UnificationError _ as cs -> Some cs | _ -> None)
                 |> List.tryHead
+
             match incomingError with
-            | Some error -> error
+            | Some error ->
+                error, emptySubst
             | None ->
                 let incomingConstraints =
-                    incomingConstraints |> List.choose (fun cs ->
-                        match cs with | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
+                    incomingConstraints
+                    |> List.choose (function | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
+
                 match node.data, incomingConstraints with
-                | Source c, [] -> Constrained c
-                | Var _, [] ->
-                    let freshGenVar = newGenVar()
-                    Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar))))
+                | Source c, [] ->
+                    Constrained c, emptySubst
                 | Op MakeFun, [ (varsa, taua); (varsb, taub) ] ->
                     let vars = varsa @ varsb |> List.distinct
-                    Constrained(Constraint.denorm (vars, TFun (taua, taub)))
-                | Op(Arg ArgIn), [ (vars, TFun (ta, _)) ] ->
-                    Constrained(Constraint.denorm(vars, ta))
-                | Op(Arg ArgOut), [ (vars, TFun (_, tb)) ] ->
-                    Constrained(Constraint.denorm(vars, tb))
+                    Constrained(Constraint.denorm (vars, TFun (taua, taub))), emptySubst
+                | Op(Arg In), [ (vars, TFun (ta, _)) ] ->
+                    Constrained(Constraint.denorm(vars, ta)), emptySubst
+                | Op(Arg Out), [ (vars, TFun (_, tb)) ] ->
+                    Constrained(Constraint.denorm(vars, tb)), emptySubst
+                | Var _, [] ->
+                    let freshGenVar = newGenVar()
+                    Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar)))), emptySubst
                 | Var _, forall :: foralls ->
                     let res =
                         (Ok forall, foralls) 
@@ -286,8 +289,10 @@ module ConstraintGraph =
                             | Error _ -> state
                             | Ok c -> unify c curr)
                     match res with
-                    | Error e -> UnificationError e
-                    | Ok res -> Constrained(Constraint.denorm res)
+                    | Error e ->
+                        UnificationError e, emptySubst
+                    | Ok res ->
+                        Constrained(Constraint.denorm res), emptySubst
                 | _ ->
                     failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
