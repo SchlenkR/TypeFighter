@@ -58,7 +58,7 @@ window.nodeDataArray = [
   {
     "key": 9,
     "name": "9 (Env)",
-    "desc": "'f",
+    "desc": "'e",
     "fig": "Rectangle"
   },
   {
@@ -82,7 +82,7 @@ window.nodeDataArray = [
   {
     "key": 13,
     "name": "13 (Var)",
-    "desc": "ERROR: Cannot unity types \"Number\" and \"'f\".",
+    "desc": "ERROR: Cannot unity types \"Number\" and \"'e\".",
     "fig": "Rectangle"
   },
   {
@@ -106,7 +106,7 @@ window.nodeDataArray = [
   {
     "key": 17,
     "name": "14 (Var)",
-    "desc": "ERROR: TODO",
+    "desc": "Number",
     "fig": "Rectangle"
   },
   {
@@ -130,7 +130,7 @@ window.nodeDataArray = [
   {
     "key": 21,
     "name": "MakeFun",
-    "desc": "(Number -> 'f)",
+    "desc": "(Number -> 'e)",
     "fig": "Ellipse"
   },
   {

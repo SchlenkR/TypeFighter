@@ -198,7 +198,6 @@ module ConstraintGraph =
             match c with
             | CSigma(vars,tau) -> vars,tau
             | CTau tau -> [],tau
-
         let denorm (vars,tau) =
             match vars with
             | [] -> CTau tau
@@ -207,27 +206,23 @@ module ConstraintGraph =
     module Graph =
         let connectNodes (fromNode: Node) (toNode: Node) =
             let edge = Edge(fromNode, toNode)
-            do
-                fromNode.outgoing <- edge :: fromNode.outgoing
-                toNode.incoming <- edge :: toNode.incoming
+            fromNode.outgoing <- edge :: fromNode.outgoing
+            toNode.incoming <- edge :: toNode.incoming
         let addNode n (nodes: ResizeArray<Node>) =
             let node = Node(n, match n with | Source c -> Some(Constrained c) | _ -> None)
-            do
-                nodes.Add node
+            nodes.Add node
             node
-        let addVarNode n nodes = addNode (Var n) nodes
+        let addVarNode n nodes =
+            addNode (Var n) nodes
         let addFuncNode n1 n2 ntarget nodes =
             let nfunc = nodes |> addNode (Op MakeFun)
-            do
-                connectNodes n1 nfunc
-                connectNodes n2 nfunc
-                connectNodes nfunc ntarget
+            connectNodes n1 nfunc
+            connectNodes n2 nfunc
+            connectNodes nfunc ntarget
         let addArgNode op nsource ntarget nodes =
             let napp = nodes |> addNode (Op(Arg(op)))
-            do
-                connectNodes nsource napp
-                connectNodes napp ntarget
-
+            connectNodes nsource napp
+            connectNodes napp ntarget
         let findNode (tyvar: TyVar) (nodes: Node seq) =
             nodes |> Seq.find (fun n ->
                 match n.data with
@@ -293,6 +288,8 @@ module ConstraintGraph =
         let rec unify (a: Forall) (b: Forall) : Result<Forall * Subst list, string> =
             let (a1,t1), (a2,t2) = a,b
             match t1, t2 with
+            | x,y when x = y ->
+                Ok (a, emptySubst)
             | TApp (n1, taus1), TApp (n2, taus2)
                 when n1 = n2  && taus1.Length = taus2.Length ->
                 Error "TODO"
