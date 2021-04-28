@@ -107,6 +107,57 @@ module AnnotatedAst =
         let res = annotate env exp
         res, allExp |> Seq.toList
 
+module Format =
+    let tyvar (ident: string) (x: string) =
+        $"'{ident}' : {x}"
+
+    let texpName (annoExp: TExp) =
+        match annoExp with
+        | TELit _ -> "Lit"
+        | TEVar _ -> "Var"
+        | TEApp _ -> "App"
+        | TEAbs _ -> "Abs"
+        | TELet _ -> "Let"
+
+    let rec tau (t: Tau) =
+        match t with
+        | TGenVar genVar ->
+            $"'{char (genVar + 96)}"
+        | TApp (name, args) ->
+            match args with
+            | [] -> name
+            | _ ->
+                let args = args |> List.map tau |> String.concat ", "
+                $"{name}<{args}>"
+        | TFun (t1, t2) ->
+            $"({tau t1} -> {tau t2})"
+
+    let forall (fa: Forall) = tau (snd fa)
+
+    let constr (c: Constraint) =
+        match c with
+        | CTau t -> tau t
+        | CSigma fa -> forall fa
+        
+    let envItem ident envItem =
+        match envItem with
+        | Intern tv ->
+            $"{tyvar ident (string tv)}"
+        | Extern c ->
+            $"{tyvar ident (constr c)}"
+
+    let tyvarAndEnv exp =
+        let envVars =
+            match exp.env |> Map.toList with
+            | [] -> "[ ]"
+            | [(ident, item)] ->
+                $"[ {envItem ident item} ]"
+            | _ ->
+                [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
+                |> String.concat "\n"
+                |> fun s -> $"\n{s}"
+        ($"var = {exp.tyvar}") + "\nenv = " + envVars
+
 module ConstraintGraph =
     let newGenVar = Counter.up()
 
@@ -176,12 +227,6 @@ module ConstraintGraph =
             do
                 connectNodes nsource napp
                 connectNodes napp ntarget
-
-        /// nodes with no incoming edges
-        let getRoots (nodes: Node seq) =
-            nodes
-            |> Seq.filter (fun n -> n.incoming.Length = 0)
-            |> Seq.toList
 
         let findNode (tyvar: TyVar) (nodes: Node seq) =
             nodes |> Seq.find (fun n ->
@@ -254,7 +299,7 @@ module ConstraintGraph =
             | TFun (ta1, ta2), _ ->
                 Error "TODO"
             | _ -> 
-                Error  $"Cannot unity types '{a}' and '{b}'." 
+                Error  $"""Cannot unity types "{Format.forall a}" and "{Format.forall b}"."""
 
         let merge incomingConstraints (node: Node) =
             let incomingError =
@@ -271,8 +316,6 @@ module ConstraintGraph =
                     |> List.choose (function | Constrained c -> (Some (Constraint.norm c)) | _ -> None)
 
                 match node.data, incomingConstraints with
-                | Source c, [] ->
-                    Constrained c, emptySubst
                 | Op MakeFun, [ (varsa, taua); (varsb, taub) ] ->
                     let vars = varsa @ varsb |> List.distinct
                     Constrained(Constraint.denorm (vars, TFun (taua, taub))), emptySubst
@@ -280,19 +323,23 @@ module ConstraintGraph =
                     Constrained(Constraint.denorm(vars, ta)), emptySubst
                 | Op(Arg Out), [ (vars, TFun (_, tb)) ] ->
                     Constrained(Constraint.denorm(vars, tb)), emptySubst
+                | Source c, [] ->
+                    Constrained c, emptySubst
                 | Var _, [] ->
                     let freshGenVar = newGenVar()
                     Constrained(CSigma(Forall(([freshGenVar], TGenVar freshGenVar)))), emptySubst
-                | Var _, forall :: foralls ->
+                | Var _, [forall] ->
+                    Constrained(CSigma(forall)), emptySubst
+                | Var tyvar, forall :: foralls ->
                     let res =
-                        // TODO: this looks weired - why 2 times?
-                        (Ok (forall, emptySubst), foralls) 
+                        // TODO: this looks weired - why 2 times (we have to merge substs)?
+                        (Ok (forall, emptySubst), foralls)
                         ||> List.fold (fun state curr -> 
                             match state with
-                            | Error _ -> state
+                            | Error _ as e -> e
                             | Ok (forall, substs) ->
                                 match unify forall curr with
-                                | Error _ -> state
+                                | Error _ as e -> e
                                 | Ok (unifiedFoarll, newSubsts) -> Ok(unifiedFoarll, substs @ newSubsts))
                     match res with
                     | Error e ->
@@ -358,54 +405,6 @@ module Visu =
 
         createNodes exp |> flatten |> Tree.write
     
-    let formatTyvar (ident: string) (x: string) =
-        $"'{ident}' : {x}"
-
-    let formatTExpName (annoExp: TExp) =
-        match annoExp with
-        | TELit _ -> "Lit"
-        | TEVar _ -> "Var"
-        | TEApp _ -> "App"
-        | TEAbs _ -> "Abs"
-        | TELet _ -> "Let"
-
-    let rec formatTau (tau: Tau) =
-        match tau with
-        | TGenVar genVar ->
-            $"'{char (genVar + 96)}"
-        | TApp (name, args) ->
-            match args with
-            | [] -> name
-            | _ ->
-                let args = args |> List.map formatTau |> String.concat ", "
-                $"{name}<{args}>"
-        | TFun (t1, t2) ->
-            $"({formatTau t1} -> {formatTau t2})"
-
-    let formatConstraint (c: Constraint) =
-        match c with
-        | CTau t -> formatTau t
-        | CSigma(vars,tau) -> formatTau tau
-        
-    let formatEnvItem ident envItem =
-        match envItem with
-        | Intern tyvar ->
-            $"{formatTyvar ident (string tyvar)}"
-        | Extern c ->
-            $"{formatTyvar ident (formatConstraint c)}"
-
-    let formatTyvarAndEnv exp =
-        let envVars =
-            match exp.env |> Map.toList with
-            | [] -> "[ ]"
-            | [(ident, envItem)] ->
-                $"[ {formatEnvItem ident envItem} ]"
-            | _ ->
-                [ for x in exp.env do $"-  {formatEnvItem x.Key x.Value}" ]
-                |> String.concat "\n"
-                |> fun s -> $"\n{s}"
-        ($"var = {exp.tyvar}") + "\nenv = " + envVars
-
     let showAnnotatedAst (exp: Annotated<TExp>) =
         let rec flatten (node: Tree.Node) =
             [
@@ -417,21 +416,21 @@ module Visu =
         let rec createNodes (exp: Annotated<TExp>) =
             match exp.annotated with
             | TELit x ->
-                Tree.var $"Lit ({Lit.getValue x}: {Lit.getTypeName x})" (formatTyvarAndEnv exp) []
+                Tree.var $"Lit ({Lit.getValue x}: {Lit.getTypeName x})" (Format.tyvarAndEnv exp) []
             | TEVar ident ->
                 let envItem = Env.resolve ident exp.env                
-                Tree.var $"Var {formatEnvItem ident envItem}" (formatTyvarAndEnv exp) []
+                Tree.var $"Var {Format.envItem ident envItem}" (Format.tyvarAndEnv exp) []
             | TEApp (e1, e2) ->
-                Tree.var $"App" (formatTyvarAndEnv exp) [ createNodes e1; createNodes e2 ]
+                Tree.var $"App" (Format.tyvarAndEnv exp) [ createNodes e1; createNodes e2 ]
             | TEAbs (ident, body) ->
                 Tree.var
-                    $"""fun {formatTyvar ident.annotated (string ident.tyvar)} -> {formatTyvar "e" (string body.tyvar)}"""
-                    (formatTyvarAndEnv exp)
+                    $"""fun {Format.tyvar ident.annotated (string ident.tyvar)} -> {Format.tyvar "e" (string body.tyvar)}"""
+                    (Format.tyvarAndEnv exp)
                     [ createNodes body ]
             | TELet (ident, e, body) ->
                 Tree.var
-                    $"""let {ident} = {formatTyvar "e1" (string e.tyvar)} in {formatTyvar "e2" (string body.tyvar)}"""
-                    (formatTyvarAndEnv exp)
+                    $"""let {ident} = {Format.tyvar "e1" (string e.tyvar)} in {Format.tyvar "e2" (string body.tyvar)}"""
+                    (Format.tyvarAndEnv exp)
                     [ createNodes e; createNodes body ]
 
         createNodes exp |> flatten |> Tree.write
@@ -460,14 +459,14 @@ module Visu =
                         let expName =
                             match allAnnoExp |> List.tryFind (fun a -> a.tyvar = tyvar) with
                             | None -> "Env"
-                            | Some x -> formatTExpName x.annotated
+                            | Some x -> Format.texpName x.annotated
                         $"{tyvar} ({expName})", NodeTypes.var
                     | Op op -> string op, NodeTypes.op
                 { key = i
                   name = name
                   desc =
                     match x.constr with
-                    | Some (Constrained c) -> formatConstraint c
+                    | Some (Constrained c) -> Format.constr c
                     | Some (UnificationError e) -> $"ERROR: {e}"
                     | None -> "???"
                   layout = layout }

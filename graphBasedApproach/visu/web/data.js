@@ -28,7 +28,7 @@ window.nodeDataArray = [
   {
     "key": 4,
     "name": "7 (Var)",
-    "desc": "Seq<'a>",
+    "desc": "ERROR: TODO",
     "fig": "Rectangle"
   },
   {
@@ -58,13 +58,13 @@ window.nodeDataArray = [
   {
     "key": 9,
     "name": "9 (Env)",
-    "desc": "'e",
+    "desc": "'f",
     "fig": "Rectangle"
   },
   {
     "key": 10,
     "name": "8 (Abs)",
-    "desc": "('a -> 'b)",
+    "desc": "ERROR: TODO",
     "fig": "Rectangle"
   },
   {
@@ -82,7 +82,7 @@ window.nodeDataArray = [
   {
     "key": 13,
     "name": "13 (Var)",
-    "desc": "Number",
+    "desc": "ERROR: Cannot unity types \"Number\" and \"'f\".",
     "fig": "Rectangle"
   },
   {
@@ -106,7 +106,7 @@ window.nodeDataArray = [
   {
     "key": 17,
     "name": "14 (Var)",
-    "desc": "Number",
+    "desc": "ERROR: TODO",
     "fig": "Rectangle"
   },
   {
@@ -130,7 +130,7 @@ window.nodeDataArray = [
   {
     "key": 21,
     "name": "MakeFun",
-    "desc": "(Number -> 'e)",
+    "desc": "(Number -> 'f)",
     "fig": "Ellipse"
   },
   {
