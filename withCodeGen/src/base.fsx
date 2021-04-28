@@ -54,7 +54,6 @@ module KnownTypeNames =
     let seq = "Seq"
 
 module Lit =
-
     let getTypeName (l: Lit) =
         match l with
         | LString _ -> KnownTypeNames.string
@@ -571,8 +570,6 @@ module Visu =
 
 [<AutoOpen>]
 module Dsl =
-    let inline (^|) f a = f a
-           
     let Str x = Lit (LString x)
     let Num x = Lit (LNumber x)
     let Bool x = Lit (LBool x)

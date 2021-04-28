@@ -5,7 +5,7 @@ function graphLayout() {
     inst.getLayout = function ($) {
         return $(go.ForceDirectedLayout,
             {
-                randomNumberGenerator: null, // deterministic layout
+                //randomNumberGenerator: null, // deterministic layout
                 maxIterations: 10000,
                 defaultElectricalCharge: 100
             //    defaultSpringLength: 100,
