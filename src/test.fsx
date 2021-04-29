@@ -5,41 +5,41 @@ open Main
 module Visu =
     open Visu
     
-    let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (exp: Annotated<TExp>) =
+    let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (exp: TExp) =
         let rec flatten (node: Tree.Node) =
             [
                 yield node
                 for c in node.children do
                     yield! flatten c
             ]
-        let rec createNodes (exp: Annotated<TExp>) =
+        let rec createNodes (exp: TExp) =
             let details =
                 [
-                    if showVar then yield Format.expTyvar exp
-                    if showConstraint then yield Format.constraintState exp.constr
-                    if showEnv then yield Format.env exp
+                    if showVar then yield Format.expTyvar exp.meta
+                    if showConstraint then yield Format.constraintState exp.meta.constr
+                    if showEnv then yield Format.env exp.meta
                 ]
                 |> String.concat "\n"
-            match exp.annotated with
-            | TELit x ->
+            match exp.exp with
+            | Lit x ->
                 Tree.var $"Lit ({Lit.getValue x})" details []
-            | TEVar ident ->
+            | Var ident ->
                 Tree.var $"Var ({ident})" details []
-            | TEApp (e1, e2) ->
+            | App (e1, e2) ->
                 Tree.var "App" details [ createNodes e1; createNodes e2 ]
-            | TEAbs (ident, body) ->
-                Tree.var $"Fun ({ident.annotated})" details [ createNodes body ]
-            | TELet (ident, e, body) ->
+            | Abs ((ident, identMeta), body) ->
+                Tree.var $"Fun ({ident})" details [ createNodes body ]
+            | Let (ident, e, body) ->
                 Tree.var $"Let {ident}" details [ createNodes e; createNodes body ]
         createNodes exp |> flatten |> Tree.write
 
-    let writeConstraintGraph (allAnnoExp: Annotated<TExp> list) (nodes: ConstraintGraph.Node seq) =
+    let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node seq) =
         let indexedNodes = nodes |> Seq.indexed |> Seq.toList
         let jsLinks =
             [ 
                 let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
                 for n in nodes do
-                    for i in ConstraintGraph.Node.getIncoming n do
+                    for i in ConstraintGraph.getIncomingNodes n do
                         { Visu.JsLink.fromNode = nodesLookup.[i]
                           Visu.JsLink.toNode = nodesLookup.[n] }
             ]
@@ -48,11 +48,11 @@ module Visu =
                 let name, layout =
                     match x.data with
                     | ConstraintGraph.Source _ -> "SOURCE", NodeTypes.op
-                    | ConstraintGraph.Var x ->
+                    | ConstraintGraph.Ast x ->
                         let expName =
-                            match allAnnoExp |> List.tryFind (fun a -> a.tyvar = x.tyvar) with
+                            match allAnnoExp |> List.tryFind (fun a -> a.meta.tyvar = x.tyvar) with
                             | None -> "Env"
-                            | Some x -> Format.texpName x.annotated
+                            | Some x -> Format.texpName x.exp
                         $"{x.tyvar} ({expName})", NodeTypes.var
                     | ConstraintGraph.MakeFun _ -> "MakeFun", NodeTypes.op
                     | ConstraintGraph.Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
@@ -91,19 +91,21 @@ module Visu =
 
 [<AutoOpen>]
 module Dsl =
-    let Str x = Lit (LString x)
-    let Num x = Lit (LNumber x)
-    let Bool x = Lit (LBool x)
-    let Unit = Lit LUnit
+    let mu exp : UExp = { exp = exp; meta = () }
 
-    let Var x = Var x
-    let App e1 e2 = App (e1, e2)
-    let Abs x e = Abs (x, e)
-    let Let x e1 e2 = Let (x, e1, e2)
+    let Str x = Lit (LString x) |> mu
+    let Num x = Lit (LNumber x) |> mu
+    let Bool x = Lit (LBool x) |> mu
+    let Unit = Lit LUnit |> mu
+
+    let Var x = Var x |> mu
+    let App e1 e2 = App (e1, e2) |> mu
+    let Abs x e = Abs ((x, ()), e) |> mu
+    let Let x e1 e2 = Let (x, e1, e2) |> mu
 
     // convenience
-    let Appn e (es: List<Exp>) =
-        let rec apply (current: Exp) (es: List<Exp>) =
+    let Appn e es =
+        let rec apply current es =
             match es with
             | [] -> current
             | [x] -> App current x
