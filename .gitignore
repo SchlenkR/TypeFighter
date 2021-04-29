@@ -3,20 +3,18 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-## RoSc custom
-node_modules/
-
-
 .ionide
 symbolCache.db
 .paket/load
-.paket/
 
 # User-specific files
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+
+# User-specific files (MonoDevelop/Xamarin Studio)
+*.userprefs
 
 # Build results
 [Dd]ebug/
@@ -32,6 +30,15 @@ bld/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
+# Uncomment if you have tasks that create the project's static files in wwwroot
+#wwwroot/
+
+# Visual Studio 2017 auto generated files
+Generated\ Files/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
 
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
@@ -42,6 +49,8 @@ project.fragment.lock.json
 artifacts/
 **/Properties/launchSettings.json
 
+# StyleCop
+StyleCopReport.xml
 
 # Files built by Visual Studio
 *_i.c
@@ -71,11 +80,6 @@ artifacts/
 *.svclog
 *.scc
 
-# ReSharper is a .NET coding add-in
-_ReSharper*/
-*.[Rr]e[Ss]harper
-*.DotSettings.user
-
 # NuGet Packages
 *.nupkg
 # The packages folder can be ignored because of Package Restore
@@ -87,6 +91,18 @@ _ReSharper*/
 # NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
+
+# SQL Server files
+*.mdf
+*.ldf
+*.ndf
+
+# Microsoft Fakes
+FakesAssemblies/
+
+# Node.js Tools for Visual Studio
+.ntvs_analysis.dat
+node_modules/
 
 # Paket dependency manager
 .paket/paket.exe
