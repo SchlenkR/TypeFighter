@@ -220,11 +220,14 @@ module rec ConstraintGraph =
                 (nsource, inc) ==> var exp.tyvar
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
-                // (check: ne1 must be a fun type) implicit
-                // (check: napp = ne2) ??
-                // infer: argOut(ne1) -> napp
-                // infer: argIn(ne1) -> ne2
-                // subst: 
+                // (check: e1 must be a fun type) implicit
+                // (check: app = e2) ??
+                // NEIN! Das ist zu allgemein (wir müssen das eine Zeile unten machen)
+                //     infer: argOut(e1) ==> app
+                // JA!
+                //     subst: getSubst (argIn e1) e2 |> applySubst (argOut e1) ==> app
+                //     subst: applySubst (argOut e1) (getSubst (argIn e1) e2) ==> app
+                // infer: argIn(e1) ==> e2
                 let ne1 = None |> generateGraph e1
                 let ne2 = (argIn ne1) => generateGraph e2 
                 (argOut ne1, inc) ==> var exp.tyvar
@@ -248,7 +251,8 @@ module rec ConstraintGraph =
         
         let rec unify (a: Tau) (b: Tau) (anchor: TyVar) : Result<Tau * Subst list, string> =
             let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
-            let rec unifyTaus t1 t2 =
+
+            let rec unify1 t1 t2 =
                 match t1,t2 with
                 | x,y when x = y ->
                     Ok (x, emptySubst)
@@ -262,15 +266,7 @@ module rec ConstraintGraph =
                     when n1 <> n2 ->
                         error "Type (name) mismatch"
                 | TApp (name, taus1), TApp (_, taus2) ->
-                    let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unifyTaus t1 t2 ]
-                    let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
-                        match remainingTaus with
-                        | [] -> Ok (taus, allSubsts)
-                        | x :: xs ->
-                            match x with
-                            | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts @ substs) xs
-                            | Error e -> Error e
-                    let res = allOk [] [] unifiedTaus
+                    let res = unifyn taus1 taus2
                     match res with
                     | Ok (taus, substs) ->
                         Ok (TApp (name, taus), substs)
@@ -279,24 +275,35 @@ module rec ConstraintGraph =
                 | TFun (ta1, ta2), _ ->
                     error "TODO"
                 | _ -> error "Unspecified cases"
-            unifyTaus a b
+            and unifyn taus1 taus2 =
+                let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
+                let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
+                    match remainingTaus with
+                    | [] -> Ok (taus, allSubsts)
+                    | x :: xs ->
+                        match x with
+                        | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts @ substs) xs
+                        | Error e -> Error e
+                allOk [] [] unifiedTaus
 
-        let (|C|E|I|) (node: Node) =
-            match node.constr with
-            | Constrained tau -> C tau
-            | UnificationError e -> E e
-            | Initial -> I
+            unify1 a b
 
-        let (|Cs|Es|Ns|) (nodes: Node list) =
-            let cs = nodes |> List.choose (function | C x -> Some x | _ -> None)
-            let es = nodes |> List.choose (function | E x -> Some x | _ -> None)
-            let ns = nodes |> List.choose (function | I x -> Some x | _ -> None)
-            match cs,es,ns with
-            | _,es::_,_ -> Es es
-            | _,_,ns::_ -> Ns ns
-            | cs,[],[] -> Cs cs
+        let processNode (node: Node) =
+            let (|C|E|I|) (node: Node) =
+                match node.constr with
+                | Constrained tau -> C tau
+                | UnificationError e -> E e
+                | Initial -> I
 
-        let merge (node: Node) =
+            let (|Cs|Es|Ns|) (nodes: Node list) =
+                let cs = nodes |> List.choose (function | C x -> Some x | _ -> None)
+                let es = nodes |> List.choose (function | E x -> Some x | _ -> None)
+                let ns = nodes |> List.choose (function | I x -> Some x | _ -> None)
+                match cs,es,ns with
+                | _,es::_,_ -> Es es
+                | _,_,ns::_ -> Ns ns
+                | cs,[],[] -> Cs cs
+
             match Node.getIncoming node with
             | Ns _ -> Initial, emptySubst
             | Es es -> UnificationError es, emptySubst
@@ -329,7 +336,7 @@ module rec ConstraintGraph =
             let mutable goOn = false
 
             for node in unfinished |> Seq.toArray do
-                let c,newSubsts = merge node
+                let c,newSubsts = processNode node
                 node.constr <- c
                 substs.AddRange(newSubsts)
                 match c with
@@ -343,8 +350,7 @@ module rec ConstraintGraph =
             if not goOn then
                 {| finishedNodes = finished |> List.ofSeq
                    unfinishedNodes = unfinished |> List.ofSeq |}
-                |> fun x ->
-                    {| x with allNodes = x.finishedNodes @ x.unfinishedNodes |}
+                |> fun x -> {| x with allNodes = x.finishedNodes @ x.unfinishedNodes |}
             else
                 processNodes unfinished finished substs
         
