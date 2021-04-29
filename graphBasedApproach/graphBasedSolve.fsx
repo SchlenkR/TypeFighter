@@ -119,7 +119,7 @@ module Format =
         | TELit _ -> "Lit"
         | TEVar _ -> "Var"
         | TEApp _ -> "App"
-        | TEAbs _ -> "Abs"
+        | TEAbs _ -> "Fun"
         | TELet _ -> "Let"
 
     // TODO: this is crap!
@@ -433,31 +433,8 @@ module rec ConstraintGraph =
 
 module Visu =
     open Visu
-
-    let writeUntypedAst (exp: Exp) =
-        let rec flatten (node: Tree.Node) =
-            [
-                yield node
-                for c in node.children do
-                    yield! flatten c
-            ]
     
-        let rec createNodes (exp: Exp) =
-            match exp with
-            | Lit x ->
-                Tree.var $"Lit" $"{Lit.getValue x} : {(Lit.getTypeName x)}" []
-            | Var ident ->
-                Tree.var $"Var" ident []
-            | App (e1, e2) ->
-                Tree.var $"App" "" [ createNodes e1; createNodes e2 ]
-            | Abs (ident, body) ->
-                Tree.var $"Abs {ident} -> e" "" [ createNodes body ]
-            | Let (ident, e, body) ->
-                Tree.var $"Let" ident [ createNodes e; createNodes body ]
-
-        createNodes exp |> flatten |> Tree.write
-    
-    let writeAnnotatedAst (showVar: bool) (showEnv: bool) (exp: Annotated<TExp>) =
+    let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (exp: Annotated<TExp>) =
         let rec flatten (node: Tree.Node) =
             [
                 yield node
@@ -467,31 +444,22 @@ module Visu =
         let rec createNodes (exp: Annotated<TExp>) =
             let details =
                 [
-                    if showVar then Some (Format.expTyvar exp) else None
-                    Some (Format.constraintState exp.constr)
-                    if showEnv then Some (Format.env exp) else None
+                    if showVar then yield Format.expTyvar exp
+                    if showConstraint then yield Format.constraintState exp.constr
+                    if showEnv then yield Format.env exp
                 ]
-                |> List.choose id
                 |> String.concat "\n"
             match exp.annotated with
             | TELit x ->
-                Tree.var $"Lit ({Lit.getValue x}: {Lit.getTypeName x})" details []
+                Tree.var $"Lit ({Lit.getValue x})" details []
             | TEVar ident ->
-                let envItem = Env.resolve ident exp.env                
-                Tree.var $"Var {Format.envItem ident envItem}" details []
+                Tree.var $"Var ({ident})" details []
             | TEApp (e1, e2) ->
-                Tree.var $"App" details [ createNodes e1; createNodes e2 ]
+                Tree.var "App" details [ createNodes e1; createNodes e2 ]
             | TEAbs (ident, body) ->
-                Tree.var
-                    $"""fun {Format.tyvar ident.annotated (string ident.tyvar)} -> {Format.tyvar "e" (string body.tyvar)}"""
-                    details
-                    [ createNodes body ]
+                Tree.var $"Fun ({ident.annotated})" details [ createNodes body ]
             | TELet (ident, e, body) ->
-                Tree.var
-                    $"""let {ident} = {Format.tyvar "e1" (string e.tyvar)} in {Format.tyvar "e2" (string body.tyvar)}"""
-                    details
-                    [ createNodes e; createNodes body ]
-
+                Tree.var $"Let {ident}" details [ createNodes e; createNodes body ]
         createNodes exp |> flatten |> Tree.write
 
     let writeConstraintGraph (allAnnoExp: Annotated<TExp> list) (nodes: ConstraintGraph.Node seq) =
@@ -525,13 +493,12 @@ module Visu =
             ]
         Graph.write jsNodes jsLinks
     
-    let showUntypedAst exp =
-        do writeUntypedAst exp
-        exp
-    let showAnnotatedAst env exp =
+    let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) exp =
         let annoExp = AnnotatedAst.create env exp |> fst
-        do annoExp |> writeAnnotatedAst true true
+        do annoExp |> writeAnnotatedAst showVar showEnv showConstraint
         exp
+    let showLightAst env exp = showAst env false false false exp
+    let showAnnotatedAst env exp = showAst env true true false exp
     let showConstraintGraph env exp =
         let annoExp,allAnnoExp = AnnotatedAst.create env exp
         do annoExp |> ConstraintGraph.create |> writeConstraintGraph allAnnoExp
@@ -547,8 +514,8 @@ module Visu =
         let nodes = annoExp |> ConstraintGraph.create
         let res = ConstraintGraph.solve nodes
         do ConstraintGraph.applyResult annoExp res.allNodes
-        do annoExp |> writeAnnotatedAst false false
-    
+        do annoExp |> writeAnnotatedAst false false true
+
 
 
 [<AutoOpen>]
@@ -653,7 +620,7 @@ map Numbers (\number ->
 (Let "x" (Num 10.0)
 (Appn (Var "map") [ Var "Numbers"; Abs "number"
 (Appn (Var "add") [ Var "number"; Var "x" ] )] ))
-|> Visu.showUntypedAst
+|> Visu.showLightAst EnvCfg.fullEnv
 |> Visu.showAnnotatedAst EnvCfg.fullEnv
 |> Visu.showConstraintGraph EnvCfg.fullEnv
 |> Visu.showSolvedGraph EnvCfg.fullEnv

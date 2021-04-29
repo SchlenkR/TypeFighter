@@ -3,13 +3,13 @@ window.layout = "tree";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "let x = 'e1' : 3 in 'e2' : 4",
+    "name": "Let x",
     "desc": "Seq<Number>",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "Lit (10: Number)",
+    "name": "Lit (10)",
     "desc": "Number",
     "fig": "Rectangle"
   },
@@ -27,19 +27,19 @@ window.nodeDataArray = [
   },
   {
     "key": 4,
-    "name": "Var 'map' : (Seq<'a> -> (('a -> 'b) -> Seq<'b>))",
+    "name": "Var (map)",
     "desc": "(Seq<'a> -> (('a -> 'b) -> Seq<'b>))",
     "fig": "Rectangle"
   },
   {
     "key": 5,
-    "name": "Var 'Numbers' : Seq<Number>",
+    "name": "Var (Numbers)",
     "desc": "Seq<Number>",
     "fig": "Rectangle"
   },
   {
     "key": 6,
-    "name": "fun 'number' : 9 -> 'e' : 10",
+    "name": "Fun (number)",
     "desc": "(Number -> Number)",
     "fig": "Rectangle"
   },
@@ -57,19 +57,19 @@ window.nodeDataArray = [
   },
   {
     "key": 9,
-    "name": "Var 'add' : (Number -> (Number -> Number))",
+    "name": "Var (add)",
     "desc": "(Number -> (Number -> Number))",
     "fig": "Rectangle"
   },
   {
     "key": 10,
-    "name": "Var 'number' : 9",
+    "name": "Var (number)",
     "desc": "Number",
     "fig": "Rectangle"
   },
   {
     "key": 11,
-    "name": "Var 'x' : 2",
+    "name": "Var (x)",
     "desc": "Number",
     "fig": "Rectangle"
   }
