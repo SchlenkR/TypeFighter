@@ -149,8 +149,6 @@ module Format =
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
 
 module rec ConstraintGraph =
-    let newGenVar = Counter.up()
-
     type ConstraintState =
         | Initial
         | Constrained of Tau
@@ -162,18 +160,20 @@ module rec ConstraintGraph =
     type MakeFunData = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
     type ArgData = { argOp: ArgOp; inc: Node }
-    type UnifyData = { incs: Node list }
+    type ApplySubstData = { substSource: Node; substIn: Node; apply: Node }
     type NodeData =
         | Source of Tau
         | Var of VarData
         | MakeFun of MakeFunData
         | Arg of ArgData
-        //| Unify of UnifyData
+        | ApplySubst of ApplySubstData
     
     // TODO: maybe get rid of this and make everything immutable
     type Node (data: NodeData, constr: ConstraintState) =
         member this.data = data
         member val constr = constr with get, set
+
+    let newGenVar = Counter.up()
 
     module Node =
         let getIncoming (node: Node) =
@@ -181,8 +181,8 @@ module rec ConstraintGraph =
             | Source _ -> []
             | Var x -> [ x.inc1; x.inc2 ] |> List.choose id
             | MakeFun x -> [ x.inc1; x.inc2 ]
-            | Arg { argOp = _; inc = x } -> [x]
-
+            | Arg { argOp = _; inc = a } -> [a]
+            | ApplySubst { substSource = a; substIn = b; apply = c } -> [a;b;c]
 
     let create (exp: Annotated<TExp>) =
         let nodes = ResizeArray()
@@ -197,6 +197,8 @@ module rec ConstraintGraph =
         let arg op inc = addNode (Arg { argOp = op; inc = inc })
         let argIn = arg In
         let argOut = arg Out
+        let applySubst substSource substIn apply =
+            addNode (ApplySubst { substSource = substSource; substIn = substIn; apply = apply })
 
         let findVarNode (tyvar: TyVar) =
             nodes |> Seq.find (fun n ->
@@ -226,11 +228,13 @@ module rec ConstraintGraph =
                 //     infer: argOut(e1) ==> app
                 // JA!
                 //     subst: getSubst (argIn e1) e2 |> applySubst (argOut e1) ==> app
-                //     subst: applySubst (argOut e1) (getSubst (argIn e1) e2) ==> app
+                //     -- oder --
+                //     subst: applySubst e2 (argIn e1) (argOut e1) ==> app
                 // infer: argIn(e1) ==> e2
                 let ne1 = None |> generateGraph e1
                 let ne2 = (argIn ne1) => generateGraph e2 
-                (argOut ne1, inc) ==> var exp.tyvar
+                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> var exp.tyvar
+                //(argOut ne1, inc) ==> var exp.tyvar
             | TEAbs (ident, body) ->
                 let nfunc = makeFunc (var ident.tyvar None None) (generateGraph body None)
                 (nfunc, inc) ==> var exp.tyvar
@@ -309,12 +313,6 @@ module rec ConstraintGraph =
             | Es es -> UnificationError es, emptySubst
             | _ ->
                 match node.data with
-                | MakeFun { inc1 = C t1; inc2 = C t2  } ->
-                    Constrained(TFun (t1, t2)), emptySubst
-                | Arg { argOp = In; inc = C(TFun(t1,_)) } ->
-                    Constrained(t1), emptySubst
-                | Arg { argOp = Out; inc = C(TFun(_,t2)) } ->
-                    Constrained(t2), emptySubst
                 | Source c ->
                     Constrained c, emptySubst
                 // The next 2 are edge cases. we could also model inc1 and inc2 an not optional
@@ -329,6 +327,14 @@ module rec ConstraintGraph =
                     match unify t1 t2 tyvar with
                     | Error msg -> UnificationError msg, emptySubst
                     | Ok (unifiedTau, substs) -> Constrained unifiedTau, substs
+                | MakeFun { inc1 = C t1; inc2 = C t2  } ->
+                    Constrained(TFun (t1, t2)), emptySubst
+                | Arg { argOp = In; inc = C(TFun(t1,_)) } ->
+                    Constrained(t1), emptySubst
+                | Arg { argOp = Out; inc = C(TFun(_,t2)) } ->
+                    Constrained(t2), emptySubst
+                | ApplySubst { substSource = a; substIn = b; apply = c } ->
+                    failwith $"TODO"
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
@@ -439,6 +445,7 @@ module Visu =
                         $"{x.tyvar} ({expName})", NodeTypes.var
                     | MakeFun _ -> "MakeFun", NodeTypes.op
                     | Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
+                    | ApplySubst _ -> $"ApplySubst", NodeTypes.op
                 { key = i
                   name = name
                   desc =
