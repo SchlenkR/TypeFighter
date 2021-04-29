@@ -434,7 +434,7 @@ module rec ConstraintGraph =
 module Visu =
     open Visu
 
-    let showUntypedAst (exp: Exp) =
+    let writeUntypedAst (exp: Exp) =
         let rec flatten (node: Tree.Node) =
             [
                 yield node
@@ -457,7 +457,7 @@ module Visu =
 
         createNodes exp |> flatten |> Tree.write
     
-    let showAnnotatedAst (showVar: bool) (showEnv: bool) (exp: Annotated<TExp>) =
+    let writeAnnotatedAst (showVar: bool) (showEnv: bool) (exp: Annotated<TExp>) =
         let rec flatten (node: Tree.Node) =
             [
                 yield node
@@ -494,15 +494,13 @@ module Visu =
 
         createNodes exp |> flatten |> Tree.write
 
-    open ConstraintGraph
-
-    let showConstraintGraph (allAnnoExp: Annotated<TExp> list) (nodes: Node seq) =
+    let writeConstraintGraph (allAnnoExp: Annotated<TExp> list) (nodes: ConstraintGraph.Node seq) =
         let indexedNodes = nodes |> Seq.indexed |> Seq.toList
         let jsLinks =
             [ 
                 let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
                 for n in nodes do
-                    for i in Node.getIncoming n do
+                    for i in ConstraintGraph.Node.getIncoming n do
                         { Visu.JsLink.fromNode = nodesLookup.[i]
                           Visu.JsLink.toNode = nodesLookup.[n] }
             ]
@@ -510,25 +508,47 @@ module Visu =
             [ for i,x in indexedNodes do
                 let name, layout =
                     match x.data with
-                    | Source _ -> "SOURCE", NodeTypes.op
-                    | Var x ->
+                    | ConstraintGraph.Source _ -> "SOURCE", NodeTypes.op
+                    | ConstraintGraph.Var x ->
                         let expName =
                             match allAnnoExp |> List.tryFind (fun a -> a.tyvar = x.tyvar) with
                             | None -> "Env"
                             | Some x -> Format.texpName x.annotated
                         $"{x.tyvar} ({expName})", NodeTypes.var
-                    | MakeFun _ -> "MakeFun", NodeTypes.op
-                    | Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
-                    | UnifySubst _ -> $"ApplySubst", NodeTypes.op
+                    | ConstraintGraph.MakeFun _ -> "MakeFun", NodeTypes.op
+                    | ConstraintGraph.Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
+                    | ConstraintGraph.UnifySubst _ -> $"ApplySubst", NodeTypes.op
                 { key = i
                   name = name
                   desc = Format.constraintState x.constr
                   layout = layout }
             ]
-
         Graph.write jsNodes jsLinks
-
-
+    
+    let showUntypedAst exp =
+        do writeUntypedAst exp
+        exp
+    let showAnnotatedAst env exp =
+        let annoExp = AnnotatedAst.create env exp |> fst
+        do annoExp |> writeAnnotatedAst true true
+        exp
+    let showConstraintGraph env exp =
+        let annoExp,allAnnoExp = AnnotatedAst.create env exp
+        do annoExp |> ConstraintGraph.create |> writeConstraintGraph allAnnoExp
+        exp
+    let showSolvedGraph env exp =
+        let annoExp,allAnnoExp = AnnotatedAst.create env exp
+        let nodes = annoExp |> ConstraintGraph.create
+        let res = ConstraintGraph.solve nodes
+        do res.allNodes |> writeConstraintGraph allAnnoExp
+        exp
+    let showSolvedAst env exp =
+        let annoExp,_ = AnnotatedAst.create env exp
+        let nodes = annoExp |> ConstraintGraph.create
+        let res = ConstraintGraph.solve nodes
+        do ConstraintGraph.applyResult annoExp res.allNodes
+        do annoExp |> writeAnnotatedAst false false
+    
 
 
 [<AutoOpen>]
@@ -623,30 +643,6 @@ module EnvCfg =
     let smallEnv = Map.ofList [ add; read ]
     let fullEnv = Map.ofList [ add; read; map; take; skip; numbers (*demoContext*) ]
 
-let showUntypedAst exp =
-    do Visu.showUntypedAst exp
-    exp
-let showAnnotatedAst env exp =
-    let annoExp = AnnotatedAst.create env exp |> fst
-    do annoExp |> Visu.showAnnotatedAst true true
-    exp
-let showConstraintGraph env exp =
-    let annoExp,allAnnoExp = AnnotatedAst.create env exp
-    do annoExp |> ConstraintGraph.create |> Visu.showConstraintGraph allAnnoExp
-    exp
-let showSolvedGraph env exp =
-    let annoExp,allAnnoExp = AnnotatedAst.create env exp
-    let nodes = annoExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve nodes
-    do res.allNodes |> Visu.showConstraintGraph allAnnoExp
-    exp
-let showSolvedAst env exp =
-    let annoExp,_ = AnnotatedAst.create env exp
-    let nodes = annoExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve nodes
-    do ConstraintGraph.applyResult annoExp res.allNodes
-    do annoExp |> Visu.showAnnotatedAst false false
-
 
 (*
 let x = 10.0
@@ -657,11 +653,11 @@ map Numbers (\number ->
 (Let "x" (Num 10.0)
 (Appn (Var "map") [ Var "Numbers"; Abs "number"
 (Appn (Var "add") [ Var "number"; Var "x" ] )] ))
-|> showUntypedAst
-|> showAnnotatedAst EnvCfg.fullEnv
-|> showConstraintGraph EnvCfg.fullEnv
-|> showSolvedGraph EnvCfg.fullEnv
-|> showSolvedAst EnvCfg.fullEnv
+|> Visu.showUntypedAst
+|> Visu.showAnnotatedAst EnvCfg.fullEnv
+|> Visu.showConstraintGraph EnvCfg.fullEnv
+|> Visu.showSolvedGraph EnvCfg.fullEnv
+|> Visu.showSolvedAst EnvCfg.fullEnv
 
 
 
