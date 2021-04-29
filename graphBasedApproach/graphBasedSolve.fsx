@@ -176,6 +176,7 @@ module rec ConstraintGraph =
         member this.root = root
         member this.nodes = nodes
         member val substs: Subst list = [] with get, set
+        member val unfinishedNodes: Node list = [] with get, set
 
     module Node =
         let getIncoming (node: Node) =
@@ -322,28 +323,27 @@ module rec ConstraintGraph =
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
-        let rec processNodes (unfinished : Node seq) (finished: Node seq) (substs : Subst seq) =
-            let newUnfinished = ResizeArray()
-            let newFinished = ResizeArray(finished)
-            let newSubsts = ResizeArray(substs)
+        let rec processNodes (unfinished : ResizeArray<Node>) (finished: ResizeArray<Node>) (substs : ResizeArray<Subst>) =
             let mutable goOn = false
 
-            for node in unfinished do
-                let resc,substs = merge node
-                node.constr <- resc
-                newSubsts.AddRange(substs)
-                match resc with
+            for node in unfinished |> Seq.toArray do
+                let c,newSubsts = merge node
+                node.constr <- c
+                substs.AddRange(newSubsts)
+                match c with
                 | Constrained _ 
                 | UnificationError _ ->
                     goOn <- true
-                    newFinished.Add(node)
-                | _ ->
-                    newUnfinished.Add(node)
+                    unfinished.Remove(node) |> ignore
+                    finished.Add(node)
+                | _ -> ()
+
             if not goOn
-                then [ yield! substs; yield! newSubsts ]
-                else processNodes newUnfinished newFinished newSubsts
-        let substs = processNodes graph.nodes Seq.empty Seq.empty
-        graph.substs <- substs
+            then substs,unfinished
+            else processNodes unfinished finished substs
+        let substs,unfinished = processNodes (ResizeArray graph.nodes) (ResizeArray()) (ResizeArray())
+        graph.substs <- substs |> List.ofSeq
+        graph.unfinishedNodes <- unfinished |> List.ofSeq
 
 
 module Visu =
