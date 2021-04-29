@@ -18,6 +18,10 @@ type Tau =
     | TGenVar of GenTyVar
     | TApp of string * Tau list
     | TFun of Tau * Tau
+type ConstraintState =
+    | Initial
+    | Constrained of Tau
+    | UnificationError of string
 
 type TyVar = int
 type Ident = string
@@ -28,7 +32,8 @@ type Env = Map<Ident, EnvItem>
 type Annotated<'expr> =
     { annotated: 'expr
       tyvar: TyVar
-      env: Env }
+      env: Env
+      mutable constr: ConstraintState }
 type TExp =
     | TELit of Lit
     | TEVar of Ident
@@ -50,7 +55,6 @@ module Lit =
         | LNumber _ -> KnownTypeNames.number
         | LBool _ -> KnownTypeNames.bool
         | LUnit _ -> KnownTypeNames.unit
-
     let getValue (l: Lit) =
         match l with
         | LString x -> x :> obj
@@ -70,9 +74,7 @@ module Env =
 module Counter =
     let up() =
         let mutable varCounter = 0
-        fun () ->
-            varCounter <- varCounter + 1
-            varCounter
+        fun () -> varCounter <- varCounter + 1; varCounter
 
 module AnnotatedAst =
     let create (env: Env) (exp: Exp) =
@@ -81,22 +83,27 @@ module AnnotatedAst =
         let rec annotate (env: Env) (exp: Exp) =
             let res =
                 { tyvar = newvar()
+                  constr = Initial
                   annotated =
-                      match exp with
-                      | Lit x ->
-                          TELit x
-                      | Var ident ->
-                          TEVar ident
-                      | App (e1, e2) ->
-                          TEApp (annotate env e1, annotate env e2)
-                      | Abs (ident, body) ->
-                          let tyvarIdent = newvar()
-                          let newEnv = env |> Env.bind ident tyvarIdent
-                          let annotatedIdent = { annotated = ident; tyvar = tyvarIdent; env = env }
-                          TEAbs (annotatedIdent, annotate newEnv body)
-                      | Let (ident, e, body) ->
-                          let newEnv = env |> Env.bind ident (newvar())
-                          TELet (ident, annotate env e, annotate newEnv body)
+                    match exp with
+                    | Lit x ->
+                        TELit x
+                    | Var ident ->
+                        TEVar ident
+                    | App (e1, e2) ->
+                        TEApp (annotate env e1, annotate env e2)
+                    | Abs (ident, body) ->
+                        let tyvarIdent = newvar()
+                        let newEnv = env |> Env.bind ident tyvarIdent
+                        let annotatedIdent =
+                            { annotated = ident
+                              tyvar = tyvarIdent
+                              env = env
+                              constr = Initial }
+                        TEAbs (annotatedIdent, annotate newEnv body)
+                    | Let (ident, e, body) ->
+                        let newEnv = env |> Env.bind ident (newvar())
+                        TELet (ident, annotate env e, annotate newEnv body)
                   env = env }
             do allExp.Add(res)
             res
@@ -131,12 +138,20 @@ module Format =
         | TFun (t1, t2) -> 
             $"({tau t1} -> {tau t2})"
 
+    let constraintState cs =
+        match cs with
+        | Constrained t -> tau t
+        | UnificationError e -> $"ERROR: {e}"
+        | Initial -> "???"
+
     let envItem ident envItem =
         match envItem with
         | Intern tv -> $"{tyvar ident (string tv)}"
         | Extern t -> $"{tyvar ident (tau t)}"
 
-    let tyvarAndEnv exp =
+    let expTyvar exp = $"var = {exp.tyvar}"
+
+    let env exp =
         let envVars =
             match exp.env |> Map.toList with
             | [] -> "[ ]"
@@ -146,14 +161,9 @@ module Format =
                 [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
                 |> String.concat "\n"
                 |> fun s -> $"\n{s}"
-        ($"var = {exp.tyvar}") + "\nenv = " + envVars
+        "env = " + envVars
 
 module rec ConstraintGraph =
-    type ConstraintState =
-        | Initial
-        | Constrained of Tau
-        | UnificationError of string
-
     type Subst = { genTyVar: GenTyVar; constr: Tau }
 
     type VarData = { tyvar: TyVar; inc1: Node option; inc2: Node option }
@@ -162,7 +172,7 @@ module rec ConstraintGraph =
     type ArgData = { argOp: ArgOp; inc: Node }
     type UnifySubstData = { substSource: Node; substIn: Node; applyTo: Node }
     type NodeData =
-        | Source of Tau
+        | Source
         | Var of VarData
         | MakeFun of MakeFunData
         | Arg of ArgData
@@ -172,6 +182,13 @@ module rec ConstraintGraph =
     type Node (data: NodeData, constr: ConstraintState) =
         member this.data = data
         member val constr = constr with get, set
+
+    type SolveResult =
+        { constrainedNodes: Node list
+          errorNodes: Node list
+          unfinishedNodes: Node list
+          allNodes: Node list
+          success: bool }
     
     let newGenVar = Counter.up()
 
@@ -183,28 +200,28 @@ module rec ConstraintGraph =
             | MakeFun x -> [ x.inc1; x.inc2 ]
             | Arg { argOp = _; inc = a } -> [a]
             | UnifySubst { substSource = a; substIn = b; applyTo = c } -> [a;b;c]
-
-    let create (exp: Annotated<TExp>) =
-        let nodes = ResizeArray()
-
-        let addNode n =
-            let node = Node(n, match n with | Source c -> Constrained c | _ -> Initial)
-            do nodes.Add node
-            node
-        let source tau = addNode (Source tau)
-        let var tyvar inc1 inc2 = addNode (Var { tyvar = tyvar; inc1 = inc1; inc2 = inc2 })
-        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
-        let arg op inc = addNode (Arg { argOp = op; inc = inc })
-        let argIn = arg In
-        let argOut = arg Out
-        let applySubst substSource substIn apply =
-            addNode (UnifySubst { substSource = substSource; substIn = substIn; applyTo = apply })
-
-        let findVarNode (tyvar: TyVar) =
+        
+        let findVarNode (tyvar: TyVar) (nodes: Node seq) =
             nodes |> Seq.find (fun n ->
                 match n.data with
                 | Var v when v.tyvar = tyvar -> true
                 | _ -> false)
+
+    let create (exp: Annotated<TExp>) =
+        let nodes = ResizeArray()
+
+        let addNode n constr =
+            let node = Node(n, constr)
+            do nodes.Add node
+            node
+        let source tau = addNode Source (Constrained tau)
+        let var tyvar constr inc1 inc2 = addNode (Var { tyvar = tyvar; inc1 = inc1; inc2 = inc2 }) constr
+        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) Initial
+        let arg op inc = addNode (Arg { argOp = op; inc = inc }) Initial
+        let argIn = arg In
+        let argOut = arg Out
+        let applySubst substSource substIn apply =
+            addNode (UnifySubst { substSource = substSource; substIn = substIn; applyTo = apply }) Initial
 
         let rec generateGraph (exp: Annotated<TExp>) (inc: Node option) =
             let ( => ) x f = Some x |> f
@@ -213,13 +230,13 @@ module rec ConstraintGraph =
             match exp.annotated with
             | TELit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
-                (nsource, inc) ==> var exp.tyvar
+                (nsource, inc) ==> var exp.tyvar exp.constr
             | TEVar ident ->
                 let nsource =
                     match Env.resolve ident exp.env with
-                    | Intern tyvarIdent -> findVarNode tyvarIdent
+                    | Intern tyvarIdent -> Node.findVarNode tyvarIdent nodes
                     | Extern c -> source c
-                (nsource, inc) ==> var exp.tyvar
+                (nsource, inc) ==> var exp.tyvar exp.constr
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
                 // (check: e1 must be a fun type) implicit
@@ -233,20 +250,20 @@ module rec ConstraintGraph =
                 // infer: argIn(e1) ==> e2
                 let ne1 = None |> generateGraph e1
                 let ne2 = (argIn ne1) => generateGraph e2 
-                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> var exp.tyvar
+                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> var exp.tyvar exp.constr
                 //(argOut ne1, inc) ==> var exp.tyvar
             | TEAbs (ident, body) ->
-                let nfunc = makeFunc (var ident.tyvar None None) (generateGraph body None)
-                (nfunc, inc) ==> var exp.tyvar
+                let nfunc = makeFunc (var ident.tyvar Initial None None) (generateGraph body None)
+                (nfunc, inc) ==> var exp.tyvar exp.constr
             | TELet (ident, e, body) ->
                 let _ =
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.env with
                     | Intern tyvarIdent ->
-                        (generateGraph e None, None) ==> var tyvarIdent
+                        (generateGraph e None, None) ==> var tyvarIdent Initial
                     | Extern _ ->
                         failwith "Invalid graph: let bound identifiers must be intern in env."
-                (generateGraph body None, inc) ==> var exp.tyvar
+                (generateGraph body None, inc) ==> var exp.tyvar exp.constr
         do generateGraph exp None |> ignore
         nodes
 
@@ -307,7 +324,7 @@ module rec ConstraintGraph =
             | TApp (name, taus) -> TApp(name, [ for tau in taus do substVarInAwithB tvar tau b ])
             | _ -> a
 
-        let processNode (node: Node) =
+        let constrainNode (node: Node) =
             let (|C|E|I|) (node: Node) =
                 match node.constr with
                 | Constrained tau -> C tau
@@ -328,8 +345,8 @@ module rec ConstraintGraph =
             | Es es -> UnificationError es
             | _ ->
                 match node.data with
-                | Source c ->
-                    Constrained c
+                | Source ->
+                    node.constr
                 // The next 2 are edge cases. we could also model inc1 and inc2 an not optional
                 // and normalize them with an unconstrained source node. But this would
                 // lead to a blown up graph with much more nodes and gen vars.
@@ -365,26 +382,53 @@ module rec ConstraintGraph =
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
-        let rec processNodes (unfinished : ResizeArray<Node>) (finished: ResizeArray<Node>) =
+        let rec constrainNodes (unfinished: ResizeArray<Node>) (constrained: ResizeArray<Node>) (errors: ResizeArray<Node>) =
             let mutable goOn = false
             for node in unfinished |> Seq.toArray do
-                let c = processNode node
+                let c = constrainNode node
                 node.constr <- c
                 match c with
-                | Constrained _ 
+                | Constrained _ ->
+                    goOn <- true
+                    unfinished.Remove(node) |> ignore
+                    constrained.Add(node)
                 | UnificationError _ ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
-                    finished.Add(node)
+                    errors.Add(node)
                 | _ -> ()
             if not goOn then
-                {| finishedNodes = finished |> List.ofSeq
-                   unfinishedNodes = unfinished |> List.ofSeq
-                   allNodes = [ yield! finished; yield! unfinished ] |}
+                { constrainedNodes = constrained |> List.ofSeq
+                  errorNodes = errors |> List.ofSeq
+                  unfinishedNodes = unfinished |> List.ofSeq
+                  allNodes = [ yield! constrained; yield! unfinished; yield! errors ]
+                  success = errors.Count = 0 && unfinished.Count = 0 }
             else
-                processNodes unfinished finished
-        processNodes (ResizeArray nodes) (ResizeArray())
+                constrainNodes unfinished constrained errors
+        
+        constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
 
+    let applyResult exp (nodes: Node list) =
+        let constrainExp (exp: Annotated<_>) =
+            let findConstraint tyvar =
+                let node = Node.findVarNode tyvar nodes
+                node.constr
+            exp.constr <- findConstraint exp.tyvar
+        let rec applyResult (exp: Annotated<TExp>) =
+            constrainExp exp
+            match exp.annotated with
+            | TELit x -> ()
+            | TEVar ident -> ()
+            | TEApp (e1, e2) ->
+                applyResult e1
+                applyResult e2
+            | TEAbs (ident, body) ->
+                constrainExp ident
+                applyResult body
+            | TELet (ident, e, body) ->
+                applyResult e
+                applyResult body
+        applyResult exp
 
 
 module Visu =
@@ -413,32 +457,39 @@ module Visu =
 
         createNodes exp |> flatten |> Tree.write
     
-    let showAnnotatedAst (exp: Annotated<TExp>) =
+    let showAnnotatedAst (showVar: bool) (showEnv: bool) (exp: Annotated<TExp>) =
         let rec flatten (node: Tree.Node) =
             [
                 yield node
                 for c in node.children do
                     yield! flatten c
             ]
-    
         let rec createNodes (exp: Annotated<TExp>) =
+            let details =
+                [
+                    if showVar then Some (Format.expTyvar exp) else None
+                    Some (Format.constraintState exp.constr)
+                    if showEnv then Some (Format.env exp) else None
+                ]
+                |> List.choose id
+                |> String.concat "\n"
             match exp.annotated with
             | TELit x ->
-                Tree.var $"Lit ({Lit.getValue x}: {Lit.getTypeName x})" (Format.tyvarAndEnv exp) []
+                Tree.var $"Lit ({Lit.getValue x}: {Lit.getTypeName x})" details []
             | TEVar ident ->
                 let envItem = Env.resolve ident exp.env                
-                Tree.var $"Var {Format.envItem ident envItem}" (Format.tyvarAndEnv exp) []
+                Tree.var $"Var {Format.envItem ident envItem}" details []
             | TEApp (e1, e2) ->
-                Tree.var $"App" (Format.tyvarAndEnv exp) [ createNodes e1; createNodes e2 ]
+                Tree.var $"App" details [ createNodes e1; createNodes e2 ]
             | TEAbs (ident, body) ->
                 Tree.var
                     $"""fun {Format.tyvar ident.annotated (string ident.tyvar)} -> {Format.tyvar "e" (string body.tyvar)}"""
-                    (Format.tyvarAndEnv exp)
+                    details
                     [ createNodes body ]
             | TELet (ident, e, body) ->
                 Tree.var
                     $"""let {ident} = {Format.tyvar "e1" (string e.tyvar)} in {Format.tyvar "e2" (string body.tyvar)}"""
-                    (Format.tyvarAndEnv exp)
+                    details
                     [ createNodes e; createNodes body ]
 
         createNodes exp |> flatten |> Tree.write
@@ -471,11 +522,7 @@ module Visu =
                     | UnifySubst _ -> $"ApplySubst", NodeTypes.op
                 { key = i
                   name = name
-                  desc =
-                    match x.constr with
-                    | Constrained tau -> Format.tau tau
-                    | UnificationError e -> $"ERROR: {e}"
-                    | Initial -> "???"
+                  desc = Format.constraintState x.constr
                   layout = layout }
             ]
 
@@ -581,7 +628,7 @@ let showUntypedAst exp =
     exp
 let showAnnotatedAst env exp =
     let annoExp = AnnotatedAst.create env exp |> fst
-    do annoExp |> Visu.showAnnotatedAst
+    do annoExp |> Visu.showAnnotatedAst true true
     exp
 let showConstraintGraph env exp =
     let annoExp,allAnnoExp = AnnotatedAst.create env exp
@@ -592,6 +639,13 @@ let showSolvedGraph env exp =
     let nodes = annoExp |> ConstraintGraph.create
     let res = ConstraintGraph.solve nodes
     do res.allNodes |> Visu.showConstraintGraph allAnnoExp
+    exp
+let showSolvedAst env exp =
+    let annoExp,_ = AnnotatedAst.create env exp
+    let nodes = annoExp |> ConstraintGraph.create
+    let res = ConstraintGraph.solve nodes
+    do ConstraintGraph.applyResult annoExp res.allNodes
+    do annoExp |> Visu.showAnnotatedAst false false
 
 
 (*
@@ -607,6 +661,7 @@ map Numbers (\number ->
 |> showAnnotatedAst EnvCfg.fullEnv
 |> showConstraintGraph EnvCfg.fullEnv
 |> showSolvedGraph EnvCfg.fullEnv
+|> showSolvedAst EnvCfg.fullEnv
 
 
 
