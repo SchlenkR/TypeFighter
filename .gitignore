@@ -7,6 +7,8 @@
 symbolCache.db
 .paket/load
 
+src/fiddle.fsx
+
 # User-specific files
 *.suo
 *.user
