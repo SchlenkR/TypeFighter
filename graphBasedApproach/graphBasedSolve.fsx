@@ -158,7 +158,7 @@ module rec ConstraintGraph =
 
     type Subst = { genTyVar: GenTyVar; constr: Tau; anchor: TyVar }
 
-    type VarData = { tyvar: TyVar; incs: Node list }
+    type VarData = { tyvar: TyVar; inc1: Node; inc2: Node }
     type MakeFunData = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
     type ArgData = { argOp: ArgOp; inc: Node }
@@ -181,7 +181,7 @@ module rec ConstraintGraph =
         let getIncoming (node: Node) =
             match node.data with
             | Source _ -> []
-            | Var x -> x.incs
+            | Var x -> [ x.inc1; x.inc2 ]
             | MakeFun x -> [ x.inc1; x.inc2 ]
             | Arg { argOp = _; inc = x } -> [x]
 
@@ -194,7 +194,13 @@ module rec ConstraintGraph =
             do nodes.Add node
             node
         // TODO: varnode kann nur 1 - 2 incomings haben
-        let addVarNode tyvar incs = addNode (Var { tyvar = tyvar; incs = incs })
+        let addSourceNode tau = addNode (Source tau)
+        let addVarNode tyvar inc1 inc2 =
+            let norm =
+                function
+                | Some n -> n
+                | None -> addSourceNode (TGenVar (newGenVar()))
+            addNode (Var { tyvar = tyvar; inc1 = norm inc1; inc2 = norm inc2 })
         let addFuncNode inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
         let addArgNode op inc = addNode (Arg { argOp = op; inc = inc })
         let findVarNode (tyvar: TyVar) =
@@ -206,14 +212,14 @@ module rec ConstraintGraph =
         let rec generateGraph (exp: Annotated<TExp>) (inc: Node option) =
             match exp.annotated with
             | TELit x ->
-                let nsource = addNode (Source(TApp(Lit.getTypeName x, [])))
-                addVarNode exp.tyvar [nsource]
+                let nsource = addSourceNode (TApp(Lit.getTypeName x, []))
+                addVarNode exp.tyvar (Some nsource) inc
             | TEVar ident ->
                 let nsource =
                     match Env.resolve ident exp.env with
                     | Intern tyvarIdent -> findVarNode tyvarIdent
                     | Extern c -> addNode (Source c)
-                addVarNode exp.tyvar [nsource]
+                addVarNode exp.tyvar (Some nsource) inc
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
                 // (check: ne1 must be a fun type) implicit
@@ -222,16 +228,19 @@ module rec ConstraintGraph =
                 // infer: t<e2> <- argIn(t<e1>)
                 let ne1 = generateGraph e1 None
                 let ne2 = generateGraph e2 (Some (addArgNode In ne1))
-                addVarNode exp.tyvar [ addArgNode Out ne1 ]
+                addVarNode exp.tyvar (Some(addArgNode Out ne1)) inc
             | TEAbs (ident, body) ->
-                addVarNode exp.tyvar [ addFuncNode (addVarNode ident.tyvar []) (generateGraph body None) ]
+                addVarNode
+                    exp.tyvar 
+                    (Some(addFuncNode(addVarNode ident.tyvar None None) (generateGraph body None)))
+                    inc
             | TELet (ident, e, body) ->
                 let _ =
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.env with
-                    | Intern tyvarIdent -> addVarNode tyvarIdent [ generateGraph e None ]
+                    | Intern tyvarIdent -> addVarNode tyvarIdent (Some (generateGraph e None)) None
                     | Extern _ -> failwith "Invalid graph: let bound identifiers must be intern in env."
-                addVarNode exp.tyvar [ generateGraph body None ]
+                addVarNode exp.tyvar (Some(generateGraph body None)) inc
         let rootNode = generateGraph exp None
         Graph(rootNode, nodes)
 
@@ -302,25 +311,15 @@ module rec ConstraintGraph =
                     Constrained(t2), emptySubst
                 | Source c ->
                     Constrained c, emptySubst
-                | Var { tyvar = _; incs = [] } ->
-                    let freshGenVar = newGenVar()
-                    Constrained(TGenVar freshGenVar), emptySubst
-                | Var { tyvar = _; incs = [C tau] } ->
-                    Constrained(tau), emptySubst
-                | Var { tyvar = tyvar; incs = (C x) :: (Cs xs) } ->
-                    let res =
-                        // TODO: this looks weired - why 2 times (we have to merge substs)?
-                        (Ok (x, emptySubst), xs)
-                        ||> List.fold (fun state curr -> 
-                            match state with
-                            | Error _ as e -> e
-                            | Ok (forall, substs) ->
-                                match unify forall curr tyvar with
-                                | Error msg -> Error(msg, substs)
-                                | Ok (unifiedFoarll, newSubsts) -> Ok(unifiedFoarll, substs @ newSubsts))
-                    match res with
-                    | Error (msg, substs) -> UnificationError(msg), substs
-                    | Ok (tau, substs) -> Constrained(tau), substs
+                //| Var { tyvar = _; inc1 = C } ->
+                //    let freshGenVar = newGenVar()
+                //    Constrained(TGenVar freshGenVar), emptySubst
+                //| Var { tyvar = _; incs = [C tau] } ->
+                //    Constrained(tau), emptySubst
+                | Var { tyvar = tyvar; inc1 = C t1; inc2 = C t2 } ->
+                    match unify t1 t2 tyvar with
+                    | Error msg -> UnificationError msg, emptySubst
+                    | Ok (unifiedTau, substs) -> Constrained unifiedTau, substs
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
