@@ -148,21 +148,20 @@ module Format =
                 |> fun s -> $"\n{s}"
         ($"var = {exp.tyvar}") + "\nenv = " + envVars
 
-module ConstraintGraph =
+module rec ConstraintGraph =
     let newGenVar = Counter.up()
 
     type ConstraintState =
         | UnificationError of string
         | Constrained of Tau
 
-    type Subst =
-        { genTyVar: GenTyVar
-          constr: Tau
-          anchor: TyVar }
+    type Subst = { genTyVar: GenTyVar; constr: Tau; anchor: TyVar }
 
-    type ArgOp =
-        | In
-        | Out
+    type VarData = { tyVar: TyVar; incs: Node list }
+    type MakeFunData = { inc1: Node; inc2: Node }
+    type ArgOp = In | Out
+    type ArgData = { arg: ArgOp; inc1: Node }
+    //type UnifyData = { incs: Node list }
     type Op =
         | MakeFun
         | Arg of ArgOp
@@ -174,7 +173,7 @@ module ConstraintGraph =
     type Node (data: NodeData, constr: ConstraintState option) =
         member this.data = data
         member val constr = constr with get, set
-        member val incoming: Node list = [] with get, set
+        member val incoming : Node list = failwith "TODO" with get, set
     and Graph(root: Node, nodes: ResizeArray<Node>) =
         member this.root = root
         member this.nodes = nodes
