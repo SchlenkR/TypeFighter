@@ -154,25 +154,25 @@ module rec ConstraintGraph =
         | Constrained of Tau
         | UnificationError of string
 
-    type Subst = { genTyVar: GenTyVar; constr: Tau; anchor: TyVar }
+    type Subst = { genTyVar: GenTyVar; constr: Tau }
 
     type VarData = { tyvar: TyVar; inc1: Node option; inc2: Node option }
     type MakeFunData = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
     type ArgData = { argOp: ArgOp; inc: Node }
-    type ApplySubstData = { substSource: Node; substIn: Node; apply: Node }
+    type UnifySubstData = { substSource: Node; substIn: Node; applyTo: Node }
     type NodeData =
         | Source of Tau
         | Var of VarData
         | MakeFun of MakeFunData
         | Arg of ArgData
-        | ApplySubst of ApplySubstData
+        | UnifySubst of UnifySubstData
     
     // TODO: maybe get rid of this and make everything immutable
     type Node (data: NodeData, constr: ConstraintState) =
         member this.data = data
         member val constr = constr with get, set
-
+    
     let newGenVar = Counter.up()
 
     module Node =
@@ -182,7 +182,7 @@ module rec ConstraintGraph =
             | Var x -> [ x.inc1; x.inc2 ] |> List.choose id
             | MakeFun x -> [ x.inc1; x.inc2 ]
             | Arg { argOp = _; inc = a } -> [a]
-            | ApplySubst { substSource = a; substIn = b; apply = c } -> [a;b;c]
+            | UnifySubst { substSource = a; substIn = b; applyTo = c } -> [a;b;c]
 
     let create (exp: Annotated<TExp>) =
         let nodes = ResizeArray()
@@ -198,7 +198,7 @@ module rec ConstraintGraph =
         let argIn = arg In
         let argOut = arg Out
         let applySubst substSource substIn apply =
-            addNode (ApplySubst { substSource = substSource; substIn = substIn; apply = apply })
+            addNode (UnifySubst { substSource = substSource; substIn = substIn; applyTo = apply })
 
         let findVarNode (tyvar: TyVar) =
             nodes |> Seq.find (fun n ->
@@ -253,16 +253,15 @@ module rec ConstraintGraph =
     let solve (nodes: Node seq) =
         let emptySubst : Subst list  = []
         
-        let rec unify (a: Tau) (b: Tau) (anchor: TyVar) : Result<Tau * Subst list, string> =
+        let rec unify (a: Tau) (b: Tau) =
             let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
-
             let rec unify1 t1 t2 =
                 match t1,t2 with
                 | x,y when x = y ->
                     Ok (x, emptySubst)
                 | TGenVar x, y
                 | y, TGenVar x ->
-                    Ok (y, [ { genTyVar = x; constr = y; anchor = anchor } ])
+                    Ok (y, [ { genTyVar = x; constr = y } ])
                 | TApp (_, taus1), TApp (_, taus2)
                     when taus1.Length <> taus2.Length ->
                         error "Arg count mismatch"
@@ -279,6 +278,7 @@ module rec ConstraintGraph =
                 | TFun (ta1, ta2), _ ->
                     error "TODO"
                 | _ -> error "Unspecified cases"
+            // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?
             and unifyn taus1 taus2 =
                 let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
                 let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
@@ -289,8 +289,15 @@ module rec ConstraintGraph =
                         | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts @ substs) xs
                         | Error e -> Error e
                 allOk [] [] unifiedTaus
-
+            // TODO: consistency check of unifiers? (!IMPORTANT)
             unify1 a b
+
+        let rec substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
+            match a with
+            | TGenVar i when i = tvar -> b
+            | TFun (t1, t2) -> TFun (substVarInAwithB tvar t1 b, substVarInAwithB tvar t2 b)
+            | TApp (name, taus) -> TApp(name, [ for tau in taus do substVarInAwithB tvar tau b ])
+            | _ -> a
 
         let processNode (node: Node) =
             let (|C|E|I|) (node: Node) =
@@ -309,42 +316,52 @@ module rec ConstraintGraph =
                 | cs,[],[] -> Cs cs
 
             match Node.getIncoming node with
-            | Ns _ -> Initial, emptySubst
-            | Es es -> UnificationError es, emptySubst
+            | Ns _ -> Initial
+            | Es es -> UnificationError es
             | _ ->
                 match node.data with
                 | Source c ->
-                    Constrained c, emptySubst
+                    Constrained c
                 // The next 2 are edge cases. we could also model inc1 and inc2 an not optional
                 // and normalize them with an unconstrained source node. But this would
                 // lead to a blown up graph with much more nodes and gen vars.
                 | Var { tyvar = _; inc1 = None; inc2 = None } ->
-                    Constrained(TGenVar(newGenVar())), emptySubst
+                    Constrained(TGenVar(newGenVar()))
                 | Var { tyvar = _; inc1 = Some(C tau); inc2 = None }
                 | Var { tyvar = _; inc1 = None; inc2 = Some(C tau) } ->
-                    Constrained(tau), emptySubst
-                | Var { tyvar = tyvar; inc1 = Some(C t1); inc2 = Some(C t2) } ->
-                    match unify t1 t2 tyvar with
-                    | Error msg -> UnificationError msg, emptySubst
-                    | Ok (unifiedTau, substs) -> Constrained unifiedTau, substs
+                    Constrained(tau)
+                | Var { tyvar = _; inc1 = Some(C t1); inc2 = Some(C t2) } ->
+                    match unify t1 t2 with
+                    | Error msg -> UnificationError msg
+                    | Ok (unifiedTau,_) -> Constrained unifiedTau
                 | MakeFun { inc1 = C t1; inc2 = C t2  } ->
-                    Constrained(TFun (t1, t2)), emptySubst
+                    Constrained(TFun (t1, t2))
                 | Arg { argOp = In; inc = C(TFun(t1,_)) } ->
-                    Constrained(t1), emptySubst
+                    Constrained(t1)
                 | Arg { argOp = Out; inc = C(TFun(_,t2)) } ->
-                    Constrained(t2), emptySubst
-                | ApplySubst { substSource = a; substIn = b; apply = c } ->
-                    failwith $"TODO"
+                    Constrained(t2)
+                | UnifySubst { substSource = C substSource; substIn = C substIn; applyTo = C applyTo } ->
+                    // TODO: it matters if we use "b a " or "a b", but we have to know that :(
+                    match unify substIn substSource with
+                    | Error msg -> UnificationError msg
+                    | Ok (_,substs) ->
+                        let rec doit (substs: Subst list) =
+                            match substs with
+                            | x :: xs ->
+                                // TODO: this is far from complete
+                                let substituted = substVarInAwithB x.genTyVar applyTo x.constr
+                                substituted
+                            | [] ->
+                                applyTo
+                        Constrained(doit substs)
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
-        let rec processNodes (unfinished : ResizeArray<Node>) (finished: ResizeArray<Node>) (substs : ResizeArray<Subst>) =
+        let rec processNodes (unfinished : ResizeArray<Node>) (finished: ResizeArray<Node>) =
             let mutable goOn = false
-
             for node in unfinished |> Seq.toArray do
-                let c,newSubsts = processNode node
+                let c = processNode node
                 node.constr <- c
-                substs.AddRange(newSubsts)
                 match c with
                 | Constrained _ 
                 | UnificationError _ ->
@@ -352,15 +369,13 @@ module rec ConstraintGraph =
                     unfinished.Remove(node) |> ignore
                     finished.Add(node)
                 | _ -> ()
-
             if not goOn then
                 {| finishedNodes = finished |> List.ofSeq
-                   unfinishedNodes = unfinished |> List.ofSeq |}
-                |> fun x -> {| x with allNodes = x.finishedNodes @ x.unfinishedNodes |}
+                   unfinishedNodes = unfinished |> List.ofSeq
+                   allNodes = [ yield! finished; yield! unfinished ] |}
             else
-                processNodes unfinished finished substs
-        
-        processNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
+                processNodes unfinished finished
+        processNodes (ResizeArray nodes) (ResizeArray())
 
 
 
@@ -445,7 +460,7 @@ module Visu =
                         $"{x.tyvar} ({expName})", NodeTypes.var
                     | MakeFun _ -> "MakeFun", NodeTypes.op
                     | Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
-                    | ApplySubst _ -> $"ApplySubst", NodeTypes.op
+                    | UnifySubst _ -> $"ApplySubst", NodeTypes.op
                 { key = i
                   name = name
                   desc =

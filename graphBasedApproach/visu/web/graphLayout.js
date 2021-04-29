@@ -7,7 +7,7 @@ function graphLayout() {
             {
                 //randomNumberGenerator: null, // deterministic layout
                 maxIterations: 10000,
-                defaultElectricalCharge: 100
+                defaultElectricalCharge: 300
             //    defaultSpringLength: 100,
             //    defaultSpringStiffness: 0.01,
             //    moveLimit: 50
