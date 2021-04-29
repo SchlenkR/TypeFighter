@@ -162,12 +162,13 @@ module rec ConstraintGraph =
     type MakeFunData = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
     type ArgData = { argOp: ArgOp; inc: Node }
-    //type UnifyData = { incs: Node list }
+    type UnifyData = { incs: Node list }
     type NodeData =
         | Source of Tau
         | Var of VarData
         | MakeFun of MakeFunData
         | Arg of ArgData
+        //| Unify of UnifyData
     
     // TODO: maybe get rid of this and make everything immutable
     type Node (data: NodeData, constr: ConstraintState) =
@@ -190,10 +191,13 @@ module rec ConstraintGraph =
             let node = Node(n, match n with | Source c -> Constrained c | _ -> Initial)
             do nodes.Add node
             node
-        let addSourceNode tau = addNode (Source tau)
-        let addVarNode tyvar inc1 inc2 = addNode (Var { tyvar = tyvar; inc1 = inc1; inc2 = inc2 })
-        let addFuncNode inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
-        let addArgNode op inc = addNode (Arg { argOp = op; inc = inc })
+        let source tau = addNode (Source tau)
+        let var tyvar inc1 inc2 = addNode (Var { tyvar = tyvar; inc1 = inc1; inc2 = inc2 })
+        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
+        let arg op inc = addNode (Arg { argOp = op; inc = inc })
+        let argIn = arg In
+        let argOut = arg Out
+
         let findVarNode (tyvar: TyVar) =
             nodes |> Seq.find (fun n ->
                 match n.data with
@@ -203,37 +207,36 @@ module rec ConstraintGraph =
         let rec generateGraph (exp: Annotated<TExp>) (inc: Node option) =
             match exp.annotated with
             | TELit x ->
-                let nsource = addSourceNode (TApp(Lit.getTypeName x, []))
-                addVarNode exp.tyvar (Some nsource) inc
+                let nsource = source (TApp(Lit.getTypeName x, []))
+                var exp.tyvar (Some nsource) inc
             | TEVar ident ->
                 let nsource =
                     match Env.resolve ident exp.env with
                     | Intern tyvarIdent -> findVarNode tyvarIdent
-                    | Extern c -> addSourceNode c
-                addVarNode exp.tyvar (Some nsource) inc
+                    | Extern c -> source c
+                var exp.tyvar (Some nsource) inc
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
                 // (check: ne1 must be a fun type) implicit
                 // check: t<app> = t<e2>
                 // infer: t<app> <- argOut(t<e1>)
                 // infer: t<e2> <- argIn(t<e1>)
+                // subst: 
                 let ne1 = generateGraph e1 None
-                let ne2 = generateGraph e2 (Some (addArgNode In ne1))
-                addVarNode exp.tyvar (Some(addArgNode Out ne1)) inc
+                let ne2 = generateGraph e2 (Some (argIn ne1))
+                var exp.tyvar (Some (argOut ne1)) inc
             | TEAbs (ident, body) ->
-                addVarNode
-                    exp.tyvar 
-                    (Some(addFuncNode(addVarNode ident.tyvar None None) (generateGraph body None)))
-                    inc
+                let nfunc = makeFunc (var ident.tyvar None None) (generateGraph body None)
+                var exp.tyvar (Some nfunc) inc
             | TELet (ident, e, body) ->
                 let _ =
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.env with
                     | Intern tyvarIdent ->
-                        addVarNode tyvarIdent (Some (generateGraph e None)) None
+                        var tyvarIdent (Some (generateGraph e None)) None
                     | Extern _ ->
                         failwith "Invalid graph: let bound identifiers must be intern in env."
-                addVarNode exp.tyvar (Some(generateGraph body None)) inc
+                var exp.tyvar (Some(generateGraph body None)) inc
         do generateGraph exp None |> ignore
         nodes
 
