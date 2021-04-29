@@ -331,18 +331,18 @@ module rec ConstraintGraph =
                 | UnificationError e -> E e
                 | Initial -> I
 
-            let (|Cs|Es|Ns|) (nodes: Node list) =
+            let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
                 let cs = nodes |> List.choose (function | C x -> Some x | _ -> None)
                 let es = nodes |> List.choose (function | E x -> Some x | _ -> None)
                 let ns = nodes |> List.choose (function | I x -> Some x | _ -> None)
                 match cs,es,ns with
-                | _,es::_,_ -> Es es
-                | _,_,ns::_ -> Ns ns
-                | cs,[],[] -> Cs cs
+                | _,es::_,_ -> AnyError es
+                | _,_,ns::_ -> AnyInitial ns
+                | cs,[],[] -> AllConstrained cs
 
             match Node.getIncoming node with
-            | Ns _ -> Initial
-            | Es es -> UnificationError es
+            | AnyInitial _ -> Initial
+            | AnyError es -> UnificationError es
             | _ ->
                 match node.data with
                 | Source ->
