@@ -174,11 +174,7 @@ module ConstraintGraph =
     type Node (data: NodeData, constr: ConstraintState option) =
         member this.data = data
         member val constr = constr with get, set
-        member val incoming: Edge list = [] with get, set
-        member val outgoing: Edge list = [] with get, set
-    and Edge (fromNode: Node, toNode: Node) =
-        member this.fromNode = fromNode
-        member this.toNode = toNode
+        member val incoming: Node list = [] with get, set
     and Graph(root: Node, nodes: ResizeArray<Node>) =
         member this.root = root
         member this.nodes = nodes
@@ -186,9 +182,7 @@ module ConstraintGraph =
 
     module Graph =
         let connectNodes (fromNode: Node) (toNode: Node) =
-            let edge = Edge(fromNode, toNode)
-            fromNode.outgoing <- edge :: fromNode.outgoing
-            toNode.incoming <- edge :: toNode.incoming
+            toNode.incoming <- fromNode :: toNode.incoming
         let addNode n (nodes: ResizeArray<Node>) =
             let node = Node(n, match n with | Source c -> Some(Constrained c) | _ -> None)
             nodes.Add node
@@ -353,8 +347,8 @@ module ConstraintGraph =
                 | _ ->
                     failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
 
-        let (|Mergeable|_|) (incoming: Edge list) =
-            let constraints = incoming |> List.choose (fun e -> e.fromNode.constr)
+        let (|Mergeable|_|) (incoming: Node list) =
+            let constraints = incoming |> List.choose (fun e -> e.constr)
             if constraints.Length = incoming.Length then Some constraints else None
 
         let rec processNodes (unfinished : Node list) (finished: Node list) (substs : Subst list) =
@@ -442,18 +436,15 @@ module Visu =
     open ConstraintGraph
 
     let showConstraintGraph (allAnnoExp: Annotated<TExp> list) (graph: Graph) =
-        let edges =
-            [ for n in graph.nodes do
-              yield! n.incoming
-              yield! n.outgoing ]
-            |> List.distinct
         let indexedNodes = graph.nodes |> Seq.indexed |> Seq.toList
-        let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
         let jsLinks =
-            edges
-            |> List.map (fun edge ->
-                { Visu.JsLink.fromNode = nodesLookup.[edge.fromNode]
-                  Visu.JsLink.toNode = nodesLookup.[edge.toNode] })
+            [ 
+                let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
+                for n in graph.nodes do
+                for i in n.incoming do
+                { Visu.JsLink.fromNode = nodesLookup.[i]
+                  Visu.JsLink.toNode = nodesLookup.[n] }
+            ]
         let jsNodes =
             [ for i,x in indexedNodes do
                 let name, layout =

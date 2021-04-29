@@ -170,24 +170,12 @@ window.linkDataArray = [
     "to": 0
   },
   {
-    "from": 0,
-    "to": 17
-  },
-  {
     "from": 22,
     "to": 1
   },
   {
     "from": 3,
     "to": 2
-  },
-  {
-    "from": 2,
-    "to": 8
-  },
-  {
-    "from": 2,
-    "to": 7
   },
   {
     "from": 8,
@@ -202,20 +190,12 @@ window.linkDataArray = [
     "to": 6
   },
   {
-    "from": 6,
-    "to": 24
+    "from": 2,
+    "to": 7
   },
   {
-    "from": 6,
-    "to": 23
-  },
-  {
-    "from": 9,
-    "to": 21
-  },
-  {
-    "from": 9,
-    "to": 13
+    "from": 2,
+    "to": 8
   },
   {
     "from": 24,
@@ -230,15 +210,11 @@ window.linkDataArray = [
     "to": 11
   },
   {
-    "from": 11,
-    "to": 16
-  },
-  {
-    "from": 11,
-    "to": 15
-  },
-  {
     "from": 16,
+    "to": 13
+  },
+  {
+    "from": 9,
     "to": 13
   },
   {
@@ -246,15 +222,19 @@ window.linkDataArray = [
     "to": 14
   },
   {
-    "from": 14,
-    "to": 20
+    "from": 11,
+    "to": 15
   },
   {
-    "from": 14,
-    "to": 19
+    "from": 11,
+    "to": 16
   },
   {
     "from": 20,
+    "to": 17
+  },
+  {
+    "from": 0,
     "to": 17
   },
   {
@@ -262,12 +242,32 @@ window.linkDataArray = [
     "to": 18
   },
   {
+    "from": 14,
+    "to": 19
+  },
+  {
+    "from": 14,
+    "to": 20
+  },
+  {
     "from": 18,
+    "to": 21
+  },
+  {
+    "from": 9,
     "to": 21
   },
   {
     "from": 23,
     "to": 22
+  },
+  {
+    "from": 6,
+    "to": 23
+  },
+  {
+    "from": 6,
+    "to": 24
   },
   {
     "from": 26,
