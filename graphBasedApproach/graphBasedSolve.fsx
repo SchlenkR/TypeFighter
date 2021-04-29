@@ -262,12 +262,10 @@ module rec ConstraintGraph =
                 | TGenVar x, y
                 | y, TGenVar x ->
                     Ok (y, [ { genTyVar = x; constr = y } ])
-                | TApp (_, taus1), TApp (_, taus2)
-                    when taus1.Length <> taus2.Length ->
-                        error "Arg count mismatch"
-                | TApp (n1,_), TApp (n2, _)
-                    when n1 <> n2 ->
-                        error "Type (name) mismatch"
+                | TApp (_, taus1), TApp (_, taus2) when taus1.Length <> taus2.Length ->
+                    error "Arg count mismatch"
+                | TApp (n1,_), TApp (n2, _) when n1 <> n2 ->
+                    error "Type (name) mismatch"
                 | TApp (name, taus1), TApp (_, taus2) ->
                     let res = unifyn taus1 taus2
                     match res with
@@ -275,9 +273,19 @@ module rec ConstraintGraph =
                         Ok (TApp (name, taus), substs)
                     | Error e ->
                         error e
-                | TFun (ta1, ta2), _ ->
-                    error "TODO"
-                | _ -> error "Unspecified cases"
+                | TFun (ta1, ta2), TFun (tb1, tb2) ->
+                    match unifyn [ta1; tb1] [ta2; tb2] with
+                    | Ok ([tres1; tres2], substs) ->
+                        Ok (TFun (tres1, tres2), substs)
+                    | Error e ->
+                        error e
+                    | _ ->
+                        failwith $"inconsistent TFun unification: {t1} <> {t2}"
+                | TFun (ta1, ta2), TApp (name, taus)
+                | TApp (name, taus), TFun (ta1, ta2) ->
+                    error "TODO: FUN-APP"
+                | _ ->
+                    error "Unspecified cases"
             // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?
             and unifyn taus1 taus2 =
                 let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]

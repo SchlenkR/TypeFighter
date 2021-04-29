@@ -178,7 +178,7 @@ window.nodeDataArray = [
   {
     "key": 29,
     "name": "8 (Abs)",
-    "desc": "ERROR: Cannot unify types \"('e -> Number)\" and \"(Number -> 'b)\": TODO",
+    "desc": "(Number -> Number)",
     "fig": "Rectangle"
   },
   {
@@ -196,19 +196,19 @@ window.nodeDataArray = [
   {
     "key": 32,
     "name": "ApplySubst",
-    "desc": "ERROR: Cannot unify types \"('e -> Number)\" and \"(Number -> 'b)\": TODO",
+    "desc": "Seq<Number>",
     "fig": "Ellipse"
   },
   {
     "key": 33,
     "name": "4 (App)",
-    "desc": "ERROR: Cannot unify types \"('e -> Number)\" and \"(Number -> 'b)\": TODO",
+    "desc": "Seq<Number>",
     "fig": "Rectangle"
   },
   {
     "key": 34,
     "name": "1 (Let)",
-    "desc": "ERROR: Cannot unify types \"('e -> Number)\" and \"(Number -> 'b)\": TODO",
+    "desc": "Seq<Number>",
     "fig": "Rectangle"
   }
 ];
