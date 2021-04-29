@@ -152,105 +152,86 @@ module rec ConstraintGraph =
     let newGenVar = Counter.up()
 
     type ConstraintState =
-        | UnificationError of string
+        | Initial
         | Constrained of Tau
+        | UnificationError of string
 
     type Subst = { genTyVar: GenTyVar; constr: Tau; anchor: TyVar }
 
-    type VarData = { tyVar: TyVar; incs: Node list }
+    type VarData = { tyvar: TyVar; incs: Node list }
     type MakeFunData = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
-    type ArgData = { arg: ArgOp; inc1: Node }
+    type ArgData = { argOp: ArgOp; inc: Node }
     //type UnifyData = { incs: Node list }
     type NodeData =
         | Source of Tau
-        | Var of TyVar
-        | MakeFun
-        | Arg of ArgOp
+        | Var of VarData
+        | MakeFun of MakeFunData
+        | Arg of ArgData
 
-    type Node (data: NodeData, constr: ConstraintState option) =
+    type Node (data: NodeData, constr: ConstraintState) =
         member this.data = data
         member val constr = constr with get, set
-        member val incoming : Node list = [] with get, set
     and Graph(root: Node, nodes: ResizeArray<Node>) =
         member this.root = root
         member this.nodes = nodes
         member val substs: Subst list = [] with get, set
 
-    module Graph =
-        let connectNodes (fromNode: Node) (toNode: Node) =
-            toNode.incoming <- fromNode :: toNode.incoming
-        let addNode n (nodes: ResizeArray<Node>) =
-            let node = Node(n, match n with | Source c -> Some(Constrained c) | _ -> None)
-            nodes.Add node
-            node
-        let addVarNode n nodes =
-            addNode (Var n) nodes
-        let addFuncNode n1 n2 ntarget nodes =
-            let nfunc = nodes |> addNode MakeFun
-            connectNodes n1 nfunc
-            connectNodes n2 nfunc
-            connectNodes nfunc ntarget
-        let addArgNode op nsource ntarget nodes =
-            let napp = nodes |> addNode (Arg op)
-            connectNodes nsource napp
-            connectNodes napp ntarget
-        let findNode (tyvar: TyVar) (nodes: Node seq) =
-            nodes |> Seq.find (fun n ->
-                match n.data with
-                | Var v when v = tyvar -> true
-                | _ -> false)
+    module Node =
+        let getIncoming (node: Node) =
+            match node.data with
+            | Source _ -> []
+            | Var x -> x.incs
+            | MakeFun x -> [ x.inc1; x.inc2 ]
+            | Arg { argOp = _; inc = x } -> [x]
+
 
     let create (exp: Annotated<TExp>) =
         let nodes = ResizeArray()
-        let rec generateGraph (exp: Annotated<TExp>) =
+
+        let addNode n =
+            let node = Node(n, match n with | Source c -> Constrained c | _ -> Initial)
+            do nodes.Add node
+            node
+        let addVarNode tyvar incs = addNode (Var { tyvar = tyvar; incs = incs })
+        let addFuncNode inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
+        let addArgNode op inc = addNode (Arg { argOp = op; inc = inc })
+        let findVarNode (tyvar: TyVar) =
+            nodes |> Seq.find (fun n ->
+                match n.data with
+                | Var v when v.tyvar = tyvar -> true
+                | _ -> false)
+
+        let rec generateGraph (exp: Annotated<TExp>) (inc: Node list) =
             match exp.annotated with
             | TELit x ->
-                let nlit = nodes |> Graph.addVarNode exp.tyvar
-                let nsource = nodes |> Graph.addNode (Source(TApp(Lit.getTypeName x, [])))
-                Graph.connectNodes nsource nlit
-                nlit
+                let nsource = addNode (Source(TApp(Lit.getTypeName x, [])))
+                addVarNode exp.tyvar [nsource]
             | TEVar ident ->
-                let nvar = nodes |> Graph.addVarNode exp.tyvar
-                let identEnvItem = Env.resolve ident exp.env
-                match identEnvItem with
-                | Intern tyvarIdent ->
-                    Graph.connectNodes (nodes |> Graph.findNode tyvarIdent) nvar
-                | Extern c -> 
-                    let nsource = nodes |> Graph.addNode (Source c)
-                    Graph.connectNodes nsource nvar
-                nvar
+                let nsource =
+                    match Env.resolve ident exp.env with
+                    | Intern tyvarIdent -> findVarNode tyvarIdent
+                    | Extern c -> addNode (Source c)
+                addVarNode exp.tyvar [nsource]
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
                 // (check: ne1 must be a fun type) implicit
                 // check: t<app> = t<e2>
                 // infer: t<app> <- argOut(t<e1>)
                 // infer: t<e2> <- argIn(t<e1>)
-                let ne1 = generateGraph e1
-                let ne2 = generateGraph e2
-                let napp = nodes |> Graph.addVarNode exp.tyvar
-                //Graph.connectNodes ne2 napp
-                nodes |> Graph.addArgNode Out ne1 napp
-                nodes |> Graph.addArgNode In ne1 ne2
-                napp
+                let ne1 = generateGraph e1 []
+                let ne2 = generateGraph e2 [ addArgNode In ne1 ]
+                addVarNode exp.tyvar [ addArgNode Out ne1 ]
             | TEAbs (ident, body) ->
-                let nident = nodes |> Graph.addVarNode ident.tyvar
-                let nabs = nodes |> Graph.addVarNode exp.tyvar
-                nodes |> Graph.addFuncNode nident (generateGraph body) nabs
-                nabs
+                addVarNode exp.tyvar [ addFuncNode (addVarNode ident.tyvar []) (generateGraph body []) ]
             | TELet (ident, e, body) ->
-                let nident =
-                    let identEnvItem = body.env |> Env.resolve ident
-                    match identEnvItem with
-                    | Intern tyvarIdent ->
-                        nodes |> Graph.addVarNode tyvarIdent
-                    | Extern c -> 
-                        nodes |> Graph.addNode (Source c)
-                let nlet = nodes |> Graph.addVarNode exp.tyvar
-                Graph.connectNodes (generateGraph body) nlet
-                Graph.connectNodes (generateGraph e) nident
-                nlet
-        let rootNode = generateGraph exp
+                let _ =
+                    // TODO: why do we have this exception? Can we express that let bound idents are always intern?
+                    match Env.resolve ident body.env with
+                    | Intern tyvarIdent -> addVarNode tyvarIdent [ generateGraph e [] ]
+                    | Extern _ -> failwith "Invalid graph: let bound identifiers must be intern in env."
+                addVarNode exp.tyvar [ generateGraph body [] ]
+        let rootNode = generateGraph exp []
         Graph(rootNode, nodes)
 
     let solve (graph: Graph) =
@@ -298,67 +279,66 @@ module rec ConstraintGraph =
                 | _ -> error "Unspecified cases"
             unifyTaus a b
 
-        let merge incomingConstraints (node: Node) =
-            let incomingError =
-                incomingConstraints 
-                |> List.choose (function | UnificationError _ as cs -> Some cs | _ -> None)
-                |> List.tryHead
-            let incomingConstraints =
-                incomingConstraints
-                |> List.choose (function | Constrained tau -> Some tau | _ -> None)
+        let (|C|E|I|) (node: Node) =
+            match node.constr with
+            | Constrained tau -> C tau
+            | UnificationError e -> E e
+            | Initial -> I
 
-            match incomingError with
-            | Some error ->
-                error, emptySubst
-            | None ->
-                match node.data, incomingConstraints with
-                | MakeFun, [ t1; t2 ] ->
+        let (|Cs|Es|Ns|) (nodes: Node list) =
+            let cs = nodes |> List.choose (function | C x -> Some x | _ -> None)
+            let es = nodes |> List.choose (function | E x -> Some x | _ -> None)
+            let ns = nodes |> List.choose (function | I x -> Some x | _ -> None)
+            match cs,es,ns with
+            | _,es::_,_ -> Es es
+            | _,_,ns::_ -> Ns ns
+            | cs,[],[] -> Cs cs
+
+        let merge (node: Node) =
+            match Node.getIncoming node with
+            | Ns _ -> Initial, emptySubst
+            | Es es -> UnificationError es, emptySubst
+            | _ ->
+                match node.data with
+                | MakeFun { inc1 = C t1; inc2 = C t2  } ->
                     Constrained(TFun (t1, t2)), emptySubst
-                | Arg In, [ TFun (t1, _) ] ->
+                | Arg { argOp = In; inc = C(TFun(t1,_)) } ->
                     Constrained(t1), emptySubst
-                | Arg Out, [ TFun (_, t2) ] ->
+                | Arg { argOp = Out; inc = C(TFun(_,t2)) } ->
                     Constrained(t2), emptySubst
-                | Source c, [] ->
+                | Source c ->
                     Constrained c, emptySubst
-                | Var _, [] ->
+                | Var { tyvar = _; incs = [] } ->
                     let freshGenVar = newGenVar()
                     Constrained(TGenVar freshGenVar), emptySubst
-                | Var _, [tau] ->
+                | Var { tyvar = _; incs = [C tau] } ->
                     Constrained(tau), emptySubst
-                | Var tyvar, forall :: foralls ->
+                | Var { tyvar = tyvar; incs = (C x) :: (Cs xs) } ->
                     let res =
                         // TODO: this looks weired - why 2 times (we have to merge substs)?
-                        (Ok (forall, emptySubst), foralls)
+                        (Ok (x, emptySubst), xs)
                         ||> List.fold (fun state curr -> 
                             match state with
                             | Error _ as e -> e
                             | Ok (forall, substs) ->
                                 match unify forall curr tyvar with
-                                | Error msg -> Error (msg, substs)
+                                | Error msg -> Error(msg, substs)
                                 | Ok (unifiedFoarll, newSubsts) -> Ok(unifiedFoarll, substs @ newSubsts))
                     match res with
-                    | Error (msg, substs) ->
-                        UnificationError msg, substs
-                    | Ok (tau, substs) ->
-                        Constrained(tau), substs
+                    | Error (msg, substs) -> UnificationError(msg), substs
+                    | Ok (tau, substs) -> Constrained(tau), substs
                 | _ ->
-                    failwith $"Invalid graph: incomingConstraints={incomingConstraints} ;;; node={node.data}"
-
-        let (|Mergeable|_|) (incoming: Node list) =
-            let constraints = incoming |> List.choose (fun e -> e.constr)
-            if constraints.Length = incoming.Length then Some constraints else None
+                    failwith $"Invalid graph at node: {node.data}"
 
         let rec processNodes (unfinished : Node list) (finished: Node list) (substs : Subst list) =
             let res = [
                 for node in unfinished do
-                    match node.incoming with
-                    | Mergeable constraints ->
-                        let merged,substs = merge constraints node
-                        do node.constr <- Some merged
-                        yield Choice1Of3 node
-                        yield! substs |> List.map Choice3Of3
-                    | _ ->
-                        yield Choice2Of3 node
+                    let resc,substs = merge node
+                    do node.constr <- resc
+                    yield! substs |> List.map Choice3Of3
+                    match resc with
+                    | Constrained _ | UnificationError _ -> yield Choice2Of3 node
+                    | _ -> yield Choice1Of3 node
                 ]
 
             // TODO: find a better partitioning
@@ -438,29 +418,30 @@ module Visu =
             [ 
                 let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
                 for n in graph.nodes do
-                for i in n.incoming do
-                { Visu.JsLink.fromNode = nodesLookup.[i]
-                  Visu.JsLink.toNode = nodesLookup.[n] }
+                    for i in Node.getIncoming n do
+                        { Visu.JsLink.fromNode = nodesLookup.[i]
+                          Visu.JsLink.toNode = nodesLookup.[n] }
             ]
         let jsNodes =
             [ for i,x in indexedNodes do
                 let name, layout =
                     match x.data with
                     | Source _ -> "SOURCE", NodeTypes.op
-                    | Var tyvar ->
+                    | Var x ->
                         let expName =
-                            match allAnnoExp |> List.tryFind (fun a -> a.tyvar = tyvar) with
+                            match allAnnoExp |> List.tryFind (fun a -> a.tyvar = x.tyvar) with
                             | None -> "Env"
                             | Some x -> Format.texpName x.annotated
-                        $"{tyvar} ({expName})", NodeTypes.var
-                    | x -> string x, NodeTypes.op
+                        $"{x.tyvar} ({expName})", NodeTypes.var
+                    | MakeFun _ -> "MakeFun", NodeTypes.op
+                    | Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
                 { key = i
                   name = name
                   desc =
                     match x.constr with
-                    | Some (Constrained tau) -> Format.tau tau
-                    | Some (UnificationError e) -> $"ERROR: {e}"
-                    | None -> "???"
+                    | Constrained tau -> Format.tau tau
+                    | UnificationError e -> $"ERROR: {e}"
+                    | Initial -> "???"
                   layout = layout }
             ]
 
