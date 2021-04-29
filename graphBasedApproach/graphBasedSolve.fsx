@@ -168,15 +168,11 @@ module rec ConstraintGraph =
         | Var of VarData
         | MakeFun of MakeFunData
         | Arg of ArgData
-
+    
+    // TODO: maybe get rid of this and make everything immutable
     type Node (data: NodeData, constr: ConstraintState) =
         member this.data = data
         member val constr = constr with get, set
-    and Graph(root: Node, nodes: ResizeArray<Node>) =
-        member this.root = root
-        member this.nodes = nodes
-        member val substs: Subst list = [] with get, set
-        member val unfinishedNodes: Node list = [] with get, set
 
     module Node =
         let getIncoming (node: Node) =
@@ -238,10 +234,10 @@ module rec ConstraintGraph =
                     | Extern _ ->
                         failwith "Invalid graph: let bound identifiers must be intern in env."
                 addVarNode exp.tyvar (Some(generateGraph body None)) inc
-        let rootNode = generateGraph exp None
-        Graph(rootNode, nodes)
+        do generateGraph exp None |> ignore
+        nodes
 
-    let solve (graph: Graph) =
+    let solve (nodes: Node seq) =
         let emptySubst : Subst list  = []
         
         let rec unify (a: Tau) (b: Tau) (anchor: TyVar) : Result<Tau * Subst list, string> =
@@ -338,12 +334,16 @@ module rec ConstraintGraph =
                     finished.Add(node)
                 | _ -> ()
 
-            if not goOn
-            then substs,unfinished
-            else processNodes unfinished finished substs
-        let substs,unfinished = processNodes (ResizeArray graph.nodes) (ResizeArray()) (ResizeArray())
-        graph.substs <- substs |> List.ofSeq
-        graph.unfinishedNodes <- unfinished |> List.ofSeq
+            if not goOn then
+                {| finishedNodes = finished |> List.ofSeq
+                   unfinishedNodes = unfinished |> List.ofSeq |}
+                |> fun x ->
+                    {| x with allNodes = x.finishedNodes @ x.unfinishedNodes |}
+            else
+                processNodes unfinished finished substs
+        
+        processNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
+
 
 
 module Visu =
@@ -404,12 +404,12 @@ module Visu =
 
     open ConstraintGraph
 
-    let showConstraintGraph (allAnnoExp: Annotated<TExp> list) (graph: Graph) =
-        let indexedNodes = graph.nodes |> Seq.indexed |> Seq.toList
+    let showConstraintGraph (allAnnoExp: Annotated<TExp> list) (nodes: Node seq) =
+        let indexedNodes = nodes |> Seq.indexed |> Seq.toList
         let jsLinks =
             [ 
                 let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
-                for n in graph.nodes do
+                for n in nodes do
                     for i in Node.getIncoming n do
                         { Visu.JsLink.fromNode = nodesLookup.[i]
                           Visu.JsLink.toNode = nodesLookup.[n] }
@@ -547,10 +547,9 @@ let showConstraintGraph env exp =
     exp
 let showSolvedGraph env exp =
     let annoExp,allAnnoExp = AnnotatedAst.create env exp
-    let graph = annoExp |> ConstraintGraph.create
-    do ConstraintGraph.solve graph
-    do graph |> Visu.showConstraintGraph allAnnoExp
-    graph.substs
+    let nodes = annoExp |> ConstraintGraph.create
+    let res = ConstraintGraph.solve nodes
+    do res.allNodes |> Visu.showConstraintGraph allAnnoExp
 
 
 (*
