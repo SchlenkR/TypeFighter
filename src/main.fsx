@@ -26,20 +26,20 @@ type Lit =
 type Exp<'meta> =
     | Lit of Lit
     | Var of Ident
-    | App of Meta<Exp<'meta>, 'meta> * Meta<Exp<'meta>, 'meta>
-    | Abs of Meta<Ident, 'meta> * Meta<Exp<'meta>, 'meta>
-    | Let of Ident * Meta<Exp<'meta>, 'meta> * Meta<Exp<'meta>, 'meta>
+    | App of Meta<'meta> * Meta<'meta>
+    | Abs of (Ident * 'meta) * Meta<'meta>
+    | Let of Ident * Meta<'meta> * Meta<'meta>
     //| Prop of string * Meta<Exp<'meta>>
     //| Tuple of List<Meta<Exp<'meta>>>
     //| Record of List<string * Meta<Exp<'meta>>>
-and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
+and Meta<'meta> = { exp: Exp<'meta>; meta: 'meta }
 
 type Anno =
     { tyvar: TyVar
       env: Env
       mutable constr: ConstraintState }
-type UExp = Meta<Exp<unit>, unit>
-type TExp = Meta<Exp<Anno>, Anno>
+type UExp = Meta<unit>
+type TExp = Meta<Anno>
 
 
 
@@ -96,16 +96,14 @@ module AnnotatedAst =
                         Var ident
                     | App (e1, e2) ->
                         App (annotate env e1, annotate env e2)
-                    | Abs (ident, body) ->
+                    | Abs ((ident, identMeta), body) ->
                         let tyvarIdent = newvar()
-                        let newEnv = env |> Env.bind ident.exp tyvarIdent
+                        let newEnv = env |> Env.bind ident tyvarIdent
                         let annotatedIdent =
-                            { meta =
-                                { tyvar = tyvarIdent
-                                  env = env
-                                  constr = Initial }
-                              exp = ident.exp }
-                        Abs (annotatedIdent, annotate newEnv body)
+                            { tyvar = tyvarIdent
+                              env = env
+                              constr = Initial }
+                        Abs ((ident, annotatedIdent), annotate newEnv body)
                     | Let (ident, e, body) ->
                         let newEnv = env |> Env.bind ident (newvar())
                         Let (ident, annotate env e, annotate newEnv body)
@@ -256,8 +254,8 @@ module rec ConstraintGraph =
                 let ne2 = (argIn ne1) => generateGraph e2 
                 (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> ast exp.meta.tyvar exp.meta.constr
                 //(argOut ne1, inc) ==> var exp.tyvar
-            | Abs (ident, body) ->
-                let nfunc = makeFunc (ast ident.meta.tyvar Initial None None) (generateGraph body None)
+            | Abs ((ident, identMeta), body) ->
+                let nfunc = makeFunc (ast identMeta.tyvar Initial None None) (generateGraph body None)
                 (nfunc, inc) ==> ast exp.meta.tyvar exp.meta.constr
             | Let (ident, e, body) ->
                 let _ =
@@ -413,11 +411,12 @@ module rec ConstraintGraph =
         constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
 
     let applyResult exp (nodes: Node list) =
-        let constrainExp (exp: Meta<_,Anno>) =
+        let constrainAnno (meta: Anno) =
             let findConstraint tyvar =
                 let node = findVarNode tyvar nodes
                 node.constr
-            exp.meta.constr <- findConstraint exp.meta.tyvar
+            meta.constr <- findConstraint meta.tyvar
+        let constrainExp (exp: TExp) = constrainAnno exp.meta
         let rec applyResult (exp: TExp) =
             constrainExp exp
             match exp.exp with
@@ -426,8 +425,8 @@ module rec ConstraintGraph =
             | App (e1, e2) ->
                 applyResult e1
                 applyResult e2
-            | Abs (ident, body) ->
-                constrainExp ident
+            | Abs ((ident, identMeta), body) ->
+                constrainAnno identMeta
                 applyResult body
             | Let (ident, e, body) ->
                 applyResult e

@@ -27,8 +27,8 @@ module Visu =
                 Tree.var $"Var ({ident})" details []
             | App (e1, e2) ->
                 Tree.var "App" details [ createNodes e1; createNodes e2 ]
-            | Abs (ident, body) ->
-                Tree.var $"Fun ({ident.exp})" details [ createNodes body ]
+            | Abs ((ident, identMeta), body) ->
+                Tree.var $"Fun ({ident})" details [ createNodes body ]
             | Let (ident, e, body) ->
                 Tree.var $"Let {ident}" details [ createNodes e; createNodes body ]
         createNodes exp |> flatten |> Tree.write
@@ -91,16 +91,16 @@ module Visu =
 
 [<AutoOpen>]
 module Dsl =
-    let mu exp = { exp = exp; meta = () }
+    let mu exp : UExp = { exp = exp; meta = () }
 
     let Str x = Lit (LString x) |> mu
     let Num x = Lit (LNumber x) |> mu
     let Bool x = Lit (LBool x) |> mu
-    let Unit : UExp = Lit LUnit |> mu
+    let Unit = Lit LUnit |> mu
 
     let Var x = Var x |> mu
     let App e1 e2 = App (e1, e2) |> mu
-    let Abs (x: Ident) e = Abs (mu x, e) |> mu
+    let Abs x e = Abs ((x, ()), e) |> mu
     let Let x e1 e2 = Let (x, e1, e2) |> mu
 
     // convenience
