@@ -193,6 +193,7 @@ module rec ConstraintGraph =
             let node = Node(n, match n with | Source c -> Constrained c | _ -> Initial)
             do nodes.Add node
             node
+        // TODO: varnode kann nur 1 - 2 incomings haben
         let addVarNode tyvar incs = addNode (Var { tyvar = tyvar; incs = incs })
         let addFuncNode inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
         let addArgNode op inc = addNode (Arg { argOp = op; inc = inc })
@@ -202,7 +203,7 @@ module rec ConstraintGraph =
                 | Var v when v.tyvar = tyvar -> true
                 | _ -> false)
 
-        let rec generateGraph (exp: Annotated<TExp>) (inc: Node list) =
+        let rec generateGraph (exp: Annotated<TExp>) (inc: Node option) =
             match exp.annotated with
             | TELit x ->
                 let nsource = addNode (Source(TApp(Lit.getTypeName x, [])))
@@ -219,31 +220,24 @@ module rec ConstraintGraph =
                 // check: t<app> = t<e2>
                 // infer: t<app> <- argOut(t<e1>)
                 // infer: t<e2> <- argIn(t<e1>)
-                let ne1 = generateGraph e1 []
-                let ne2 = generateGraph e2 [ addArgNode In ne1 ]
+                let ne1 = generateGraph e1 None
+                let ne2 = generateGraph e2 (Some (addArgNode In ne1))
                 addVarNode exp.tyvar [ addArgNode Out ne1 ]
             | TEAbs (ident, body) ->
-                addVarNode exp.tyvar [ addFuncNode (addVarNode ident.tyvar []) (generateGraph body []) ]
+                addVarNode exp.tyvar [ addFuncNode (addVarNode ident.tyvar []) (generateGraph body None) ]
             | TELet (ident, e, body) ->
                 let _ =
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.env with
-                    | Intern tyvarIdent -> addVarNode tyvarIdent [ generateGraph e [] ]
+                    | Intern tyvarIdent -> addVarNode tyvarIdent [ generateGraph e None ]
                     | Extern _ -> failwith "Invalid graph: let bound identifiers must be intern in env."
-                addVarNode exp.tyvar [ generateGraph body [] ]
-        let rootNode = generateGraph exp []
+                addVarNode exp.tyvar [ generateGraph body None ]
+        let rootNode = generateGraph exp None
         Graph(rootNode, nodes)
 
     let solve (graph: Graph) =
         let emptySubst : Subst list  = []
-
-        //let rec collectGenVars (t: Tau) =
-        //    match t with
-        //    | TGenVar a -> [a]
-        //    | TApp (_, a) -> a |> List.collect collectGenVars
-        //    | TFun (a, b) -> (collectGenVars a @ collectGenVars b)
-        //    |> List.distinct
-
+        
         let rec unify (a: Tau) (b: Tau) (anchor: TyVar) : Result<Tau * Subst list, string> =
             let error (msg: string) = Error $"""Cannot unity types "{Format.tau a}" and "{Format.tau b}": {msg}"""
             let rec unifyTaus t1 t2 =

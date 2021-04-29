@@ -70,7 +70,7 @@ window.nodeDataArray = [
   {
     "key": 11,
     "name": "9 (Env)",
-    "desc": "('a -> 'b)",
+    "desc": "'e",
     "fig": "Rectangle"
   },
   {
@@ -94,7 +94,7 @@ window.nodeDataArray = [
   {
     "key": 15,
     "name": "13 (Var)",
-    "desc": "ERROR: Cannot unity types \"('a -> 'b)\" and \"Number\": TODO",
+    "desc": "'e",
     "fig": "Rectangle"
   },
   {
@@ -136,13 +136,13 @@ window.nodeDataArray = [
   {
     "key": 22,
     "name": "MakeFun",
-    "desc": "(('a -> 'b) -> Number)",
+    "desc": "('e -> Number)",
     "fig": "Ellipse"
   },
   {
     "key": 23,
     "name": "8 (Abs)",
-    "desc": "ERROR: Cannot unity types \"(('a -> 'b) -> Number)\" and \"('a -> 'b)\": TODO",
+    "desc": "('e -> Number)",
     "fig": "Rectangle"
   },
   {
@@ -186,10 +186,6 @@ window.linkDataArray = [
     "to": 7
   },
   {
-    "from": 5,
-    "to": 7
-  },
-  {
     "from": 4,
     "to": 8
   },
@@ -202,10 +198,6 @@ window.linkDataArray = [
     "to": 10
   },
   {
-    "from": 10,
-    "to": 11
-  },
-  {
     "from": 12,
     "to": 13
   },
@@ -215,10 +207,6 @@ window.linkDataArray = [
   },
   {
     "from": 11,
-    "to": 15
-  },
-  {
-    "from": 14,
     "to": 15
   },
   {
@@ -235,10 +223,6 @@ window.linkDataArray = [
   },
   {
     "from": 2,
-    "to": 19
-  },
-  {
-    "from": 18,
     "to": 19
   },
   {
@@ -259,10 +243,6 @@ window.linkDataArray = [
   },
   {
     "from": 22,
-    "to": 23
-  },
-  {
-    "from": 10,
     "to": 23
   },
   {
