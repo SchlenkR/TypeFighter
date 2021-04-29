@@ -70,7 +70,7 @@ window.nodeDataArray = [
   {
     "key": 11,
     "name": "9 (Env)",
-    "desc": "'g",
+    "desc": "'e",
     "fig": "Rectangle"
   },
   {
@@ -136,13 +136,13 @@ window.nodeDataArray = [
   {
     "key": 22,
     "name": "MakeFun",
-    "desc": "('g -> Number)",
+    "desc": "('e -> Number)",
     "fig": "Ellipse"
   },
   {
     "key": 23,
     "name": "8 (Abs)",
-    "desc": "ERROR: Cannot unify types \"('g -> Number)\" and \"('a -> 'b)\": TODO",
+    "desc": "ERROR: Cannot unify types \"('e -> Number)\" and \"('a -> 'b)\": TODO",
     "fig": "Rectangle"
   },
   {

@@ -205,38 +205,41 @@ module rec ConstraintGraph =
                 | _ -> false)
 
         let rec generateGraph (exp: Annotated<TExp>) (inc: Node option) =
+            let ( => ) x f = Some x |> f
+            let ( ==> ) (x,y) f = (Some x,y) ||> f
+            
             match exp.annotated with
             | TELit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
-                var exp.tyvar (Some nsource) inc
+                (nsource, inc) ==> var exp.tyvar
             | TEVar ident ->
                 let nsource =
                     match Env.resolve ident exp.env with
                     | Intern tyvarIdent -> findVarNode tyvarIdent
                     | Extern c -> source c
-                var exp.tyvar (Some nsource) inc
+                (nsource, inc) ==> var exp.tyvar
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
                 // (check: ne1 must be a fun type) implicit
-                // check: t<app> = t<e2>
-                // infer: t<app> <- argOut(t<e1>)
-                // infer: t<e2> <- argIn(t<e1>)
+                // (check: napp = ne2) ??
+                // infer: argOut(ne1) -> napp
+                // infer: argIn(ne1) -> ne2
                 // subst: 
-                let ne1 = generateGraph e1 None
-                let ne2 = generateGraph e2 (Some (argIn ne1))
-                var exp.tyvar (Some (argOut ne1)) inc
+                let ne1 = None |> generateGraph e1
+                let ne2 = (argIn ne1) => generateGraph e2 
+                (argOut ne1, inc) ==> var exp.tyvar
             | TEAbs (ident, body) ->
                 let nfunc = makeFunc (var ident.tyvar None None) (generateGraph body None)
-                var exp.tyvar (Some nfunc) inc
+                (nfunc, inc) ==> var exp.tyvar
             | TELet (ident, e, body) ->
                 let _ =
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.env with
                     | Intern tyvarIdent ->
-                        var tyvarIdent (Some (generateGraph e None)) None
+                        (generateGraph e None, None) ==> var tyvarIdent
                     | Extern _ ->
                         failwith "Invalid graph: let bound identifiers must be intern in env."
-                var exp.tyvar (Some(generateGraph body None)) inc
+                (generateGraph body None, inc) ==> var exp.tyvar
         do generateGraph exp None |> ignore
         nodes
 
