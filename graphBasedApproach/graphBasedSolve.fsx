@@ -162,18 +162,16 @@ module rec ConstraintGraph =
     type ArgOp = In | Out
     type ArgData = { arg: ArgOp; inc1: Node }
     //type UnifyData = { incs: Node list }
-    type Op =
-        | MakeFun
-        | Arg of ArgOp
     type NodeData =
         | Source of Tau
         | Var of TyVar
-        | Op of Op
+        | MakeFun
+        | Arg of ArgOp
 
     type Node (data: NodeData, constr: ConstraintState option) =
         member this.data = data
         member val constr = constr with get, set
-        member val incoming : Node list = failwith "TODO" with get, set
+        member val incoming : Node list = [] with get, set
     and Graph(root: Node, nodes: ResizeArray<Node>) =
         member this.root = root
         member this.nodes = nodes
@@ -189,12 +187,12 @@ module rec ConstraintGraph =
         let addVarNode n nodes =
             addNode (Var n) nodes
         let addFuncNode n1 n2 ntarget nodes =
-            let nfunc = nodes |> addNode (Op MakeFun)
+            let nfunc = nodes |> addNode MakeFun
             connectNodes n1 nfunc
             connectNodes n2 nfunc
             connectNodes nfunc ntarget
         let addArgNode op nsource ntarget nodes =
-            let napp = nodes |> addNode (Op(Arg(op)))
+            let napp = nodes |> addNode (Arg op)
             connectNodes nsource napp
             connectNodes napp ntarget
         let findNode (tyvar: TyVar) (nodes: Node seq) =
@@ -314,11 +312,11 @@ module rec ConstraintGraph =
                 error, emptySubst
             | None ->
                 match node.data, incomingConstraints with
-                | Op MakeFun, [ t1; t2 ] ->
+                | MakeFun, [ t1; t2 ] ->
                     Constrained(TFun (t1, t2)), emptySubst
-                | Op(Arg In), [ TFun (t1, _) ] ->
+                | Arg In, [ TFun (t1, _) ] ->
                     Constrained(t1), emptySubst
-                | Op(Arg Out), [ TFun (_, t2) ] ->
+                | Arg Out, [ TFun (_, t2) ] ->
                     Constrained(t2), emptySubst
                 | Source c, [] ->
                     Constrained c, emptySubst
@@ -455,7 +453,7 @@ module Visu =
                             | None -> "Env"
                             | Some x -> Format.texpName x.annotated
                         $"{tyvar} ({expName})", NodeTypes.var
-                    | Op op -> string op, NodeTypes.op
+                    | x -> string x, NodeTypes.op
                 { key = i
                   name = name
                   desc =
