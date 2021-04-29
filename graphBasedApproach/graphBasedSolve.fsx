@@ -158,7 +158,7 @@ module rec ConstraintGraph =
 
     type Subst = { genTyVar: GenTyVar; constr: Tau; anchor: TyVar }
 
-    type VarData = { tyvar: TyVar; inc1: Node; inc2: Node }
+    type VarData = { tyvar: TyVar; inc1: Node option; inc2: Node option }
     type MakeFunData = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
     type ArgData = { argOp: ArgOp; inc: Node }
@@ -181,7 +181,7 @@ module rec ConstraintGraph =
         let getIncoming (node: Node) =
             match node.data with
             | Source _ -> []
-            | Var x -> [ x.inc1; x.inc2 ]
+            | Var x -> [ x.inc1; x.inc2 ] |> List.choose id
             | MakeFun x -> [ x.inc1; x.inc2 ]
             | Arg { argOp = _; inc = x } -> [x]
 
@@ -193,14 +193,8 @@ module rec ConstraintGraph =
             let node = Node(n, match n with | Source c -> Constrained c | _ -> Initial)
             do nodes.Add node
             node
-        // TODO: varnode kann nur 1 - 2 incomings haben
         let addSourceNode tau = addNode (Source tau)
-        let addVarNode tyvar inc1 inc2 =
-            let norm =
-                function
-                | Some n -> n
-                | None -> addSourceNode (TGenVar (newGenVar()))
-            addNode (Var { tyvar = tyvar; inc1 = norm inc1; inc2 = norm inc2 })
+        let addVarNode tyvar inc1 inc2 = addNode (Var { tyvar = tyvar; inc1 = inc1; inc2 = inc2 })
         let addFuncNode inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 })
         let addArgNode op inc = addNode (Arg { argOp = op; inc = inc })
         let findVarNode (tyvar: TyVar) =
@@ -218,7 +212,7 @@ module rec ConstraintGraph =
                 let nsource =
                     match Env.resolve ident exp.env with
                     | Intern tyvarIdent -> findVarNode tyvarIdent
-                    | Extern c -> addNode (Source c)
+                    | Extern c -> addSourceNode c
                 addVarNode exp.tyvar (Some nsource) inc
             | TEApp (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
@@ -248,7 +242,7 @@ module rec ConstraintGraph =
         let emptySubst : Subst list  = []
         
         let rec unify (a: Tau) (b: Tau) (anchor: TyVar) : Result<Tau * Subst list, string> =
-            let error (msg: string) = Error $"""Cannot unity types "{Format.tau a}" and "{Format.tau b}": {msg}"""
+            let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
             let rec unifyTaus t1 t2 =
                 match t1,t2 with
                 | x,y when x = y ->
@@ -311,12 +305,12 @@ module rec ConstraintGraph =
                     Constrained(t2), emptySubst
                 | Source c ->
                     Constrained c, emptySubst
-                //| Var { tyvar = _; inc1 = C } ->
-                //    let freshGenVar = newGenVar()
-                //    Constrained(TGenVar freshGenVar), emptySubst
-                //| Var { tyvar = _; incs = [C tau] } ->
-                //    Constrained(tau), emptySubst
-                | Var { tyvar = tyvar; inc1 = C t1; inc2 = C t2 } ->
+                | Var { tyvar = _; inc1 = None; inc2 = None } ->
+                    Constrained(TGenVar(newGenVar())), emptySubst
+                | Var { tyvar = _; inc1 = Some(C tau); inc2 = None }
+                | Var { tyvar = _; inc1 = None; inc2 = Some(C tau) } ->
+                    Constrained(tau), emptySubst
+                | Var { tyvar = tyvar; inc1 = Some(C t1); inc2 = Some(C t2) } ->
                     match unify t1 t2 tyvar with
                     | Error msg -> UnificationError msg, emptySubst
                     | Ok (unifiedTau, substs) -> Constrained unifiedTau, substs
@@ -330,17 +324,21 @@ module rec ConstraintGraph =
                     do node.constr <- resc
                     yield! substs |> List.map Choice3Of3
                     match resc with
-                    | Constrained _ | UnificationError _ -> yield Choice2Of3 node
-                    | _ -> yield Choice1Of3 node
+                    | Constrained _ 
+                    | UnificationError _ -> yield Choice1Of3 node
+                    | _ -> yield Choice2Of3 node
                 ]
 
             // TODO: find a better partitioning
             let newUnfinished = res |> List.choose (function Choice2Of3 x -> Some x | _ -> None)
             let newFinished = res |> List.choose (function Choice1Of3 x -> Some x | _ -> None)
             let newSubsts = res |> List.choose (function Choice3Of3 x -> Some x | _ -> None)
+
+            // TODO: this check doesn't seem to work (=> won't terminate)
             if unfinished <> newUnfinished
                     || finished <> newFinished
                     || substs <> newSubsts
+                // TODO: this is not tail rec
                 then substs @ (processNodes newUnfinished newFinished newSubsts)
                 else substs @ newSubsts
         let substs = processNodes (graph.nodes |> Seq.toList) [] []
