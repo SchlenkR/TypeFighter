@@ -232,8 +232,10 @@ module rec ConstraintGraph =
                 let _ =
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.env with
-                    | Intern tyvarIdent -> addVarNode tyvarIdent (Some (generateGraph e None)) None
-                    | Extern _ -> failwith "Invalid graph: let bound identifiers must be intern in env."
+                    | Intern tyvarIdent ->
+                        addVarNode tyvarIdent (Some (generateGraph e None)) None
+                    | Extern _ ->
+                        failwith "Invalid graph: let bound identifiers must be intern in env."
                 addVarNode exp.tyvar (Some(generateGraph body None)) inc
         let rootNode = generateGraph exp None
         Graph(rootNode, nodes)
@@ -305,6 +307,9 @@ module rec ConstraintGraph =
                     Constrained(t2), emptySubst
                 | Source c ->
                     Constrained c, emptySubst
+                // The next 2 are edge cases. we could also model inc1 and inc2 an not optional
+                // and normalize them with an unconstrained source node. But this would
+                // lead to a blown up graph with much more nodes and gen vars.
                 | Var { tyvar = _; inc1 = None; inc2 = None } ->
                     Constrained(TGenVar(newGenVar())), emptySubst
                 | Var { tyvar = _; inc1 = Some(C tau); inc2 = None }
@@ -317,31 +322,27 @@ module rec ConstraintGraph =
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
-        let rec processNodes (unfinished : Node list) (finished: Node list) (substs : Subst list) =
-            let res = [
-                for node in unfinished do
-                    let resc,substs = merge node
-                    do node.constr <- resc
-                    yield! substs |> List.map Choice3Of3
-                    match resc with
-                    | Constrained _ 
-                    | UnificationError _ -> yield Choice1Of3 node
-                    | _ -> yield Choice2Of3 node
-                ]
+        let rec processNodes (unfinished : Node seq) (finished: Node seq) (substs : Subst seq) =
+            let newUnfinished = ResizeArray()
+            let newFinished = ResizeArray(finished)
+            let newSubsts = ResizeArray(substs)
+            let mutable goOn = false
 
-            // TODO: find a better partitioning
-            let newUnfinished = res |> List.choose (function Choice2Of3 x -> Some x | _ -> None)
-            let newFinished = res |> List.choose (function Choice1Of3 x -> Some x | _ -> None)
-            let newSubsts = res |> List.choose (function Choice3Of3 x -> Some x | _ -> None)
-
-            // TODO: this check doesn't seem to work (=> won't terminate)
-            if unfinished <> newUnfinished
-                    || finished <> newFinished
-                    || substs <> newSubsts
-                // TODO: this is not tail rec
-                then substs @ (processNodes newUnfinished newFinished newSubsts)
-                else substs @ newSubsts
-        let substs = processNodes (graph.nodes |> Seq.toList) [] []
+            for node in unfinished do
+                let resc,substs = merge node
+                node.constr <- resc
+                newSubsts.AddRange(substs)
+                match resc with
+                | Constrained _ 
+                | UnificationError _ ->
+                    goOn <- true
+                    newFinished.Add(node)
+                | _ ->
+                    newUnfinished.Add(node)
+            if not goOn
+                then [ yield! substs; yield! newSubsts ]
+                else processNodes newUnfinished newFinished newSubsts
+        let substs = processNodes graph.nodes Seq.empty Seq.empty
         graph.substs <- substs
 
 
