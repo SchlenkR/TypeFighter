@@ -26,13 +26,14 @@ type Lit =
 type Exp<'meta> =
     | Lit of Lit
     | Var of Ident
-    | App of Meta<Exp<'meta>, 'meta> * Meta<Exp<'meta>, 'meta>
-    | Abs of Meta<Ident, 'meta> * Meta<Exp<'meta>, 'meta>
-    | Let of Ident * Meta<Exp<'meta>, 'meta> * Meta<Exp<'meta>, 'meta>
-    //| Prop of string * Meta<Exp<'meta>>
-    //| Tuple of List<Meta<Exp<'meta>>>
-    //| Record of List<string * Meta<Exp<'meta>>>
+    | App of RecExp<'meta> * RecExp<'meta>
+    | Abs of Meta<Ident, 'meta> * RecExp<'meta>
+    | Let of Ident * RecExp<'meta> * RecExp<'meta>
+    //| Prop of string * XExp<'meta>
+    //| Tuple of XExp<'meta> list
+    //| Record of List<string * XExp<'meta>>
 and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
+and RecExp<'meta> = Meta<Exp<'meta>, 'meta>
 
 type Anno =
     { tyvar: TyVar
