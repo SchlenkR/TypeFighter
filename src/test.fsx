@@ -15,38 +15,37 @@ module Builtins =
         static member inline ($) (AppT, x: int) = TGenVar x
     let inline tapp x = (($) AppT) x
     let inline (~%) x = tapp x
-    let ( ** ) name arg = TApp(name, [arg])
-    let ( * ) x arg =
+    let ( * ) x y =
         match x with
-        | TApp (name, args) -> TApp(name, args @ [arg])
-        | _ -> failwith "Operator '*' works only on TApp."
+        | TTuple taus -> TTuple (taus @ [y])
+        | _ -> TTuple [x;y]
     let ( ^-> ) t1 t2 = TFun(t1, t2)
     let import(name, t) = name, Extern t
 
     // Example:
-    //  Dictionary  <    string,  'a > ->   string   -> 'a
-    // "Dictionary" ** %"string" * %1 ^-> %"string" ^-> %1
+    //  Dictionary<string, 'a >        -> string     -> 'a
+    // "Dictionary"/[ %"string"; %1 ] ^-> %"string" ^-> %1
     
     let numberTyp = %Types.number
     let boolTyp = %Types.bool
     let stringTyp = %Types.string
     let unitTyp = %Types.unit
-    let seqTyp = %Types.seq
+    let seqOf arg = TApp (Types.seq, [arg])
 
     let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
     let tostring = import("tostring", %1 ^-> stringTyp)
     let read = import("read", unitTyp ^-> numberTyp)
-    let map = import("map", seqTyp * %1 ^-> (%1 ^-> %2) ^-> seqTyp * %2)
-    let mapp = import("mapp", (%1 ^-> %2) ^-> seqTyp * %1 ^-> seqTyp * %2)
-    let filter = import("filter", seqTyp * %1 ^-> (%1 ^-> boolTyp) ^-> seqTyp * %2)
-    let filterp = import("filter", (%1 ^-> boolTyp) ^-> seqTyp * %1 ^-> seqTyp * %1)
-    let take = import("take", seqTyp * %1 ^-> numberTyp ^-> %1)
-    let skip = import("skip", seqTyp * %1 ^-> numberTyp ^-> %1)
+    let map = import("map", seqOf %1 ^-> (%1 ^-> %2) ^-> seqOf %2)
+    let mapp = import("mapp", (%1 ^-> %2) ^-> seqOf %1 ^-> seqOf %2)
+    let filter = import("filter", seqOf %1 ^-> (%1 ^-> boolTyp) ^-> seqOf %2)
+    let filterp = import("filter", (%1 ^-> boolTyp) ^-> seqOf %1 ^-> seqOf %1)
+    let take = import("take", seqOf %1 ^-> numberTyp ^-> %1)
+    let skip = import("skip", seqOf %1 ^-> numberTyp ^-> %1)
     
-    let emptyList = import("emptyList", seqTyp * %1)
-    let cons = import("cons", %1 ^-> seqTyp * %1 ^-> seqTyp * %1)
+    let emptyList = import("emptyList", seqOf %1)
+    let cons = import("cons", %1 ^-> seqOf %1 ^-> seqOf %1)
 
-    let numbers = import("Numbers", seqTyp * numberTyp)
+    let numbers = import("Numbers", seqOf numberTyp)
 
 
 [<AutoOpen>]
@@ -133,7 +132,7 @@ map Numbers (number ->
 (Let "x" (Num 10.0)
 (Map (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
-|> Test.assertType "map numbers by add" env1 (seqTyp * numberTyp)
+|> Test.assertType "map numbers by add" env1 (seqOf numberTyp)
 //|> showSolvedAst env1
 //|> showLightAst env1
 //|> showAnnotatedAst env1
@@ -169,7 +168,7 @@ NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
 
 // this should work
 NewList [ Num 1.0; Num 2.0; Num 3.0  ]
-|> Test.assertType "Num list" env3 (seqTyp * numberTyp)
+|> Test.assertType "Num list" env3 (seqOf numberTyp)
 //|> showSolvedAst env3
 
 
@@ -205,13 +204,26 @@ let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 
 
 MapP (Abs "x" (App (Var "tostring") (Var "x")))
-|> Test.assertType "Lambda applied to MapP" env4 (seqTyp * %1 ^-> seqTyp * stringTyp)
+|> Test.assertType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
 //|> showSolvedAst env4 |> fun x -> x.substs
 
 
 (Abs "x" (App (Var "tostring") (Var "x")))
 |> Test.assertType "Lambda with anon type" env4 (%1 ^-> stringTyp)
 //|> showSolvedAst env4 |> fun x -> x.substs
+
+
+
+// polymorphic let
+(*
+let id = fun x -> x
+(id "Hello World", id 42.0)
+*)
+
+(Let "id" (Abs "x" (Var "x"))
+(Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
+)
+|> Test.assertType "Polymorphic let" (env []) (stringTyp * numberTyp)
 
 
 
