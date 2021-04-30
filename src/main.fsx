@@ -5,7 +5,7 @@ type Tau =
     | TApp of string * Tau list
     | TFun of Tau * Tau
     | TTuple of Tau list
-    | TTRecord of (string * Tau) list
+    | TRecord of (string * Tau) list
 type ConstraintState =
     | Initial
     | Constrained of Tau
@@ -142,7 +142,7 @@ module Format =
             $"({tau t1} -> {tau t2})"
         | TTuple taus ->
             taus |> List.map tau |> String.concat " * " |> sprintf "(%s)"
-        | TTRecord fields ->
+        | TRecord fields ->
             [ for n,t in fields do $"{n}: {tau t}" ] |> String.concat "; " |> sprintf "{ %s }"
 
 
@@ -368,12 +368,23 @@ module rec ConstraintGraph =
                     match unify t1 t2 with
                     | Error msg -> UnificationError msg
                     | Ok (unifiedTau,_) -> Constrained unifiedTau
-                | MakeFun { inc1 = C t1; inc2 = C t2  } ->
+                | MakeFun { inc1 = C t1; inc2 = C t2 } ->
                     Constrained(TFun (t1, t2))
+                | GetProp { field = field; inc = C(TRecord recordFields) } ->
+                    recordFields 
+                    |> List.tryFind (fun (n,_) -> n = field)
+                    |> Option.map snd
+                    |> Option.map Constrained
+                    |> Option.defaultValue (UnificationError $"Field not found: {field}")
+                | MakeTuple { incs = AllConstrained incs } ->
+                    Constrained(TTuple incs)
+                | MakeRecord { fields = fields; incs = AllConstrained incs } ->
+                    let fields = List.zip fields incs
+                    Constrained(TRecord fields)
                 | Arg { argOp = In; inc = C(TFun(t1,_)) } ->
-                    Constrained(t1)
+                    Constrained t1
                 | Arg { argOp = Out; inc = C(TFun(_,t2)) } ->
-                    Constrained(t2)
+                    Constrained t2
                 | UnifySubst { substSource = C substSource; substIn = C substIn; applyTo = C applyTo } ->
                     // TODO: it matters if we use "b a " or "a b", but we have to know that :(
                     match unify substIn substSource with

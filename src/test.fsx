@@ -1,17 +1,19 @@
+
 #load "main.fsx"
 open Main
 
 module Format =
+    let getUnionCaseName x =
+        match Reflection.FSharpValue.GetUnionFields(x, x.GetType()) with
+        | c, _ -> c.Name
+
     let tyvar (ident: string) (x: string) =
         $"'{ident}' : {x}"
 
-    let texpName (exp: Exp<_>) =
-        match exp with
-        | Lit _ -> "Lit"
-        | Var _ -> "Var"
-        | App _ -> "App"
-        | Abs _ -> "Fun"
-        | Let _ -> "Let"
+    let recordFieldNames fields =
+        fields |> String.concat "; " |> sprintf "{ %s }"
+    let recordFields fields =
+        fields |> List.map fst |> recordFieldNames
 
     let constraintState cs =
         match cs with
@@ -68,6 +70,14 @@ module Visu =
                 Tree.var $"Fun ({ident.exp})" details [ createNodes body ]
             | Let (ident, e, body) ->
                 Tree.var $"Let {ident}" details [ createNodes e; createNodes body ]
+            | Prop (ident, e) ->
+                Tree.var $"Prop {ident}" details [ createNodes e ]
+            | Tuple es ->
+                Tree.var $"Tuple" details [ for e in es do createNodes e ]
+            | Record fields ->
+                let fieldNames = Format.recordFields fields
+                let details = details + "\n" + fieldNames
+                Tree.var $"Record" details [ for _,e in fields do createNodes e ]
         createNodes exp |> flatten |> Tree.write
 
     let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node seq) =
@@ -89,11 +99,13 @@ module Visu =
                         let expName =
                             match allAnnoExp |> List.tryFind (fun a -> a.meta.tyvar = x.tyvar) with
                             | None -> "Env"
-                            | Some x -> Format.texpName x.exp
+                            | Some x -> Format.getUnionCaseName x.exp
                         $"{x.tyvar} ({expName})", NodeTypes.var
                     | ConstraintGraph.MakeFun _ -> "MakeFun", NodeTypes.op
-                    | ConstraintGraph.Arg { argOp = x; inc = _ } -> $"Arg {x}", NodeTypes.op
-                    | ConstraintGraph.UnifySubst _ -> $"ApplySubst", NodeTypes.op
+                    | ConstraintGraph.Arg x -> $"Arg {x.argOp}", NodeTypes.op
+                    | ConstraintGraph.GetProp x -> $"GetProp ({x.field})", NodeTypes.op
+                    | ConstraintGraph.MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
+                    | _ -> Format.getUnionCaseName x, NodeTypes.op
                 { key = i
                   name = name
                   desc = Format.constraintState x.constr
@@ -135,10 +147,13 @@ module Dsl =
     let Bool x = Lit (LBool x) |> mu
     let Unit : UExp = Lit LUnit |> mu
 
-    let Var x = Var x |> mu
+    let Var ident = Var ident |> mu
     let App e1 e2 = App (e1, e2) |> mu
-    let Abs (x: Ident) e = Abs (mu x, e) |> mu
-    let Let x e1 e2 = Let (x, e1, e2) |> mu
+    let Abs ident e = Abs (mu ident, e) |> mu
+    let Let ident e1 e2 = Let (ident, e1, e2) |> mu
+    let Prop ident e = Prop (ident, e) |> mu
+    let Tuple es = Tuple es |> mu
+    let Record fields = Record fields |> mu
 
     // convenience
     let Appn e es =
@@ -217,10 +232,24 @@ let x = 10.0
 map Numbers (\number ->
     add number x)
 *)
+//(Let "x" (Num 10.0)
+//(Appn (Var "map") [ Var "Numbers"; Abs "number"
+//(Appn (Var "add") [ Var "number"; Var "x" ] )] ))
+//|> Visu.showLightAst fullEnv
+//|> Visu.showAnnotatedAst fullEnv
+//|> Visu.showConstraintGraph fullEnv
+//|> Visu.showSolvedGraph fullEnv
+//|> Visu.showSolvedAst fullEnv
 
-(Let "x" (Num 10.0)
-(Appn (Var "map") [ Var "Numbers"; Abs "number"
-(Appn (Var "add") [ Var "number"; Var "x" ] )] ))
+
+
+
+(*
+let x = { a = 5.0; b = "hello" }
+x.b
+*)
+(Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
+(Prop "b" (Var "x")))
 |> Visu.showLightAst fullEnv
 |> Visu.showAnnotatedAst fullEnv
 |> Visu.showConstraintGraph fullEnv
