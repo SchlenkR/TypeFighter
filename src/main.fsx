@@ -44,7 +44,7 @@ type Anno =
 type UExp = Meta<Exp<unit>, unit>
 type TExp = Meta<Exp<Anno>, Anno>
 
-module KnownTypeNames =
+module Types =
     let string = "String"
     let number = "Number"
     let bool = "Bool"
@@ -54,10 +54,10 @@ module KnownTypeNames =
 module Lit =
     let getTypeName (l: Lit) =
         match l with
-        | LString _ -> KnownTypeNames.string
-        | LNumber _ -> KnownTypeNames.number
-        | LBool _ -> KnownTypeNames.bool
-        | LUnit _ -> KnownTypeNames.unit
+        | LString _ -> Types.string
+        | LNumber _ -> Types.number
+        | LBool _ -> Types.bool
+        | LUnit _ -> Types.unit
 
 module Env =
     let empty : Env = Map.empty
@@ -310,27 +310,24 @@ module rec ConstraintGraph =
                 | y, TGenVar x ->
                     Ok (y, [ { genTyVar = x; constr = y } ])
                 | TApp (_, taus1), TApp (_, taus2) when taus1.Length <> taus2.Length ->
-                    error "Arg count mismatch"
+                    error "Generic argument count mismatch"
                 | TApp (n1,_), TApp (n2, _) when n1 <> n2 ->
-                    error "Type (name) mismatch"
+                    error "Type mismatch"
                 | TApp (name, taus1), TApp (_, taus2) ->
                     let res = unifyn taus1 taus2
                     match res with
                     | Ok (taus, substs) ->
                         Ok (TApp (name, taus), substs)
-                    | Error e ->
-                        error e
+                    | Error e -> 
+                        Error e
                 | TFun (ta1, ta2), TFun (tb1, tb2) ->
                     match unifyn [ta1; tb1] [ta2; tb2] with
                     | Ok ([tres1; tres2], substs) ->
                         Ok (TFun (tres1, tres2), substs)
                     | Error e ->
-                        error e
+                        Error e
                     | _ ->
                         failwith $"inconsistent TFun unification: {t1} <> {t2}"
-                | TFun (ta1, ta2), TApp (name, taus)
-                | TApp (name, taus), TFun (ta1, ta2) ->
-                    error "TODO: FUN-APP"
                 | _ ->
                     error "Unspecified cases"
             // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?

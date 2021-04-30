@@ -3,6 +3,49 @@
 open Main
 open VisuWrapper
 
+
+//let env = AnnotatedAst.Env.empty
+// TODO: convenience for importing .Net methods
+module Builtins =
+    let env x : Env = Map.ofList x
+
+    // a small DSL for type definitions
+    type AppT = AppT with
+        static member inline ($) (AppT, x: string) = TApp(x, [])
+        static member inline ($) (AppT, x: int) = TGenVar x
+    let inline tapp x = (($) AppT) x
+    let inline (~%) x = tapp x
+    let ( ** ) name arg = TApp(name, [arg])
+    let ( * ) x arg =
+        match x with
+        | TApp (name, args) -> TApp(name, args @ [arg])
+        | _ -> failwith "Operator '*' works only on TApp."
+    let ( ^-> ) t1 t2 = TFun(t1, t2)
+    let import(name, t) = name, Extern t
+
+    // Example:
+    //  Dictionary  <    string,  'a > ->   string   -> 'a
+    // "Dictionary" ** %"string" * %1 ^-> %"string" ^-> %1
+    
+    let numberTyp = %Types.number
+    let boolTyp = %Types.bool
+    let stringTyp = %Types.string
+    let unitTyp = %Types.unit
+    let seqTyp = %Types.seq
+
+    let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
+    let read = import("read", unitTyp ^-> numberTyp)
+    let map = import("map", seqTyp * %1 ^-> (%1 ^-> %2) ^-> seqTyp * %2)
+    let filter = import("filter", seqTyp * %1 ^-> (%1 ^-> boolTyp) ^-> seqTyp * %2)
+    let take = import("take", seqTyp * %1 ^-> numberTyp ^-> %1)
+    let skip = import("skip", seqTyp * %1 ^-> numberTyp ^-> %1)
+    
+    let emptyList = import("emptyList", seqTyp * %1)
+    let cons = import("cons", %1 ^-> seqTyp * %1 ^-> seqTyp * %1)
+
+    let numbers = import("Numbers", seqTyp * numberTyp)
+
+
 [<AutoOpen>]
 module Dsl =
     let mu exp = { exp = exp; meta = () }
@@ -32,50 +75,20 @@ module Dsl =
 
     let private listOp name seq lam = Appn (Var name) [ seq; lam ]
     
-    let MapExp seq projection = listOp "map" seq projection
-    let FilterExp seq predicate = listOp "filter" seq predicate
+    let MapExp seq projection = listOp (fst Builtins.map) seq projection
+    let FilterExp seq predicate = listOp (fst Builtins.filter) seq predicate
+    let NewList es =
+        let rec makeList es =
+            match es with
+            | [] -> Var (fst Builtins.emptyList)
+            | e :: es -> Appn (Var (fst Builtins.cons)) [ e; makeList es ]
+        makeList es
 
 
 
-//let env = AnnotatedAst.Env.empty
-// TODO: convenience for importing .Net methods
-module EnvCfg =
-    let numberTyp = TApp(KnownTypeNames.number, [])
-    let stringTyp = TApp(KnownTypeNames.string, [])
-    let unitTyp = TApp(KnownTypeNames.unit, [])
-
-    // a small DSL for type definitions
-    type AppT = AppT with
-        static member inline ($) (AppT, x: string) = TApp(x, [])
-        static member inline ($) (AppT, x: int) = TGenVar x
-    let inline tapp x = (($) AppT) x
-    let inline (~%) x = tapp x
-    let ( ** ) name arg = TApp(name, [arg])
-    let ( * ) x arg =
-        match x with
-        | TApp (name, args) -> TApp(name, args @ [arg])
-        | _ -> failwith "Operator '*' works only on TApp."
-    let ( ^-> ) t1 t2 = TFun(t1, t2)
-    let import(name, t) = name, Extern t
-
-    // Example:
-    //  Dictionary  <    string,  'a > ->   string   -> 'a
-    // "Dictionary" ** %"string" * %1 ^-> %"string" ^-> %1
-
-    let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
-    let read = import("read", unitTyp ^-> numberTyp)
-    let map = import("map", KnownTypeNames.seq ** %1 ^-> (%1 ^-> %2) ^-> KnownTypeNames.seq ** %2)
-    let take = import("take", KnownTypeNames.seq ** %1 ^-> numberTyp ^-> %1)
-    let skip = import("skip", KnownTypeNames.seq ** %1 ^-> numberTyp ^-> %1)
-    
-    let numbers = import("Numbers", KnownTypeNames.seq ** numberTyp)
-
-open EnvCfg
-
-let smallEnv = Map.ofList [ add; read ]
-let fullEnv = Map.ofList [ add; read; map; take; skip; numbers ]
 
 
+let env1 = Builtins.env [ Builtins.map; Builtins.add; Builtins.numbers ]
 (*
 let x = 10.0
 map Numbers (\number ->
@@ -85,15 +98,16 @@ map Numbers (\number ->
 (Let "x" (Num 10.0)
 (Appn (Var "map") [ Var "Numbers"; Abs "number"
 (Appn (Var "add") [ Var "number"; Var "x" ] )] ))
-|> showLightAst fullEnv
-|> showAnnotatedAst fullEnv
-|> showConstraintGraph fullEnv
-|> showSolvedGraph fullEnv
-|> showSolvedAst fullEnv
+|> showLightAst env1
+|> showAnnotatedAst env1
+|> showConstraintGraph env1
+|> showSolvedGraph env1
+|> showSolvedAst env1
 
 
 
 
+let env2 = Builtins.env [ ]
 (*
 let x = { a = 5.0; b = "hello" }
 x.b
@@ -101,7 +115,19 @@ x.b
 
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
-|> showSolvedAst fullEnv
+|> showSolvedAst env2
+
+
+
+
+let env3 = Builtins.env [ Builtins.cons; Builtins.emptyList ]
+(*
+[ 1.0; 2.0; 3.0 ]
+*)
+
+NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
+|> showSolvedAst env3
+
 
 
 
