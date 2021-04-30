@@ -435,7 +435,7 @@ module rec ConstraintGraph =
                             let taus = substMany substs [applyTo]
                             Constrained (taus |> List.exactlyOne), substs
                 | _ ->
-                    failwith $"Invalid graph at node: {node.data}"
+                    UnificationError $"Invalid graph at node: {node.data}", emptySubst
 
         let rec constrainNodes 
                 (unfinished: ResizeArray<Node>) 

@@ -36,11 +36,10 @@ module Builtins =
     let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
     let tostring = import("tostring", %1 ^-> stringTyp)
     let read = import("read", unitTyp ^-> numberTyp)
-    let pipe = import("pipe", %1 ^-> (%1 ^-> %2) ^-> %2)
     let map = import("map", seqTyp * %1 ^-> (%1 ^-> %2) ^-> seqTyp * %2)
     let mapp = import("mapp", (%1 ^-> %2) ^-> seqTyp * %1 ^-> seqTyp * %2)
     let filter = import("filter", seqTyp * %1 ^-> (%1 ^-> boolTyp) ^-> seqTyp * %2)
-    let filterp = import("filter", (%1 ^-> boolTyp) ^-> seqTyp * %1 ^-> seqTyp * %2)
+    let filterp = import("filter", (%1 ^-> boolTyp) ^-> seqTyp * %1 ^-> seqTyp * %1)
     let take = import("take", seqTyp * %1 ^-> numberTyp ^-> %1)
     let skip = import("skip", seqTyp * %1 ^-> numberTyp ^-> %1)
     
@@ -56,7 +55,9 @@ module Dsl =
 
     let Str x = Lit (LString x) |> mu
     let Num x = Lit (LNumber x) |> mu
-    let Bool x = Lit (LBool x) |> mu
+    let Bool x : UExp = Lit (LBool x) |> mu
+    let True = Bool true
+    let False = Bool false
     let Unit : UExp = Lit LUnit |> mu
 
     let Var ident = Var ident |> mu
@@ -79,8 +80,9 @@ module Dsl =
 
     let private seqOp name seq lam = Appn (Var name) [ seq; lam ]
 
-    let Pipe x f = Appn (Var(fst Builtins.pipe)) [f;x]
-    
+    //let Pipe x f = App f x
+    let FComp f g = Abs "x" (App (App f (Var "x")) g)
+
     let Map seq projection = seqOp (fst Builtins.map) seq projection
     let MapP projection = App (Var(fst Builtins.mapp)) projection
     let Filter seq predicate = seqOp (fst Builtins.filter) seq predicate
@@ -151,10 +153,10 @@ NewList [ Num 1.0; Num 2.0; Num 3.0  ]
 
 
 let env4 = Builtins.env [ 
-    Builtins.pipe
     Builtins.add
     Builtins.tostring
     Builtins.mapp
+    Builtins.filterp
     Builtins.cons
     Builtins.emptyList
 ]
@@ -164,11 +166,22 @@ let env4 = Builtins.env [
 |> map (fun x -> tostring x)
 *)
 
-(Pipe
-(NewList [ Num 1.0 ])
-(MapP (Abs "x" (App (Var "tostring") (Var "x") )))
+//(Pipe
+//(NewList [ Num 1.0 ])
+//(MapP (Abs "x" (App (Var "tostring") (Var "x") )))
+//)
+//|> showSolvedAst env4
+
+(App 
+    (FComp
+        (MapP (Abs "x" (App (Var "tostring") (Var "x") )))
+        (FilterP (Abs "x" True ))
+        )
+    (NewList [ Num 1.0 ])
 )
+|> showSolvedGraph env4
 |> showSolvedAst env4
+
 |> showLightAst env4
 |> showAnnotatedAst env4
 
@@ -176,17 +189,9 @@ let env4 = Builtins.env [
 MapP (Abs "x" (App (Var "tostring") (Var "x")))
 |> showSolvedAst env4 |> fun x -> x.substs
 
-|> showLightAst env4
-|> showAnnotatedAst env4
-|> showSolvedGraph env4 |> fun x -> x.substs
-
 
 (Abs "x" (App (Var "tostring") (Var "x")))
 |> showSolvedAst env4 |> fun x -> x.substs
-
-|> showLightAst env4
-|> showAnnotatedAst env4
-|> showSolvedGraph env4 |> fun x -> x.substs
 
 
 
