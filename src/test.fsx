@@ -95,10 +95,34 @@ module Dsl =
         makeList es
 
 
+module Test =
+    let run env exp =
+        let annoRes = AnnotatedAst.create env exp
+        let res = 
+            annoRes.resultExp
+            |> ConstraintGraph.create
+            |> ConstraintGraph.solve annoRes.newGenVar
+        do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
+        annoRes.resultExp.meta.constr
+    let error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
+    let assertType name env typ exp =
+        let error actual = error name (Format.tau typ) actual
+        match run env exp with
+        | Constrained c -> if c = typ  then () else error  (Format.tau c)
+        | UnificationError e -> error $"ERROR ({e})"
+        | Initial -> error "Initial"
+    let assertError name env exp =
+        let error actual = error name "ERROR" actual
+        match run env exp with
+        | Constrained c -> error (Format.tau c)
+        | UnificationError e -> ()
+        | Initial -> error "Initial"
+
+open Builtins
 
 
 
-let env1 = Builtins.env [ Builtins.map; Builtins.add; Builtins.numbers ]
+let env1 = env [ map; add; numbers ]
 
 (*
 let x = 10.0
@@ -109,18 +133,17 @@ map Numbers (number ->
 (Let "x" (Num 10.0)
 (Map (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
-|> showSolvedAst env1
-
-|> showLightAst env1
-|> showAnnotatedAst env1
-|> showConstraintGraph env1
-|> showSolvedGraph env1
-|> showSolvedAst env1
-
+|> Test.assertType "map numbers by add" env1 (seqTyp * numberTyp)
+//|> showSolvedAst env1
+//|> showLightAst env1
+//|> showAnnotatedAst env1
+//|> showConstraintGraph env1
+//|> showSolvedGraph env1
 
 
 
-let env2 = Builtins.env [ ]
+
+let env2 = env [ ]
 (*
 let x = { a = 5.0; b = "hello" }
 x.b
@@ -128,23 +151,26 @@ x.b
 
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
-|> showSolvedAst env2
+|> Test.assertType "Get record property" env2 stringTyp
+//|> showSolvedAst env2
 
 
 
 
-let env3 = Builtins.env [ Builtins.cons; Builtins.emptyList ]
+let env3 = env [ cons; emptyList ]
 (*
 [ 1.0; 2.0; 3.0 ]
 *)
 
 // this should fail
 NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
-|> showSolvedAst env3
+|> Test.assertError "Disjunct list element types" env3
+//|> showSolvedAst env3
 
 // this should work
 NewList [ Num 1.0; Num 2.0; Num 3.0  ]
-|> showSolvedAst env3
+|> Test.assertType "Num list" env3 (seqTyp * numberTyp)
+//|> showSolvedAst env3
 
 
 
@@ -152,18 +178,10 @@ NewList [ Num 1.0; Num 2.0; Num 3.0  ]
 
 
 
-let env4 = Builtins.env [ 
-    Builtins.add
-    Builtins.tostring
-    Builtins.mapp
-    Builtins.filterp
-    Builtins.cons
-    Builtins.emptyList
-]
+let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 
 (*
-[ 1.0 ]
-|> map (fun x -> tostring x)
+[ 1.0 ] |> map (fun x -> tostring x)
 *)
 
 //(Pipe
@@ -172,26 +190,28 @@ let env4 = Builtins.env [
 //)
 //|> showSolvedAst env4
 
-(App 
-    (FComp
-        (MapP (Abs "x" (App (Var "tostring") (Var "x") )))
-        (FilterP (Abs "x" True ))
-        )
-    (NewList [ Num 1.0 ])
-)
-|> showSolvedGraph env4
-|> showSolvedAst env4
+//(App 
+//    (FComp
+//        (MapP (Abs "x" (App (Var "tostring") (Var "x") )))
+//        (FilterP (Abs "x" True ))
+//        )
+//    (NewList [ Num 1.0 ])
+//)
+//|> showSolvedGraph env4
+//|> showSolvedAst env4
 
-|> showLightAst env4
-|> showAnnotatedAst env4
+//|> showLightAst env4
+//|> showAnnotatedAst env4
 
 
 MapP (Abs "x" (App (Var "tostring") (Var "x")))
-|> showSolvedAst env4 |> fun x -> x.substs
+|> Test.assertType "Lambda applied to MapP" env4 (seqTyp * %1 ^-> seqTyp * stringTyp)
+//|> showSolvedAst env4 |> fun x -> x.substs
 
 
 (Abs "x" (App (Var "tostring") (Var "x")))
-|> showSolvedAst env4 |> fun x -> x.substs
+|> Test.assertType "Lambda with anon type" env4 (%1 ^-> stringTyp)
+//|> showSolvedAst env4 |> fun x -> x.substs
 
 
 

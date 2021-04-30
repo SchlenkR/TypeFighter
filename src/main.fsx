@@ -79,7 +79,7 @@ module AnnotatedAst =
           resultExp : MExp<Anno>
           allExpressions: TExp list }
 
-    let remapGenVars (env: Env) : Counter * Env =
+    let private remapGenVars (env: Env) : Counter * Env =
         let newGenVar = Counter(0)
         let mutable varMap = Map.empty<GenTyVar, GenTyVar>
         newGenVar, env |> Map.map (fun _ v ->
@@ -296,9 +296,9 @@ module rec ConstraintGraph =
                 let nrecord = (fieldnames, es) ||> makeRecord
                 (nrecord, inc) ==> nthis
         do generateGraph exp None |> ignore
-        nodes
+        nodes |> Seq.toList
 
-    let solve (nodes: Node seq) (newGenVar: Counter) =
+    let solve (newGenVar: Counter) (nodes: Node list) =
         let emptySubst : Subst list  = []
         
         let rec substMany (substs: Subst list) taus =
@@ -482,7 +482,6 @@ module rec ConstraintGraph =
             | _ -> ()
         
         res
-
 
     let applyResult exp (nodes: Node list) =
         let constrainExp (exp: Meta<_,Anno>) =

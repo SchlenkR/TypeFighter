@@ -126,13 +126,13 @@ let showConstraintGraph env exp =
 let showSolvedGraph env exp =
     let annoRes = AnnotatedAst.create env exp
     let nodes = annoRes.resultExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve nodes annoRes.newGenVar
+    let res = ConstraintGraph.solve annoRes.newGenVar nodes
     do res.allNodes |> writeConstraintGraph annoRes.allExpressions
     res
 let showSolvedAst env exp =
     let annoRes = AnnotatedAst.create env exp
     let nodes = annoRes.resultExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve nodes annoRes.newGenVar
+    let res = ConstraintGraph.solve annoRes.newGenVar nodes
     do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
     do annoRes.resultExp |> writeAnnotatedAst false false true
     res
