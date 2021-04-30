@@ -10,27 +10,24 @@ module Builtins =
     let env x : Env = Map.ofList x
 
     // a small DSL for type definitions
-    type AppT = AppT with
-        static member inline ($) (AppT, x: string) = TApp(x, [])
-        static member inline ($) (AppT, x: int) = TGenVar x
-    let inline tapp x = (($) AppT) x
-    let inline (~%) x = tapp x
+    // TODO: Test the type DSL
+    let inline (~%) x = TGenVar x
     let ( * ) x y =
         match x with
         | TTuple taus -> TTuple (taus @ [y])
         | _ -> TTuple [x;y]
     let ( ^-> ) t1 t2 = TFun(t1, t2)
+    let t0 x = TApp (x, [])
+    let t1 x a = TApp (x, [a])
+    let t2 x a b = TApp (x, [a;b])
+    let t3 x a b c = TApp (x, [a;b;c])
     let import(name, t) = name, Extern t
 
-    // Example:
-    //  Dictionary<string, 'a >        -> string     -> 'a
-    // "Dictionary"/[ %"string"; %1 ] ^-> %"string" ^-> %1
-    
-    let numberTyp = %Types.number
-    let boolTyp = %Types.bool
-    let stringTyp = %Types.string
-    let unitTyp = %Types.unit
-    let seqOf arg = TApp (Types.seq, [arg])
+    let numberTyp = t0 Types.number
+    let boolTyp = t0 Types.bool
+    let stringTyp = t0 Types.string
+    let unitTyp = t0 Types.unit
+    let seqOf arg = t1 Types.seq arg
 
     let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
     let tostring = import("tostring", %1 ^-> stringTyp)
