@@ -51,7 +51,10 @@ module EnvCfg =
     let inline tapp x = (($) AppT) x
     let inline (~%) x = tapp x
     let ( ** ) name arg = TApp(name, [arg])
-    let ( * ) (TApp (name, args)) arg = TApp(name, args @ [arg])
+    let ( * ) x arg =
+        match x with
+        | TApp (name, args) -> TApp(name, args @ [arg])
+        | _ -> failwith "Operator '*' works only on TApp."
     let ( ^-> ) t1 t2 = TFun(t1, t2)
     let import(name, t) = name, Extern t
 
@@ -98,11 +101,6 @@ x.b
 
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
-
-|> showLightAst fullEnv
-|> showAnnotatedAst fullEnv
-|> showConstraintGraph fullEnv
-|> showSolvedGraph fullEnv
 |> showSolvedAst fullEnv
 
 
