@@ -10,10 +10,8 @@ module Format =
     let tyvar (ident: string) (x: string) =
         $"'{ident}' : {x}"
 
-    let recordFieldNames fields =
-        fields |> String.concat "; " |> sprintf "{ %s }"
-    let recordFields fields =
-        fields |> List.map fst |> recordFieldNames
+    let recordFieldNames fields = fields |> String.concat "; " |> sprintf "{ %s }"
+    let recordFields fields = fields |> List.map fst |> recordFieldNames
 
     let constraintState cs =
         match cs with
@@ -26,19 +24,15 @@ module Format =
         | Intern tv -> $"{tyvar ident (string tv)}"
         | Extern t -> $"{tyvar ident (Format.tau t)}"
 
-    let expTyvar exp = $"var = {exp.tyvar}"
-
     let env exp =
-        let envVars =
-            match exp.env |> Map.toList with
-            | [] -> "[ ]"
-            | [(ident, item)] ->
-                $"[ {envItem ident item} ]"
-            | _ ->
-                [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
-                |> String.concat "\n"
-                |> fun s -> $"\n{s}"
-        "env = " + envVars
+        match exp.env |> Map.toList with
+        | [] -> "[ ]"
+        | [(ident, item)] ->
+            $"[ {envItem ident item} ]"
+        | _ ->
+            [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
+            |> String.concat "\n"
+            |> fun s -> $"\n{s}"
 
 #load "./visu/visu.fsx"
 module Visu =
@@ -54,9 +48,9 @@ module Visu =
         let rec createNodes (exp: TExp) =
             let details =
                 [
-                    if showVar then yield Format.expTyvar exp.meta
-                    if showConstraint then yield Format.constraintState exp.meta.constr
-                    if showEnv then yield Format.env exp.meta
+                    if showVar then yield $"var = {exp.meta.tyvar}"
+                    if showConstraint then yield $"type = {Format.constraintState exp.meta.constr}"
+                    if showEnv then yield $"env = {Format.env exp.meta}"
                 ]
                 |> String.concat "\n"
             match exp.exp with
@@ -76,7 +70,7 @@ module Visu =
                 Tree.var $"Tuple" details [ for e in es do createNodes e ]
             | Record fields ->
                 let fieldNames = Format.recordFields fields
-                let details = details + "\n" + fieldNames
+                let details = $"fields = {fieldNames}\n{details}"
                 Tree.var $"Record" details [ for _,e in fields do createNodes e ]
         createNodes exp |> flatten |> Tree.write
 

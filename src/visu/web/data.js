@@ -4,37 +4,37 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "Let x",
-    "desc": "String",
+    "desc": "type = String",
     "fig": "Rectangle"
   },
   {
     "key": 1,
     "name": "Record",
-    "desc": "{ a: Number; b: String }\n{ a; b }",
+    "desc": "fields = { a; b }\ntype = { a: Number; b: String }",
     "fig": "Rectangle"
   },
   {
     "key": 2,
     "name": "Lit (5)",
-    "desc": "Number",
+    "desc": "type = Number",
     "fig": "Rectangle"
   },
   {
     "key": 3,
     "name": "Lit (hello)",
-    "desc": "String",
+    "desc": "type = String",
     "fig": "Rectangle"
   },
   {
     "key": 4,
     "name": "Prop b",
-    "desc": "String",
+    "desc": "type = String",
     "fig": "Rectangle"
   },
   {
     "key": 5,
     "name": "Var (x)",
-    "desc": "{ a: Number; b: String }",
+    "desc": "type = { a: Number; b: String }",
     "fig": "Rectangle"
   }
 ];
