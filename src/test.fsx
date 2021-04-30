@@ -242,8 +242,10 @@ map Numbers (\number ->
 let x = { a = 5.0; b = "hello" }
 x.b
 *)
+
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
+
 |> Visu.showLightAst fullEnv
 |> Visu.showAnnotatedAst fullEnv
 |> Visu.showConstraintGraph fullEnv

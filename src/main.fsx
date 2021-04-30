@@ -334,16 +334,16 @@ module rec ConstraintGraph =
             | _ -> a
 
         let constrainNode (node: Node) =
-            let (|C|E|I|) (node: Node) =
+            let (|Tau|Err|Init|) (node: Node) =
                 match node.constr with
-                | Constrained tau -> C tau
-                | UnificationError e -> E e
-                | Initial -> I
+                | Constrained tau -> Tau tau
+                | UnificationError e -> Err e
+                | Initial -> Init
 
             let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
-                let cs = nodes |> List.choose (function | C x -> Some x | _ -> None)
-                let es = nodes |> List.choose (function | E x -> Some x | _ -> None)
-                let ns = nodes |> List.choose (function | I x -> Some x | _ -> None)
+                let cs = nodes |> List.choose (function | Tau x -> Some x | _ -> None)
+                let es = nodes |> List.choose (function | Err x -> Some x | _ -> None)
+                let ns = nodes |> List.choose (function | Init x -> Some x | _ -> None)
                 match cs,es,ns with
                 | _,es::_,_ -> AnyError es
                 | _,_,ns::_ -> AnyInitial ns
@@ -361,16 +361,16 @@ module rec ConstraintGraph =
                 // lead to a blown up graph with much more nodes and gen vars.
                 | Ast { tyvar = _; inc1 = None; inc2 = None } ->
                     Constrained(TGenVar(newGenVar()))
-                | Ast { tyvar = _; inc1 = Some(C tau); inc2 = None }
-                | Ast { tyvar = _; inc1 = None; inc2 = Some(C tau) } ->
+                | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
+                | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
                     Constrained(tau)
-                | Ast { tyvar = _; inc1 = Some(C t1); inc2 = Some(C t2) } ->
+                | Ast { tyvar = _; inc1 = Some(Tau t1); inc2 = Some(Tau t2) } ->
                     match unify t1 t2 with
                     | Error msg -> UnificationError msg
                     | Ok (unifiedTau,_) -> Constrained unifiedTau
-                | MakeFun { inc1 = C t1; inc2 = C t2 } ->
+                | MakeFun { inc1 = Tau t1; inc2 = Tau t2 } ->
                     Constrained(TFun (t1, t2))
-                | GetProp { field = field; inc = C(TRecord recordFields) } ->
+                | GetProp { field = field; inc = Tau(TRecord recordFields) } ->
                     recordFields 
                     |> List.tryFind (fun (n,_) -> n = field)
                     |> Option.map snd
@@ -381,11 +381,11 @@ module rec ConstraintGraph =
                 | MakeRecord { fields = fields; incs = AllConstrained incs } ->
                     let fields = List.zip fields incs
                     Constrained(TRecord fields)
-                | Arg { argOp = In; inc = C(TFun(t1,_)) } ->
+                | Arg { argOp = In; inc = Tau(TFun(t1,_)) } ->
                     Constrained t1
-                | Arg { argOp = Out; inc = C(TFun(_,t2)) } ->
+                | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
                     Constrained t2
-                | UnifySubst { substSource = C substSource; substIn = C substIn; applyTo = C applyTo } ->
+                | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
                     // TODO: it matters if we use "b a " or "a b", but we have to know that :(
                     match unify substIn substSource with
                     | Error msg -> UnificationError msg
