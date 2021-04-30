@@ -171,7 +171,7 @@ module Format =
 
 
 module rec ConstraintGraph =
-    type Subst = { genTyVar: GenTyVar; constr: Tau }
+    type Subst = { genTyVar: GenTyVar; substitute: Tau }
 
     type Ast = { tyvar: TyVar; inc1: Node option; inc2: Node option }
     type MakeFun = { inc1: Node; inc2: Node }
@@ -202,6 +202,7 @@ module rec ConstraintGraph =
           errorNodes: Node list
           unfinishedNodes: Node list
           allNodes: Node list
+          substs: Subst list
           success: bool }
 
     let getIncomingNodes (node: Node) =
@@ -300,6 +301,28 @@ module rec ConstraintGraph =
     let solve (nodes: Node seq) (newGenVar: Counter) =
         let emptySubst : Subst list  = []
         
+        let rec substMany (substs: Subst list) taus =
+            // TODO: quite similar with remapGenVars
+            // TODO: Dieses "for" pattern haben wir ständig mit den Taus
+            let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
+                let rec substTau tau =
+                    match tau with
+                    | TGenVar i when i = tvar -> b
+                    | TGenVar _ -> tau
+                    | TFun (t1, t2) -> TFun (substTau t1, substTau t2)
+                    | TApp (name, taus) -> TApp(name, [ for tau in taus do substTau tau ])
+                    | TTuple taus -> TTuple [ for tau in taus do substTau tau ]
+                    | TRecord fields -> TRecord [ for name,tau in fields do name,substTau tau ]
+                substTau a
+            match substs with
+            | [] -> taus
+            | x :: xs ->
+                let taus = [ for tau in taus do substVarInAwithB x.genTyVar tau x.substitute ]
+                let substs = xs |> List.map (fun next ->
+                    let substitute = substVarInAwithB x.genTyVar next.substitute x.substitute
+                    { genTyVar = next.genTyVar; substitute = substitute })
+                substMany substs taus
+
         let rec unify (a: Tau) (b: Tau) =
             let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
             let rec unify1 t1 t2 =
@@ -308,20 +331,20 @@ module rec ConstraintGraph =
                     Ok (x, emptySubst)
                 | TGenVar x, y
                 | y, TGenVar x ->
-                    Ok (y, [ { genTyVar = x; constr = y } ])
+                    Ok (y, [ { genTyVar = x; substitute = y } ])
                 | TApp (_, taus1), TApp (_, taus2) when taus1.Length <> taus2.Length ->
                     error "Generic argument count mismatch"
                 | TApp (n1,_), TApp (n2, _) when n1 <> n2 ->
                     error "Type mismatch"
                 | TApp (name, taus1), TApp (_, taus2) ->
-                    let res = unifyn taus1 taus2
+                    let res = unifyMany taus1 taus2
                     match res with
                     | Ok (taus, substs) ->
                         Ok (TApp (name, taus), substs)
                     | Error e -> 
                         Error e
                 | TFun (ta1, ta2), TFun (tb1, tb2) ->
-                    match unifyn [ta1; tb1] [ta2; tb2] with
+                    match unifyMany [ta1; ta2] [tb1; tb2] with
                     | Ok ([tres1; tres2], substs) ->
                         Ok (TFun (tres1, tres2), substs)
                     | Error e ->
@@ -331,7 +354,7 @@ module rec ConstraintGraph =
                 | _ ->
                     error "Unspecified cases"
             // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?
-            and unifyn taus1 taus2 =
+            and unifyMany taus1 taus2 =
                 let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
                 let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
                     match remainingTaus with
@@ -344,95 +367,85 @@ module rec ConstraintGraph =
             // TODO: consistency check of unifiers? (!IMPORTANT)
             unify1 a b
 
-        let rec substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
-            match a with
-            | TGenVar i when i = tvar -> b
-            | TFun (t1, t2) -> TFun (substVarInAwithB tvar t1 b, substVarInAwithB tvar t2 b)
-            | TApp (name, taus) -> TApp(name, [ for tau in taus do substVarInAwithB tvar tau b ])
-            | _ -> a
+        let (|Tau|Err|Init|) (node: Node) =
+            match node.constr with
+            | Constrained tau -> Tau tau
+            | UnificationError e -> Err e
+            | Initial -> Init
+
+        let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
+            let cs = nodes |> List.choose (function | Tau x -> Some x | _ -> None)
+            let es = nodes |> List.choose (function | Err x -> Some x | _ -> None)
+            let ns = nodes |> List.choose (function | Init x -> Some x | _ -> None)
+            match cs,es,ns with
+            | _,es::_,_ -> AnyError es
+            | _,_,ns::_ -> AnyInitial ns
+            | cs,[],[] -> AllConstrained cs
 
         let constrainNode (node: Node) =
-            let (|Tau|Err|Init|) (node: Node) =
-                match node.constr with
-                | Constrained tau -> Tau tau
-                | UnificationError e -> Err e
-                | Initial -> Init
-
-            let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
-                let cs = nodes |> List.choose (function | Tau x -> Some x | _ -> None)
-                let es = nodes |> List.choose (function | Err x -> Some x | _ -> None)
-                let ns = nodes |> List.choose (function | Init x -> Some x | _ -> None)
-                match cs,es,ns with
-                | _,es::_,_ -> AnyError es
-                | _,_,ns::_ -> AnyInitial ns
-                | cs,[],[] -> AllConstrained cs
-
             match getIncomingNodes node with
-            | AnyInitial _ -> Initial
-            | AnyError es -> UnificationError es
+            | AnyInitial _ -> Initial, emptySubst
+            | AnyError es -> UnificationError es, emptySubst
             | _ ->
                 match node.data with
                 | Source ->
-                    node.constr
+                    node.constr, emptySubst
                 // The next 2 are edge cases. we could also model inc1 and inc2 as not optional
                 // and normalize them with a forall source node. But this would
                 // lead to a blown up graph with much more nodes and gen vars.
                 | Ast { tyvar = _; inc1 = None; inc2 = None } ->
-                    Constrained(TGenVar(newGenVar.next()))
+                    Constrained(TGenVar(newGenVar.next())), emptySubst
                 | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
                 | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
-                    Constrained(tau)
+                    Constrained(tau), emptySubst
                 | Ast { tyvar = _; inc1 = Some(Tau t1); inc2 = Some(Tau t2) } ->
                     match unify t1 t2 with
-                    | Error msg -> UnificationError msg
-                    | Ok (unifiedTau,_) -> Constrained unifiedTau
+                    | Error msg -> UnificationError msg, emptySubst
+                    | Ok (unifiedTau,substs) -> Constrained unifiedTau, substs
                 | MakeFun { inc1 = Tau t1; inc2 = Tau t2 } ->
-                    Constrained(TFun (t1, t2))
+                    Constrained(TFun (t1, t2)), emptySubst
                 | GetProp { field = field; inc = Tau(TRecord recordFields) } ->
-                    recordFields 
-                    |> List.tryFind (fun (n,_) -> n = field)
-                    |> Option.map snd
-                    |> Option.map Constrained
-                    |> Option.defaultValue (UnificationError $"Field not found: {field}")
+                    let res =
+                        recordFields 
+                        |> List.tryFind (fun (n,_) -> n = field)
+                        |> Option.map snd
+                        |> Option.map Constrained
+                        |> Option.defaultValue (UnificationError $"Field not found: {field}")
+                    res, emptySubst
                 | MakeTuple { incs = AllConstrained incs } ->
-                    Constrained(TTuple incs)
+                    Constrained(TTuple incs), emptySubst
                 | MakeRecord { fields = fields; incs = AllConstrained incs } ->
                     let fields = List.zip fields incs
-                    Constrained(TRecord fields)
+                    Constrained(TRecord fields), emptySubst
                 | Arg { argOp = In; inc = Tau(TFun(t1,_)) } ->
-                    Constrained t1
+                    Constrained t1, emptySubst
                 | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
-                    Constrained t2
+                    Constrained t2, emptySubst
                 | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
                     // TODO: it matters if we use "b a " or "a b", but we have to know that :(
                     match unify substIn substSource with
-                    | Error msg -> UnificationError msg
+                    | Error msg -> 
+                        UnificationError msg, emptySubst
                     | Ok (_,substs) ->
                         match substs with
-                        | [] -> 
-                            Constrained applyTo
-                        | substs -> 
-                            let substsAndC =
-                                let tempCVar = substs |> List.map (fun s -> s.genTyVar) |> List.max |> (+) 1
-                                (substs |> List.map (fun s -> s.genTyVar, s.constr))
-                                @ [ tempCVar, applyTo ]
-                            // ersetze das 1. in den anderen. da kommt eine Liste zurück. mit der wird weitergemacht
-                            let rec substitute substs =
-                                match substs with
-                                | [] -> failwith "can't we do that better? We know that we always have a 'last' element..."
-                                | [applyTo] -> applyTo
-                                | (genvar, subst) :: xs ->
-                                    let newSubsts = [ for v,s in xs do v, substVarInAwithB genvar s subst ]
-                                    substitute newSubsts
-                            let final = substitute substsAndC |> snd
-                            Constrained final
+                        | [] as x ->
+                            Constrained applyTo, x
+                        | substs ->
+                            // TODO: shouldn't we take the substituted substs from substMany instead of the "untouched" ones?
+                            let taus = substMany substs [applyTo]
+                            Constrained (taus |> List.exactlyOne), substs
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
-        let rec constrainNodes (unfinished: ResizeArray<Node>) (constrained: ResizeArray<Node>) (errors: ResizeArray<Node>) =
+        let rec constrainNodes 
+                (unfinished: ResizeArray<Node>) 
+                (constrained: ResizeArray<Node>) 
+                (errors: ResizeArray<Node>)
+                (allSubsts: ResizeArray<Subst>) =
             let mutable goOn = false
             for node in unfinished |> Seq.toArray do
-                let c = constrainNode node
+                let c,newSubsts = constrainNode node
+                allSubsts.AddRange(newSubsts)
                 node.constr <- c
                 match c with
                 | Constrained _ ->
@@ -449,11 +462,27 @@ module rec ConstraintGraph =
                   errorNodes = errors |> List.ofSeq
                   unfinishedNodes = unfinished |> List.ofSeq
                   allNodes = [ yield! constrained; yield! unfinished; yield! errors ]
+                  substs = allSubsts |> List.ofSeq
                   success = errors.Count = 0 && unfinished.Count = 0 }
             else
-                constrainNodes unfinished constrained errors
+                constrainNodes unfinished constrained errors allSubsts
+        let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray()) (ResizeArray())
         
-        constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
+        // final generic param substitution
+        let finalSubsts =
+            res.substs |> List.choose (
+                function
+                | { genTyVar = _; substitute = TGenVar _ } as x -> Some x
+                | _ -> None)
+        for n in res.constrainedNodes do
+            match n.constr with
+            | Constrained c -> 
+                let csubst = substMany finalSubsts [ c ]
+                n.constr <- Constrained (csubst |> List.exactlyOne)
+            | _ -> ()
+        
+        res
+
 
     let applyResult exp (nodes: Node list) =
         let constrainExp (exp: Meta<_,Anno>) =

@@ -34,9 +34,13 @@ module Builtins =
     let seqTyp = %Types.seq
 
     let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
+    let tostring = import("tostring", %1 ^-> stringTyp)
     let read = import("read", unitTyp ^-> numberTyp)
+    let pipe = import("pipe", %1 ^-> (%1 ^-> %2) ^-> %2)
     let map = import("map", seqTyp * %1 ^-> (%1 ^-> %2) ^-> seqTyp * %2)
+    let mapp = import("mapp", (%1 ^-> %2) ^-> seqTyp * %1 ^-> seqTyp * %2)
     let filter = import("filter", seqTyp * %1 ^-> (%1 ^-> boolTyp) ^-> seqTyp * %2)
+    let filterp = import("filter", (%1 ^-> boolTyp) ^-> seqTyp * %1 ^-> seqTyp * %2)
     let take = import("take", seqTyp * %1 ^-> numberTyp ^-> %1)
     let skip = import("skip", seqTyp * %1 ^-> numberTyp ^-> %1)
     
@@ -73,10 +77,14 @@ module Dsl =
             | x :: xs -> apply (App current x) xs
         apply e es
 
-    let private listOp name seq lam = Appn (Var name) [ seq; lam ]
+    let private seqOp name seq lam = Appn (Var name) [ seq; lam ]
+
+    let Pipe x f = Appn (Var(fst Builtins.pipe)) [f;x]
     
-    let MapExp seq projection = listOp (fst Builtins.map) seq projection
-    let FilterExp seq predicate = listOp (fst Builtins.filter) seq predicate
+    let Map seq projection = seqOp (fst Builtins.map) seq projection
+    let MapP projection = App (Var(fst Builtins.mapp)) projection
+    let Filter seq predicate = seqOp (fst Builtins.filter) seq predicate
+    let FilterP predicate = App (Var(fst Builtins.filterp)) predicate
     let NewList es =
         let rec makeList es =
             match es with
@@ -89,15 +97,18 @@ module Dsl =
 
 
 let env1 = Builtins.env [ Builtins.map; Builtins.add; Builtins.numbers ]
+
 (*
 let x = 10.0
-map Numbers (\number ->
+map Numbers (number ->
     add number x)
 *)
 
 (Let "x" (Num 10.0)
-(Appn (Var "map") [ Var "Numbers"; Abs "number"
-(Appn (Var "add") [ Var "number"; Var "x" ] )] ))
+(Map (Var "Numbers") (Abs "number"
+    (Appn (Var "add") [ Var "number"; Var "x" ] ))))
+|> showSolvedAst env1
+
 |> showLightAst env1
 |> showAnnotatedAst env1
 |> showConstraintGraph env1
@@ -125,8 +136,57 @@ let env3 = Builtins.env [ Builtins.cons; Builtins.emptyList ]
 [ 1.0; 2.0; 3.0 ]
 *)
 
+// this should fail
 NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
 |> showSolvedAst env3
+
+// this should work
+NewList [ Num 1.0; Num 2.0; Num 3.0  ]
+|> showSolvedAst env3
+
+
+
+
+
+
+
+let env4 = Builtins.env [ 
+    Builtins.pipe
+    Builtins.add
+    Builtins.tostring
+    Builtins.mapp
+    Builtins.cons
+    Builtins.emptyList
+]
+
+(*
+[ 1.0 ]
+|> map (fun x -> tostring x)
+*)
+
+(Pipe
+(NewList [ Num 1.0 ])
+(MapP (Abs "x" (App (Var "tostring") (Var "x") )))
+)
+|> showSolvedAst env4
+|> showLightAst env4
+|> showAnnotatedAst env4
+
+
+MapP (Abs "x" (App (Var "tostring") (Var "x")))
+|> showSolvedAst env4 |> fun x -> x.substs
+
+|> showLightAst env4
+|> showAnnotatedAst env4
+|> showSolvedGraph env4 |> fun x -> x.substs
+
+
+(Abs "x" (App (Var "tostring") (Var "x")))
+|> showSolvedAst env4 |> fun x -> x.substs
+
+|> showLightAst env4
+|> showAnnotatedAst env4
+|> showSolvedGraph env4 |> fun x -> x.substs
 
 
 
