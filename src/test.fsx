@@ -101,13 +101,13 @@ module Test =
         do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
         annoRes.resultExp.meta.constr
     let error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
-    let assertType name env typ exp =
+    let isOfType name env typ exp =
         let error actual = error name (Format.tau typ) actual
         match run env exp with
         | Constrained c -> if c = typ  then () else error  (Format.tau c)
         | UnificationError e -> error $"ERROR ({e})"
         | Initial -> error "Initial"
-    let assertError name env exp =
+    let isError name env exp =
         let error actual = error name "ERROR" actual
         match run env exp with
         | Constrained c -> error (Format.tau c)
@@ -129,12 +129,8 @@ map Numbers (number ->
 (Let "x" (Num 10.0)
 (Map (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
-|> Test.assertType "map numbers by add" env1 (seqOf numberTyp)
+|> Test.isOfType "map numbers by add" env1 (seqOf numberTyp)
 //|> showSolvedAst env1
-//|> showLightAst env1
-//|> showAnnotatedAst env1
-//|> showConstraintGraph env1
-//|> showSolvedGraph env1
 
 
 
@@ -147,7 +143,7 @@ x.b
 
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
-|> Test.assertType "Get record property" env2 stringTyp
+|> Test.isOfType "Get record property" env2 stringTyp
 //|> showSolvedAst env2
 
 
@@ -158,14 +154,12 @@ let env3 = env [ cons; emptyList ]
 [ 1.0; 2.0; 3.0 ]
 *)
 
-// this should fail
 NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
-|> Test.assertError "Disjunct list element types" env3
+|> Test.isError "Disjunct list element types" env3
 //|> showSolvedAst env3
 
-// this should work
 NewList [ Num 1.0; Num 2.0; Num 3.0  ]
-|> Test.assertType "Num list" env3 (seqOf numberTyp)
+|> Test.isOfType "Num list" env3 (seqOf numberTyp)
 //|> showSolvedAst env3
 
 
@@ -201,12 +195,12 @@ let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 
 
 MapP (Abs "x" (App (Var "tostring") (Var "x")))
-|> Test.assertType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
+|> Test.isOfType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
 //|> showSolvedAst env4 |> fun x -> x.substs
 
 
 (Abs "x" (App (Var "tostring") (Var "x")))
-|> Test.assertType "Lambda with anon type" env4 (%1 ^-> stringTyp)
+|> Test.isOfType "Lambda with anon type" env4 (%1 ^-> stringTyp)
 //|> showSolvedAst env4 |> fun x -> x.substs
 
 
@@ -220,7 +214,7 @@ let id = fun x -> x
 (Let "id" (Abs "x" (Var "x"))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
-|> Test.assertType "Polymorphic let" (env []) (stringTyp * numberTyp)
+|> Test.isOfType "Polymorphic let" (env []) (stringTyp * numberTyp)
 
 
 
