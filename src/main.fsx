@@ -4,6 +4,8 @@ type Tau =
     | TGenVar of GenTyVar
     | TApp of string * Tau list
     | TFun of Tau * Tau
+    | TTuple of Tau list
+    | TTRecord of (string * Tau) list
 type ConstraintState =
     | Initial
     | Constrained of Tau
@@ -26,14 +28,14 @@ type Lit =
 type Exp<'meta> =
     | Lit of Lit
     | Var of Ident
-    | App of RecExp<'meta> * RecExp<'meta>
-    | Abs of Meta<Ident, 'meta> * RecExp<'meta>
-    | Let of Ident * RecExp<'meta> * RecExp<'meta>
-    //| Prop of string * XExp<'meta>
-    //| Tuple of XExp<'meta> list
-    //| Record of List<string * XExp<'meta>>
+    | App of MExp<'meta> * MExp<'meta>
+    | Abs of Meta<Ident, 'meta> * MExp<'meta>
+    | Let of Ident * MExp<'meta> * MExp<'meta>
+    | Prop of Ident * MExp<'meta>
+    | Tuple of MExp<'meta> list
+    | Record of List<Ident * MExp<'meta>>
 and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
-and RecExp<'meta> = Meta<Exp<'meta>, 'meta>
+and MExp<'meta> = Meta<Exp<'meta>, 'meta>
 
 type Anno =
     { tyvar: TyVar
@@ -93,9 +95,9 @@ module AnnotatedAst =
                     match exp.exp with
                     | Lit x ->
                         Lit x
-                    | Var ident ->
+                    | Var ident -> 
                         Var ident
-                    | App (e1, e2) ->
+                    | App (e1, e2) -> 
                         App (annotate env e1, annotate env e2)
                     | Abs (ident, body) ->
                         let tyvarIdent = newvar()
@@ -110,6 +112,12 @@ module AnnotatedAst =
                     | Let (ident, e, body) ->
                         let newEnv = env |> Env.bind ident (newvar())
                         Let (ident, annotate env e, annotate newEnv body)
+                    | Prop (ident, e) -> 
+                        Prop (ident, annotate env e)
+                    | Tuple es -> 
+                        Tuple (es |> List.map (annotate env))
+                    | Record fields -> 
+                        Record [ for ident,e in fields do ident, annotate env e ]
                 }
             do allExp.Add(res)
             res
@@ -117,17 +125,6 @@ module AnnotatedAst =
         res, allExp |> Seq.toList
 
 module Format =
-    let tyvar (ident: string) (x: string) =
-        $"'{ident}' : {x}"
-
-    let texpName (exp: Exp<_>) =
-        match exp with
-        | Lit _ -> "Lit"
-        | Var _ -> "Var"
-        | App _ -> "App"
-        | Abs _ -> "Fun"
-        | Let _ -> "Let"
-
     // TODO: this is crap!
     let genVar (x: GenTyVar) = $"'{char (x + 96)}"
 
@@ -135,54 +132,42 @@ module Format =
         match t with
         | TGenVar x -> 
             genVar x
-        | TApp (name, args) ->
-            match args with
+        | TApp (name, taus) ->
+            match taus with
             | [] -> name
             | _ ->
-                let args = args |> List.map tau |> String.concat ", "
-                $"{name}<{args}>"
+                let taus = taus |> List.map tau |> String.concat ", "
+                $"{name}<{taus}>"
         | TFun (t1, t2) -> 
             $"({tau t1} -> {tau t2})"
+        | TTuple taus ->
+            taus |> List.map tau |> String.concat " * " |> sprintf "(%s)"
+        | TTRecord fields ->
+            [ for n,t in fields do $"{n}: {tau t}" ] |> String.concat "; " |> sprintf "{ %s }"
 
-    let constraintState cs =
-        match cs with
-        | Constrained t -> tau t
-        | UnificationError e -> $"ERROR: {e}"
-        | Initial -> "???"
 
-    let envItem ident envItem =
-        match envItem with
-        | Intern tv -> $"{tyvar ident (string tv)}"
-        | Extern t -> $"{tyvar ident (tau t)}"
-
-    let expTyvar exp = $"var = {exp.tyvar}"
-
-    let env exp =
-        let envVars =
-            match exp.env |> Map.toList with
-            | [] -> "[ ]"
-            | [(ident, item)] ->
-                $"[ {envItem ident item} ]"
-            | _ ->
-                [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
-                |> String.concat "\n"
-                |> fun s -> $"\n{s}"
-        "env = " + envVars
 
 module rec ConstraintGraph =
     type Subst = { genTyVar: GenTyVar; constr: Tau }
 
-    type VarData = { tyvar: TyVar; inc1: Node option; inc2: Node option }
-    type MakeFunData = { inc1: Node; inc2: Node }
+    type Ast = { tyvar: TyVar; inc1: Node option; inc2: Node option }
+    type MakeFun = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
-    type ArgData = { argOp: ArgOp; inc: Node }
-    type UnifySubstData = { substSource: Node; substIn: Node; applyTo: Node }
+    type Arg = { argOp: ArgOp; inc: Node }
+    type UnifySubst = { substSource: Node; substIn: Node; applyTo: Node }
+    type GetProp = { field: string; inc: Node }
+    type MakeTuple = { incs: Node list }
+    type MakeRecord = { fields: string list; incs: Node list }
+
     type NodeData =
         | Source
-        | Ast of VarData
-        | MakeFun of MakeFunData
-        | Arg of ArgData
-        | UnifySubst of UnifySubstData
+        | Ast of Ast
+        | MakeFun of MakeFun
+        | GetProp of GetProp
+        | MakeTuple of MakeTuple
+        | MakeRecord of MakeRecord
+        | Arg of Arg
+        | UnifySubst of UnifySubst
     
     // TODO: maybe get rid of this and make everything immutable
     type Node (data: NodeData, constr: ConstraintState) =
@@ -203,8 +188,11 @@ module rec ConstraintGraph =
         | Source _ -> []
         | Ast x -> [ x.inc1; x.inc2 ] |> List.choose id
         | MakeFun x -> [ x.inc1; x.inc2 ]
-        | Arg { argOp = _; inc = a } -> [a]
-        | UnifySubst { substSource = a; substIn = b; applyTo = c } -> [a;b;c]
+        | GetProp x -> [ x.inc ]
+        | MakeTuple x -> x.incs
+        | MakeRecord x -> x.incs
+        | Arg x -> [ x.inc ]
+        | UnifySubst x -> [ x.substSource; x.substIn; x.applyTo ]
         
     let findVarNode (tyvar: TyVar) (nodes: Node seq) =
         nodes |> Seq.find (fun n ->
@@ -222,6 +210,9 @@ module rec ConstraintGraph =
         let source tau = addNode Source (Constrained tau)
         let ast tyvar constr inc1 inc2 = addNode (Ast { tyvar = tyvar; inc1 = inc1; inc2 = inc2 }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) Initial
+        let getProp field inc = addNode (GetProp { field = field; inc = inc }) Initial
+        let makeTuple incs = addNode (MakeTuple { incs = incs }) Initial
+        let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) Initial
         let arg op inc = addNode (Arg { argOp = op; inc = inc }) Initial
         let argIn = arg In
         let argOut = arg Out
@@ -232,16 +223,17 @@ module rec ConstraintGraph =
             let ( => ) x f = Some x |> f
             let ( ==> ) (x,y) f = (Some x,y) ||> f
             
+            let nthis = ast exp.meta.tyvar exp.meta.constr
             match exp.exp with
             | Lit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
-                (nsource, inc) ==> ast exp.meta.tyvar exp.meta.constr
-            | Exp.Var ident ->
+                (nsource, inc) ==> nthis
+            | Var ident ->
                 let nsource =
                     match Env.resolve ident exp.meta.env with
                     | Intern tyvarIdent -> findVarNode tyvarIdent nodes
                     | Extern c -> source c
-                (nsource, inc) ==> ast exp.meta.tyvar exp.meta.constr
+                (nsource, inc) ==> nthis
             | App (e1, e2) ->
                 // TODO: where to check? SOmetimes implicit (unification), but not always?
                 // (check: e1 must be a fun type) implicit
@@ -255,20 +247,32 @@ module rec ConstraintGraph =
                 // infer: argIn(e1) ==> e2
                 let ne1 = None |> generateGraph e1
                 let ne2 = (argIn ne1) => generateGraph e2 
-                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> ast exp.meta.tyvar exp.meta.constr
+                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
                 //(argOut ne1, inc) ==> var exp.tyvar
             | Abs (ident, body) ->
                 let nfunc = makeFunc (ast ident.meta.tyvar Initial None None) (generateGraph body None)
-                (nfunc, inc) ==> ast exp.meta.tyvar exp.meta.constr
+                (nfunc, inc) ==> nthis
             | Let (ident, e, body) ->
-                let _ =
+                do
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.meta.env with
                     | Intern tyvarIdent ->
                         (generateGraph e None, None) ==> ast tyvarIdent Initial
                     | Extern _ ->
                         failwith "Invalid graph: let bound identifiers must be intern in env."
-                (generateGraph body None, inc) ==> ast exp.meta.tyvar exp.meta.constr
+                    |> ignore
+                (generateGraph body None, inc) ==> nthis
+            | Prop (ident, e) -> 
+                let nprop = (ident, generateGraph e None) ||> getProp
+                (nprop, inc) ==> nthis
+            | Tuple es ->
+                let ntuple = [ for e in es do generateGraph e None ] |> makeTuple
+                (ntuple, inc) ==> nthis
+            | Record fields ->
+                let fieldnames = fields |> List.map fst
+                let es = fields |> List.map snd |> List.map (fun e -> generateGraph e None)
+                let nrecord = (fieldnames, es) ||> makeRecord
+                (nrecord, inc) ==> nthis
         do generateGraph exp None |> ignore
         nodes
 
@@ -375,15 +379,24 @@ module rec ConstraintGraph =
                     match unify substIn substSource with
                     | Error msg -> UnificationError msg
                     | Ok (_,substs) ->
-                        let rec doit (substs: Subst list) =
-                            match substs with
-                            | x :: xs ->
-                                // TODO: this is far from complete
-                                let substituted = substVarInAwithB x.genTyVar applyTo x.constr
-                                substituted
-                            | [] ->
-                                applyTo
-                        Constrained(doit substs)
+                        match substs with
+                        | [] -> 
+                            Constrained applyTo
+                        | substs -> 
+                            let substsAndC =
+                                let tempCVar = substs |> List.map (fun s -> s.genTyVar) |> List.max |> (+) 1
+                                (substs |> List.map (fun s -> s.genTyVar, s.constr))
+                                @ [ tempCVar, applyTo ]
+                            // ersetze das 1. in den anderen. da kommt eine Liste zurück. mit der wird weitergemacht
+                            let rec substitute substs =
+                                match substs with
+                                | [] -> failwith "can't we do that better? We know that we always have a 'last' element..."
+                                | [applyTo] -> applyTo
+                                | (genvar, subst) :: xs ->
+                                    let newSubsts = [ for v,s in xs do v, substVarInAwithB genvar s subst ]
+                                    substitute newSubsts
+                            let final = substitute substsAndC |> snd
+                            Constrained final
                 | _ ->
                     failwith $"Invalid graph at node: {node.data}"
 
@@ -433,5 +446,11 @@ module rec ConstraintGraph =
             | Let (ident, e, body) ->
                 applyResult e
                 applyResult body
+            | Prop (ident, e) ->
+                applyResult e
+            | Tuple es ->
+                for e in es do applyResult e
+            | Record fields ->
+                for _,e in fields do applyResult e
         applyResult exp
 

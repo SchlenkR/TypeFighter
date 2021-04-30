@@ -1,6 +1,43 @@
 #load "main.fsx"
 open Main
 
+module Format =
+    let tyvar (ident: string) (x: string) =
+        $"'{ident}' : {x}"
+
+    let texpName (exp: Exp<_>) =
+        match exp with
+        | Lit _ -> "Lit"
+        | Var _ -> "Var"
+        | App _ -> "App"
+        | Abs _ -> "Fun"
+        | Let _ -> "Let"
+
+    let constraintState cs =
+        match cs with
+        | Constrained t -> Format.tau t
+        | UnificationError e -> $"ERROR: {e}"
+        | Initial -> "???"
+
+    let envItem ident envItem =
+        match envItem with
+        | Intern tv -> $"{tyvar ident (string tv)}"
+        | Extern t -> $"{tyvar ident (Format.tau t)}"
+
+    let expTyvar exp = $"var = {exp.tyvar}"
+
+    let env exp =
+        let envVars =
+            match exp.env |> Map.toList with
+            | [] -> "[ ]"
+            | [(ident, item)] ->
+                $"[ {envItem ident item} ]"
+            | _ ->
+                [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
+                |> String.concat "\n"
+                |> fun s -> $"\n{s}"
+        "env = " + envVars
+
 #load "./visu/visu.fsx"
 module Visu =
     open Visu
