@@ -1,136 +1,7 @@
 
-#load "main.fsx"
+#load "visuWrapper.fsx"
 open Main
-
-module Format =
-    let getUnionCaseName x =
-        match Reflection.FSharpValue.GetUnionFields(x, x.GetType()) with
-        | c, _ -> c.Name
-
-    let tyvar (ident: string) (x: string) =
-        $"'{ident}' : {x}"
-
-    let recordFieldNames fields = fields |> String.concat "; " |> sprintf "{ %s }"
-    let recordFields fields = fields |> List.map fst |> recordFieldNames
-
-    let constraintState cs =
-        match cs with
-        | Constrained t -> Format.tau t
-        | UnificationError e -> $"ERROR: {e}"
-        | Initial -> "???"
-
-    let envItem ident envItem =
-        match envItem with
-        | Intern tv -> $"{tyvar ident (string tv)}"
-        | Extern t -> $"{tyvar ident (Format.tau t)}"
-
-    let env exp =
-        match exp.env |> Map.toList with
-        | [] -> "[ ]"
-        | [(ident, item)] ->
-            $"[ {envItem ident item} ]"
-        | _ ->
-            [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
-            |> String.concat "\n"
-            |> fun s -> $"\n{s}"
-
-#load "./visu/visu.fsx"
-module Visu =
-    open Visu
-    
-    let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (exp: TExp) =
-        let rec flatten (node: Tree.Node) =
-            [
-                yield node
-                for c in node.children do
-                    yield! flatten c
-            ]
-        let rec createNodes (exp: TExp) =
-            let details =
-                [
-                    if showVar then yield $"var = {exp.meta.tyvar}"
-                    if showConstraint then yield $"type = {Format.constraintState exp.meta.constr}"
-                    if showEnv then yield $"env = {Format.env exp.meta}"
-                ]
-                |> String.concat "\n"
-            match exp.exp with
-            | Lit x ->
-                Tree.var $"Lit ({Lit.getValue x})" details []
-            | Var ident ->
-                Tree.var $"Var ({ident})" details []
-            | App (e1, e2) ->
-                Tree.var "App" details [ createNodes e1; createNodes e2 ]
-            | Abs (ident, body) ->
-                Tree.var $"Fun ({ident.exp})" details [ createNodes body ]
-            | Let (ident, e, body) ->
-                Tree.var $"Let {ident}" details [ createNodes e; createNodes body ]
-            | Prop (ident, e) ->
-                Tree.var $"Prop {ident}" details [ createNodes e ]
-            | Tuple es ->
-                Tree.var $"Tuple" details [ for e in es do createNodes e ]
-            | Record fields ->
-                let fieldNames = Format.recordFields fields
-                let details = $"fields = {fieldNames}\n{details}"
-                Tree.var $"Record" details [ for _,e in fields do createNodes e ]
-        createNodes exp |> flatten |> Tree.write
-
-    let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node seq) =
-        let indexedNodes = nodes |> Seq.indexed |> Seq.toList
-        let jsLinks =
-            [ 
-                let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
-                for n in nodes do
-                    for i in ConstraintGraph.getIncomingNodes n do
-                        { Visu.JsLink.fromNode = nodesLookup.[i]
-                          Visu.JsLink.toNode = nodesLookup.[n] }
-            ]
-        let jsNodes =
-            [ for i,x in indexedNodes do
-                let name, layout =
-                    match x.data with
-                    | ConstraintGraph.Source _ -> "SOURCE", NodeTypes.op
-                    | ConstraintGraph.Ast x ->
-                        let expName =
-                            match allAnnoExp |> List.tryFind (fun a -> a.meta.tyvar = x.tyvar) with
-                            | None -> "Env"
-                            | Some x -> Format.getUnionCaseName x.exp
-                        $"{x.tyvar} ({expName})", NodeTypes.var
-                    | ConstraintGraph.MakeFun _ -> "MakeFun", NodeTypes.op
-                    | ConstraintGraph.Arg x -> $"Arg {x.argOp}", NodeTypes.op
-                    | ConstraintGraph.GetProp x -> $"GetProp ({x.field})", NodeTypes.op
-                    | ConstraintGraph.MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
-                    | _ -> Format.getUnionCaseName x, NodeTypes.op
-                { key = i
-                  name = name
-                  desc = Format.constraintState x.constr
-                  layout = layout }
-            ]
-        Graph.write jsNodes jsLinks
-    
-    let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) exp =
-        let annoExp = AnnotatedAst.create env exp |> fst
-        do annoExp |> writeAnnotatedAst showVar showEnv showConstraint
-        exp
-
-    let showLightAst env exp = showAst env false false false exp
-    let showAnnotatedAst env exp = showAst env true true false exp
-    let showConstraintGraph env exp =
-        let annoExp,allAnnoExp = AnnotatedAst.create env exp
-        do annoExp |> ConstraintGraph.create |> writeConstraintGraph allAnnoExp
-        exp
-    let showSolvedGraph env exp =
-        let annoExp,allAnnoExp = AnnotatedAst.create env exp
-        let nodes = annoExp |> ConstraintGraph.create
-        let res = ConstraintGraph.solve nodes
-        do res.allNodes |> writeConstraintGraph allAnnoExp
-        exp
-    let showSolvedAst env exp =
-        let annoExp,_ = AnnotatedAst.create env exp
-        let nodes = annoExp |> ConstraintGraph.create
-        let res = ConstraintGraph.solve nodes
-        do ConstraintGraph.applyResult annoExp res.allNodes
-        do annoExp |> writeAnnotatedAst false false true
-
+open VisuWrapper
 
 [<AutoOpen>]
 module Dsl =
@@ -150,15 +21,19 @@ module Dsl =
     let Record fields = Record fields |> mu
 
     // convenience
+
     let Appn e es =
         let rec apply current es =
             match es with
             | [] -> current
             | [x] -> App current x
-            | x :: xs ->
-                let current = App current x
-                apply current xs
+            | x :: xs -> apply (App current x) xs
         apply e es
+
+    let private listOp name seq lam = Appn (Var name) [ seq; lam ]
+    
+    let MapExp seq projection = listOp "map" seq projection
+    let FilterExp seq predicate = listOp "filter" seq predicate
 
 
 
@@ -166,54 +41,31 @@ module Dsl =
 // TODO: convenience for importing .Net methods
 module EnvCfg =
     let numberTyp = TApp(KnownTypeNames.number, [])
+    let stringTyp = TApp(KnownTypeNames.string, [])
     let unitTyp = TApp(KnownTypeNames.unit, [])
 
-    let add =
-        "add",
-        let typ =
-            let typ = TFun(numberTyp, TFun(numberTyp, numberTyp))
-            Extern(typ)
-        in typ
-    let read =
-        "read",
-        let typ =
-            let typ = TFun(unitTyp, numberTyp)
-            Extern(typ)
-        in typ
-    let map =
-        "map",
-        let typ =
-            let v1,v2 = ConstraintGraph.newGenVar(), ConstraintGraph.newGenVar()
-            let seqTyp = TApp(KnownTypeNames.seq, [TGenVar v1])
-            let projTyp = TFun(TGenVar v1, TGenVar v2)
-            let retTyp = TApp(KnownTypeNames.seq, [TGenVar v2])
-            let typ = TFun(seqTyp, TFun(projTyp, retTyp))
-            Extern(typ)
-        in typ
-    let take =
-        "take",
-        let typ =
-            let v1 = ConstraintGraph.newGenVar()
-            let seqTyp = TApp(KnownTypeNames.seq, [TGenVar v1])
-            let retTyp = TGenVar v1
-            let typ = TFun(seqTyp, TFun(numberTyp, retTyp))
-            Extern(typ)
-        in typ
-    let skip =
-        "skip",
-        let typ =
-            let v1 = ConstraintGraph.newGenVar()
-            let seqTyp = TApp(KnownTypeNames.seq, [TGenVar v1])
-            let retTyp = TGenVar v1
-            let typ = TFun(seqTyp, TFun(numberTyp, retTyp))
-            Extern(typ)
-        in typ
-    let numbers =
-        "Numbers",
-        let typ =
-            let typ = TApp(KnownTypeNames.seq, [ TApp(KnownTypeNames.number, []) ])
-            Extern(typ)
-        in typ
+    // a small DSL for type definitions
+    type AppT = AppT with
+        static member inline ($) (AppT, x: string) = TApp(x, [])
+        static member inline ($) (AppT, x: int) = TGenVar x
+    let inline tapp x = (($) AppT) x
+    let inline (~%) x = tapp x
+    let ( ** ) name arg = TApp(name, [arg])
+    let ( * ) (TApp (name, args)) arg = TApp(name, args @ [arg])
+    let ( ^-> ) t1 t2 = TFun(t1, t2)
+    let import(name, t) = name, Extern t
+
+    // Example:
+    //  Dictionary  <    string,  'a > ->   string   -> 'a
+    // "Dictionary" ** %"string" * %1 ^-> %"string" ^-> %1
+
+    let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
+    let read = import("read", unitTyp ^-> numberTyp)
+    let map = import("map", KnownTypeNames.seq ** %1 ^-> (%1 ^-> %2) ^-> KnownTypeNames.seq ** %2)
+    let take = import("take", KnownTypeNames.seq ** %1 ^-> numberTyp ^-> %1)
+    let skip = import("skip", KnownTypeNames.seq ** %1 ^-> numberTyp ^-> %1)
+    
+    let numbers = import("Numbers", KnownTypeNames.seq ** numberTyp)
 
 open EnvCfg
 
@@ -226,14 +78,15 @@ let x = 10.0
 map Numbers (\number ->
     add number x)
 *)
-//(Let "x" (Num 10.0)
-//(Appn (Var "map") [ Var "Numbers"; Abs "number"
-//(Appn (Var "add") [ Var "number"; Var "x" ] )] ))
-//|> Visu.showLightAst fullEnv
-//|> Visu.showAnnotatedAst fullEnv
-//|> Visu.showConstraintGraph fullEnv
-//|> Visu.showSolvedGraph fullEnv
-//|> Visu.showSolvedAst fullEnv
+
+(Let "x" (Num 10.0)
+(Appn (Var "map") [ Var "Numbers"; Abs "number"
+(Appn (Var "add") [ Var "number"; Var "x" ] )] ))
+|> showLightAst fullEnv
+|> showAnnotatedAst fullEnv
+|> showConstraintGraph fullEnv
+|> showSolvedGraph fullEnv
+|> showSolvedAst fullEnv
 
 
 
@@ -246,11 +99,11 @@ x.b
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
 
-|> Visu.showLightAst fullEnv
-|> Visu.showAnnotatedAst fullEnv
-|> Visu.showConstraintGraph fullEnv
-|> Visu.showSolvedGraph fullEnv
-|> Visu.showSolvedAst fullEnv
+|> showLightAst fullEnv
+|> showAnnotatedAst fullEnv
+|> showConstraintGraph fullEnv
+|> showSolvedGraph fullEnv
+|> showSolvedAst fullEnv
 
 
 

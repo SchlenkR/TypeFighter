@@ -44,8 +44,6 @@ type Anno =
 type UExp = Meta<Exp<unit>, unit>
 type TExp = Meta<Exp<Anno>, Anno>
 
-
-
 module KnownTypeNames =
     let string = "String"
     let number = "Number"
@@ -60,12 +58,6 @@ module Lit =
         | LNumber _ -> KnownTypeNames.number
         | LBool _ -> KnownTypeNames.bool
         | LUnit _ -> KnownTypeNames.unit
-    let getValue (l: Lit) =
-        match l with
-        | LString x -> x :> obj
-        | LNumber x -> x :> obj
-        | LBool x -> x :> obj
-        | LUnit -> "()" :> obj
 
 module Env =
     let empty : Env = Map.empty
@@ -76,19 +68,48 @@ module Env =
         | None -> failwith $"Variable '{varName}' is unbound. Env: {env}"
         | Some t -> t
 
-module Counter =
-    let up() =
-        let mutable varCounter = 0
-        fun () -> varCounter <- varCounter + 1; varCounter
+type Counter(seed) =
+    let mutable varCounter = seed
+    member this.next() = varCounter <- varCounter + 1; varCounter
 
 module AnnotatedAst =
+
+    type AnnotationResult =
+        { newGenVar: Counter
+          resultExp : MExp<Anno>
+          allExpressions: TExp list }
+
+    let remapGenVars (env: Env) : Counter * Env =
+        let newGenVar = Counter(0)
+        let mutable varMap = Map.empty<GenTyVar, GenTyVar>
+        newGenVar, env |> Map.map (fun _ v ->
+            match v with
+            | Intern _ -> v
+            | Extern tau ->
+                let rec remap tau =
+                    match tau with
+                    | TGenVar var ->
+                        varMap
+                        |> Map.tryFind var
+                        |> Option.defaultWith (fun () ->
+                            let newVar = newGenVar.next()
+                            varMap <- varMap |> Map.add var newVar
+                            newVar)
+                        |> TGenVar
+                    | TApp (ident, taus) -> TApp (ident, [ for t in taus do remap t ])
+                    | TFun (t1, t2) -> TFun (remap t1, remap t2)
+                    | TTuple taus -> TTuple [ for t in taus do remap t ]
+                    | TRecord fields -> TRecord [ for f,t in fields do f, remap t ]
+                Extern (remap tau))
+
     let create (env: Env) (exp: UExp) =
-        let newvar = Counter.up()
+        let newGenVar,env = remapGenVars env
+        let newTyVar = Counter(0)
         let allExp = ResizeArray<TExp>()
         let rec annotate (env: Env) (exp: UExp) =
             let res =
                 { meta =
-                    { tyvar = newvar() 
+                    { tyvar = newTyVar.next()
                       env = env
                       constr = Initial }
                   exp =
@@ -100,7 +121,7 @@ module AnnotatedAst =
                     | App (e1, e2) -> 
                         App (annotate env e1, annotate env e2)
                     | Abs (ident, body) ->
-                        let tyvarIdent = newvar()
+                        let tyvarIdent = newTyVar.next()
                         let newEnv = env |> Env.bind ident.exp tyvarIdent
                         let annotatedIdent =
                             { meta =
@@ -110,7 +131,7 @@ module AnnotatedAst =
                               exp = ident.exp }
                         Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
-                        let newEnv = env |> Env.bind ident (newvar())
+                        let newEnv = env |> Env.bind ident (newTyVar.next())
                         Let (ident, annotate env e, annotate newEnv body)
                     | Prop (ident, e) -> 
                         Prop (ident, annotate env e)
@@ -122,7 +143,9 @@ module AnnotatedAst =
             do allExp.Add(res)
             res
         let res = annotate env exp
-        res, allExp |> Seq.toList
+        { newGenVar = newGenVar
+          resultExp = res
+          allExpressions = allExp |> Seq.toList }
 
 module Format =
     // TODO: this is crap!
@@ -180,8 +203,6 @@ module rec ConstraintGraph =
           unfinishedNodes: Node list
           allNodes: Node list
           success: bool }
-    
-    let newGenVar = Counter.up()
 
     let getIncomingNodes (node: Node) =
         match node.data with
@@ -276,7 +297,7 @@ module rec ConstraintGraph =
         do generateGraph exp None |> ignore
         nodes
 
-    let solve (nodes: Node seq) =
+    let solve (nodes: Node seq) (newGenVar: Counter) =
         let emptySubst : Subst list  = []
         
         let rec unify (a: Tau) (b: Tau) =
@@ -356,11 +377,11 @@ module rec ConstraintGraph =
                 match node.data with
                 | Source ->
                     node.constr
-                // The next 2 are edge cases. we could also model inc1 and inc2 an not optional
-                // and normalize them with an unconstrained source node. But this would
+                // The next 2 are edge cases. we could also model inc1 and inc2 as not optional
+                // and normalize them with a forall source node. But this would
                 // lead to a blown up graph with much more nodes and gen vars.
                 | Ast { tyvar = _; inc1 = None; inc2 = None } ->
-                    Constrained(TGenVar(newGenVar()))
+                    Constrained(TGenVar(newGenVar.next()))
                 | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
                 | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
                     Constrained(tau)
