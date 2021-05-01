@@ -119,11 +119,10 @@ open Builtins
 
 
 let env1 = env [ map; add; numbers ]
-
 (*
-let x = 10.0
-map Numbers (number ->
-    add number x)
+    let x = 10.0
+    map Numbers (number ->
+        add number x)
 *)
 
 (Let "x" (Num 10.0)
@@ -137,8 +136,8 @@ map Numbers (number ->
 
 let env2 = env [ ]
 (*
-let x = { a = 5.0; b = "hello" }
-x.b
+    let x = { a = 5.0; b = "hello" }
+    x.b
 *)
 
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
@@ -151,14 +150,14 @@ x.b
 
 let env3 = env [ cons; emptyList ]
 (*
-[ 1.0; 2.0; 3.0 ]
+    [ 1.0; 2.0; 3.0 ]   
 *)
 
-NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
+NewList [ Num 1.0; Num 2.0; Str "xxx" ]
 |> Test.isError "Disjunct list element types" env3
 |> showSolvedAst env3
 
-NewList [ Num 1.0; Num 2.0; Num 3.0  ]
+NewList [ Num 1.0; Num 2.0; Num 3.0 ]
 |> Test.isOfType "Num list" env3 (seqOf numberTyp)
 //|> showSolvedAst env3
 
@@ -166,12 +165,9 @@ NewList [ Num 1.0; Num 2.0; Num 3.0  ]
 
 
 
-
-
 let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
-
 (*
-[ 1.0 ] |> map (fun x -> tostring x)
+    [ 1.0 ] |> map (fun x -> tostring x)
 *)
 
 //(Pipe
@@ -205,21 +201,25 @@ MapP (Abs "x" (App (Var "tostring") (Var "x")))
 
 
 
-// polymorphic let
+
+
+// Polymorphic let
+let env5 = env []
 (*
-let id = fun x -> x
-(id "Hello World", id 42.0)
+    let id = fun x -> x
+    (id "Hello World", id 42.0)
 *)
 
 (Let "id" (Abs "x" (Var "x"))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
-|> Test.isOfType "Polymorphic let" (env []) (stringTyp * numberTyp)
+|> Test.isOfType "Polymorphic let" (env5) (stringTyp * numberTyp)
 
 
 (App
 (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
 (Abs "x" (Var "x")))
+|> showSolvedGraph (env [])
 |> showSolvedAst (env [])
 
 

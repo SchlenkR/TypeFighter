@@ -269,11 +269,16 @@ module rec ConstraintGraph =
                 // NEIN! Das ist zu allgemein (wir müssen das eine Zeile unten machen)
                 //     infer: argOut(e1) ==> app
                 // JA!
-                //     subst: getSubst (argIn e1) e2 |> applySubst (argOut e1) ==> app
-                //     -- oder --
+                //     (ALT: subst: getSubst (argIn e1) e2 |> applySubst (argOut e1) ==> app)
+                //     -- oder (NEU) --
                 //     subst: applySubst e2 (argIn e1) (argOut e1) ==> app
                 // infer: argIn(e1) ==> e2
                 let ne1 = None |> generateGraph e1
+                // Info: 
+                // gegeben ist (\id. id 4, id "xxx")(\x.x)
+                // Da wir von (argIn ne1) nach ne2 gehen, wird also das Argument (rechts im Tree)
+                // von der Funktion bestimmt. Das könnte man prinzipiell auch anders machen; das
+                // geht aber mit dem aktuellen Vokabular nicht.
                 let ne2 = (argIn ne1) => generateGraph e2 
                 (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
                 //(argOut ne1, inc) ==> var exp.tyvar
@@ -421,9 +426,9 @@ module rec ConstraintGraph =
                 Constrained t1, Subst.empty
             | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
                 Constrained t2, Subst.empty
-            | Arg { argOp = In; inc = x }
-            | Arg { argOp = Out; inc = x } ->
-                UnificationError(Origin $"Function type expected, but was: {x.constr}"), Subst.empty
+            | Arg { argOp = In; inc = Tau x }
+            | Arg { argOp = Out; inc = Tau x } ->
+                UnificationError(Origin $"Function type expected, but was: {Format.tau x}"), Subst.empty
             | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
                 // TODO: it matters if we use "b a " or "a b", but we have to know that :(
                 match unify2Types substIn substSource with
@@ -435,6 +440,7 @@ module rec ConstraintGraph =
                         Constrained applyTo, x
                     | substs ->
                         // TODO: shouldn't we take the substituted substs from substMany instead of the "untouched" ones?
+                        // OR: Do we need them at all?
                         let taus = substMany substs [applyTo]
                         Constrained (taus |> List.exactlyOne), substs
             | _ ->
@@ -483,19 +489,18 @@ module rec ConstraintGraph =
                 constrainNodes unfinished constrained errors allSubsts
         let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray()) (ResizeArray())
         
-        // final generic param substitution
-        let finalSubsts =
-            res.substs |> List.choose (
-                function
-                | { genTyVar = _; substitute = TGenVar _ } as x -> Some x
-                | _ -> None)
-        for n in res.constrainedNodes do
-            match n.constr with
-            | Constrained c -> 
-                let csubst = substMany finalSubsts [ c ]
-                n.constr <- Constrained (csubst |> List.exactlyOne)
-            | _ -> ()
-        
+        do // final generic param substitution
+            let finalSubsts =
+                res.substs |> List.choose (
+                    function
+                    | { genTyVar = _; substitute = TGenVar _ } as x -> Some x
+                    | _ -> None)
+            for n in res.constrainedNodes do
+                match n.constr with
+                | Constrained c -> 
+                    let csubst = substMany finalSubsts [ c ]
+                    n.constr <- Constrained (csubst |> List.exactlyOne)
+                | _ -> ()
         res
 
     let applyResult exp (nodes: Node list) =

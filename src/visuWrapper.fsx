@@ -135,6 +135,6 @@ let showSolvedAst env exp =
     let nodes = annoRes.resultExp |> ConstraintGraph.create
     let res = ConstraintGraph.solve annoRes.newGenVar nodes
     do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
-    do annoRes.resultExp |> writeAnnotatedAst false false true
+    do annoRes.resultExp |> writeAnnotatedAst true false true
     res
 
