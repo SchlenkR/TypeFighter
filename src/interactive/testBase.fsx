@@ -1,11 +1,9 @@
 
 #load "visuWrapper.fsx"
-open Main
+open TypeFighter
 open VisuWrapper
 
-
-//let env = AnnotatedAst.Env.empty
-// TODO: convenience for importing .Net methods
+[<AutoOpen>]
 module Builtins =
     let env x : Env = Map.ofList x
 
@@ -29,7 +27,12 @@ module Builtins =
     let unitTyp = t0 Types.unit
     let seqOf arg = t1 Types.seq arg
 
-    let add = import("add", numberTyp ^-> numberTyp ^-> numberTyp)
+    let binOpNumType = numberTyp ^-> numberTyp ^-> numberTyp
+    let add = import("add", binOpNumType)
+    let sub = import("sub", binOpNumType)
+    let mul = import("mul", binOpNumType)
+    let div = import("div", binOpNumType)
+
     let tostring = import("tostring", %1 ^-> stringTyp)
     let read = import("read", unitTyp ^-> numberTyp)
     let map = import("map", seqOf %1 ^-> (%1 ^-> %2) ^-> seqOf %2)
@@ -75,9 +78,7 @@ module Dsl =
 
     let private seqOp name seq lam = Appn (Var name) [ seq; lam ]
 
-    //let Pipe x f = App f x
-    let FComp f g = Abs "x" (App (App f (Var "x")) g)
-
+    let Pipe seq projection = seqOp (fst Builtins.map) seq projection
     let Map seq projection = seqOp (fst Builtins.map) seq projection
     let MapP projection = App (Var(fst Builtins.mapp)) projection
     let Filter seq predicate = seqOp (fst Builtins.filter) seq predicate
@@ -90,7 +91,7 @@ module Dsl =
         makeList es
 
 module Test =
-    let run env exp =
+    let private run env exp =
         let annoRes = AnnotatedAst.create env exp
         let res = 
             annoRes.resultExp
@@ -98,7 +99,7 @@ module Test =
             |> ConstraintGraph.solve annoRes.newGenVar
         do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
         annoRes.resultExp.meta.constr
-    let error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
+    let private error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
     let isOfType name env typ exp =
         let error actual = error name (Format.tau typ) actual
         match run env exp with
@@ -113,131 +114,4 @@ module Test =
         | UnificationError e -> ()
         | Initial -> error "Initial"
         exp
-
-open Builtins
-
-
-
-let env1 = env [ map; add; numbers ]
-(*
-    let x = 10.0
-    map Numbers (number ->
-        add number x)
-*)
-
-(Let "x" (Num 10.0)
-(Map (Var "Numbers") (Abs "number"
-    (Appn (Var "add") [ Var "number"; Var "x" ] ))))
-|> Test.isOfType "map numbers by add" env1 (seqOf numberTyp)
-//|> showSolvedAst env1
-
-
-
-
-let env2 = env [ ]
-(*
-    let x = { a = 5.0; b = "hello" }
-    x.b
-*)
-
-(Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
-(Prop "b" (Var "x")))
-|> Test.isOfType "Get record property" env2 stringTyp
-//|> showSolvedAst env2
-
-
-
-
-let env3 = env [ cons; emptyList ]
-(*
-    [ 1.0; 2.0; 3.0 ]   
-*)
-
-NewList [ Num 1.0; Num 2.0; Str "xxx" ]
-|> Test.isError "Disjunct list element types" env3
-|> showSolvedAst env3
-
-NewList [ Num 1.0; Num 2.0; Num 3.0 ]
-|> Test.isOfType "Num list" env3 (seqOf numberTyp)
-//|> showSolvedAst env3
-
-
-
-
-
-let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
-(*
-    [ 1.0 ] |> map (fun x -> tostring x)
-*)
-
-//(Pipe
-//(NewList [ Num 1.0 ])
-//(MapP (Abs "x" (App (Var "tostring") (Var "x") )))
-//)
-//|> showSolvedAst env4
-
-//(App 
-//    (FComp
-//        (MapP (Abs "x" (App (Var "tostring") (Var "x") )))
-//        (FilterP (Abs "x" True ))
-//        )
-//    (NewList [ Num 1.0 ])
-//)
-//|> showSolvedGraph env4
-//|> showSolvedAst env4
-
-//|> showLightAst env4
-//|> showAnnotatedAst env4
-
-
-MapP (Abs "x" (App (Var "tostring") (Var "x")))
-|> Test.isOfType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
-//|> showSolvedAst env4 |> fun x -> x.substs
-
-
-(Abs "x" (App (Var "tostring") (Var "x")))
-|> Test.isOfType "Lambda with anon type" env4 (%1 ^-> stringTyp)
-//|> showSolvedAst env4 |> fun x -> x.substs
-
-
-
-
-
-// Polymorphic let
-let env5 = env []
-(*
-    let id = fun x -> x
-    (id "Hello World", id 42.0)
-*)
-
-(Let "id" (Abs "x" (Var "x"))
-(Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
-)
-|> Test.isOfType "Polymorphic let" (env5) (stringTyp * numberTyp)
-
-
-(App
-(Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
-(Abs "x" (Var "x")))
-|> showSolvedGraph (env [])
-|> showSolvedAst (env [])
-
-
-//let idExp = Abs "x" (Var "x")
-//// polymorphic let
-//(*
-//let id = fun x -> x in
-//    let f = id in
-//        let res1 = f 99 in
-//            let res2 = f "Hello World" in
-//                res2
-//*)
-//Let "f" idExp
-//(Let("res1", App(Var "f", Num 99.0),
-//    Let("res2", App(Var "f", Str "HelloWorld"),
-//        Var("res2")
-//)))
-////|> annotate env |> createConstraintGraph
-////|> showAst
-//|> showConstraintGraph EnvCfg.fullEnv
 

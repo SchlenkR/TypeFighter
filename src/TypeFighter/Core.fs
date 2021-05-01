@@ -1,4 +1,5 @@
-﻿
+﻿namespace TypeFighter
+
 type GenTyVar = int
 type Tau =
     | TGenVar of GenTyVar

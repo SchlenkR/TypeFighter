@@ -1,6 +1,6 @@
 
-#load "main.fsx"
-open Main
+#load "../TypeFighter/Core.fs"
+open TypeFighter
 
 #load "visu/visu.fsx"
 open Visu
