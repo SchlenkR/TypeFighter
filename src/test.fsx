@@ -44,7 +44,6 @@ module Builtins =
 
     let numbers = import("Numbers", seqOf numberTyp)
 
-
 [<AutoOpen>]
 module Dsl =
     let mu exp = { exp = exp; meta = () }
@@ -90,7 +89,6 @@ module Dsl =
             | e :: es -> Appn (Var (fst Builtins.cons)) [ e; makeList es ]
         makeList es
 
-
 module Test =
     let run env exp =
         let annoRes = AnnotatedAst.create env exp
@@ -107,12 +105,14 @@ module Test =
         | Constrained c -> if c = typ  then () else error  (Format.tau c)
         | UnificationError e -> error $"ERROR ({e})"
         | Initial -> error "Initial"
+        exp
     let isError name env exp =
         let error actual = error name "ERROR" actual
         match run env exp with
         | Constrained c -> error (Format.tau c)
         | UnificationError e -> ()
         | Initial -> error "Initial"
+        exp
 
 open Builtins
 
@@ -156,7 +156,7 @@ let env3 = env [ cons; emptyList ]
 
 NewList [ Num 1.0; Num 2.0; Str "xxx"  ]
 |> Test.isError "Disjunct list element types" env3
-//|> showSolvedAst env3
+|> showSolvedAst env3
 
 NewList [ Num 1.0; Num 2.0; Num 3.0  ]
 |> Test.isOfType "Num list" env3 (seqOf numberTyp)
@@ -217,6 +217,10 @@ let id = fun x -> x
 |> Test.isOfType "Polymorphic let" (env []) (stringTyp * numberTyp)
 
 
+(App
+(Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
+(Abs "x" (Var "x")))
+|> showSolvedAst (env [])
 
 
 //let idExp = Abs "x" (Var "x")

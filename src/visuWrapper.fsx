@@ -19,7 +19,8 @@ module Format =
     let constraintState cs =
         match cs with
         | Constrained t -> Format.tau t
-        | UnificationError e -> $"ERROR: {e}"
+        | UnificationError (Origin e) -> $"ERROR: {e}"
+        | UnificationError Inherit -> $"ERROR (inherited)"
         | Initial -> "???"
 
     let envItem ident envItem =

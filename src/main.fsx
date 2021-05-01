@@ -6,10 +6,13 @@ type Tau =
     | TFun of Tau * Tau
     | TTuple of Tau list
     | TRecord of (string * Tau) list
+type UnificationError =
+    | Inherit
+    | Origin of string
 type ConstraintState =
     | Initial
     | Constrained of Tau
-    | UnificationError of string
+    | UnificationError of UnificationError
 
 // TODO: in type inference, respect the fact that annos can be initially constrained
 
@@ -183,7 +186,7 @@ module rec ConstraintGraph =
     type MakeRecord = { fields: string list; incs: Node list }
 
     type NodeData =
-        | Source
+        | Source of Tau
         | Ast of Ast
         | MakeFun of MakeFun
         | GetProp of GetProp
@@ -204,6 +207,9 @@ module rec ConstraintGraph =
           allNodes: Node list
           substs: Subst list
           success: bool }
+
+    module Subst =
+        let empty : Subst list  = []
 
     let getIncomingNodes (node: Node) =
         match node.data with
@@ -229,7 +235,7 @@ module rec ConstraintGraph =
             let node = Node(n, constr)
             do nodes.Add node
             node
-        let source tau = addNode Source (Constrained tau)
+        let source tau = addNode (Source tau) (Constrained tau)
         let ast tyvar constr inc1 inc2 = addNode (Ast { tyvar = tyvar; inc1 = inc1; inc2 = inc2 }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) Initial
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) Initial
@@ -297,76 +303,74 @@ module rec ConstraintGraph =
                 (nrecord, inc) ==> nthis
         do generateGraph exp None |> ignore
         nodes |> Seq.toList
+    
+    let rec unify2Types (a: Tau) (b: Tau) =
+        let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
+        let rec unify1 t1 t2 =
+            match t1,t2 with
+            | x,y when x = y ->
+                Ok (x, Subst.empty)
+            | TGenVar x, y
+            | y, TGenVar x ->
+                Ok (y, [ { genTyVar = x; substitute = y } ])
+            | TApp (_, taus1), TApp (_, taus2) when taus1.Length <> taus2.Length ->
+                error "Generic argument count mismatch"
+            | TApp (n1,_), TApp (n2, _) when n1 <> n2 ->
+                error "Type mismatch"
+            | TApp (name, taus1), TApp (_, taus2) ->
+                let res = unifyManyTypes taus1 taus2
+                match res with
+                | Ok (taus, substs) ->
+                    Ok (TApp (name, taus), substs)
+                | Error e -> 
+                    Error e
+            | TFun (ta1, ta2), TFun (tb1, tb2) ->
+                match unifyManyTypes [ta1; ta2] [tb1; tb2] with
+                | Ok ([tres1; tres2], substs) ->
+                    Ok (TFun (tres1, tres2), substs)
+                | Error e ->
+                    Error e
+                | _ ->
+                    failwith $"inconsistent TFun unification: {t1} <> {t2}"
+            | _ ->
+                error "Unspecified cases"
+        // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?
+        and unifyManyTypes taus1 taus2 =
+            let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
+            let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
+                match remainingTaus with
+                | [] -> Ok (taus, allSubsts)
+                | x :: xs ->
+                    match x with
+                    | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts @ substs) xs
+                    | Error e -> Error e
+            allOk [] [] unifiedTaus
+        // TODO: consistency check of unifiers? (!IMPORTANT)
+        unify1 a b
+    
+    let rec substMany (substs: Subst list) taus =
+        // TODO: quite similar with remapGenVars
+        // TODO: Dieses "for" pattern haben wir ständig mit den Taus
+        let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
+            let rec substTau tau =
+                match tau with
+                | TGenVar i when i = tvar -> b
+                | TGenVar _ -> tau
+                | TFun (t1, t2) -> TFun (substTau t1, substTau t2)
+                | TApp (name, taus) -> TApp(name, [ for tau in taus do substTau tau ])
+                | TTuple taus -> TTuple [ for tau in taus do substTau tau ]
+                | TRecord fields -> TRecord [ for name,tau in fields do name,substTau tau ]
+            substTau a
+        match substs with
+        | [] -> taus
+        | x :: xs ->
+            let taus = [ for tau in taus do substVarInAwithB x.genTyVar tau x.substitute ]
+            let substs = xs |> List.map (fun next ->
+                let substitute = substVarInAwithB x.genTyVar next.substitute x.substitute
+                { genTyVar = next.genTyVar; substitute = substitute })
+            substMany substs taus
 
     let solve (newGenVar: Counter) (nodes: Node list) =
-        let emptySubst : Subst list  = []
-        
-        let rec substMany (substs: Subst list) taus =
-            // TODO: quite similar with remapGenVars
-            // TODO: Dieses "for" pattern haben wir ständig mit den Taus
-            let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
-                let rec substTau tau =
-                    match tau with
-                    | TGenVar i when i = tvar -> b
-                    | TGenVar _ -> tau
-                    | TFun (t1, t2) -> TFun (substTau t1, substTau t2)
-                    | TApp (name, taus) -> TApp(name, [ for tau in taus do substTau tau ])
-                    | TTuple taus -> TTuple [ for tau in taus do substTau tau ]
-                    | TRecord fields -> TRecord [ for name,tau in fields do name,substTau tau ]
-                substTau a
-            match substs with
-            | [] -> taus
-            | x :: xs ->
-                let taus = [ for tau in taus do substVarInAwithB x.genTyVar tau x.substitute ]
-                let substs = xs |> List.map (fun next ->
-                    let substitute = substVarInAwithB x.genTyVar next.substitute x.substitute
-                    { genTyVar = next.genTyVar; substitute = substitute })
-                substMany substs taus
-
-        let rec unify (a: Tau) (b: Tau) =
-            let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
-            let rec unify1 t1 t2 =
-                match t1,t2 with
-                | x,y when x = y ->
-                    Ok (x, emptySubst)
-                | TGenVar x, y
-                | y, TGenVar x ->
-                    Ok (y, [ { genTyVar = x; substitute = y } ])
-                | TApp (_, taus1), TApp (_, taus2) when taus1.Length <> taus2.Length ->
-                    error "Generic argument count mismatch"
-                | TApp (n1,_), TApp (n2, _) when n1 <> n2 ->
-                    error "Type mismatch"
-                | TApp (name, taus1), TApp (_, taus2) ->
-                    let res = unifyMany taus1 taus2
-                    match res with
-                    | Ok (taus, substs) ->
-                        Ok (TApp (name, taus), substs)
-                    | Error e -> 
-                        Error e
-                | TFun (ta1, ta2), TFun (tb1, tb2) ->
-                    match unifyMany [ta1; ta2] [tb1; tb2] with
-                    | Ok ([tres1; tres2], substs) ->
-                        Ok (TFun (tres1, tres2), substs)
-                    | Error e ->
-                        Error e
-                    | _ ->
-                        failwith $"inconsistent TFun unification: {t1} <> {t2}"
-                | _ ->
-                    error "Unspecified cases"
-            // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?
-            and unifyMany taus1 taus2 =
-                let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
-                let rec allOk (taus: Tau list) (allSubsts: Subst list) remainingTaus =
-                    match remainingTaus with
-                    | [] -> Ok (taus, allSubsts)
-                    | x :: xs ->
-                        match x with
-                        | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts @ substs) xs
-                        | Error e -> Error e
-                allOk [] [] unifiedTaus
-            // TODO: consistency check of unifiers? (!IMPORTANT)
-            unify1 a b
-
         let (|Tau|Err|Init|) (node: Node) =
             match node.constr with
             | Constrained tau -> Tau tau
@@ -382,60 +386,60 @@ module rec ConstraintGraph =
             | _,_,ns::_ -> AnyInitial ns
             | cs,[],[] -> AllConstrained cs
 
-        let constrainNode (node: Node) =
-            match getIncomingNodes node with
-            | AnyInitial _ -> Initial, emptySubst
-            | AnyError es -> UnificationError es, emptySubst
+        let constrainNodeData nodeData =
+            match nodeData with
+            | Source tau ->
+                Constrained tau, Subst.empty
+            // The next 2 are edge cases. we could also model inc1 and inc2 as not optional
+            // and normalize them with a forall source node. But this would
+            // lead to a blown up graph with much more nodes and gen vars.
+            | Ast { tyvar = _; inc1 = None; inc2 = None } ->
+                Constrained(TGenVar(newGenVar.next())), Subst.empty
+            | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
+            | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
+                Constrained(tau), Subst.empty
+            | Ast { tyvar = _; inc1 = Some(Tau t1); inc2 = Some(Tau t2) } ->
+                match unify2Types t1 t2 with
+                | Error msg -> UnificationError(Origin msg), Subst.empty
+                | Ok (unifiedTau,substs) -> Constrained unifiedTau, substs
+            | MakeFun { inc1 = Tau t1; inc2 = Tau t2 } ->
+                Constrained(TFun (t1, t2)), Subst.empty
+            | GetProp { field = field; inc = Tau(TRecord recordFields) } ->
+                let res =
+                    recordFields 
+                    |> List.tryFind (fun (n,_) -> n = field)
+                    |> Option.map snd
+                    |> Option.map Constrained
+                    |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
+                res, Subst.empty
+            | MakeTuple { incs = AllConstrained incs } ->
+                Constrained(TTuple incs), Subst.empty
+            | MakeRecord { fields = fields; incs = AllConstrained incs } ->
+                let fields = List.zip fields incs
+                Constrained(TRecord fields), Subst.empty
+            | Arg { argOp = In; inc = Tau(TFun(t1,_)) } ->
+                Constrained t1, Subst.empty
+            | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
+                Constrained t2, Subst.empty
+            | Arg { argOp = In; inc = x }
+            | Arg { argOp = Out; inc = x } ->
+                UnificationError(Origin $"Function type expected, but was: {x.constr}"), Subst.empty
+            | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
+                // TODO: it matters if we use "b a " or "a b", but we have to know that :(
+                match unify2Types substIn substSource with
+                | Error msg -> 
+                    UnificationError(Origin msg), Subst.empty
+                | Ok (_,substs) ->
+                    match substs with
+                    | [] as x ->
+                        Constrained applyTo, x
+                    | substs ->
+                        // TODO: shouldn't we take the substituted substs from substMany instead of the "untouched" ones?
+                        let taus = substMany substs [applyTo]
+                        Constrained (taus |> List.exactlyOne), substs
             | _ ->
-                match node.data with
-                | Source ->
-                    node.constr, emptySubst
-                // The next 2 are edge cases. we could also model inc1 and inc2 as not optional
-                // and normalize them with a forall source node. But this would
-                // lead to a blown up graph with much more nodes and gen vars.
-                | Ast { tyvar = _; inc1 = None; inc2 = None } ->
-                    Constrained(TGenVar(newGenVar.next())), emptySubst
-                | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
-                | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
-                    Constrained(tau), emptySubst
-                | Ast { tyvar = _; inc1 = Some(Tau t1); inc2 = Some(Tau t2) } ->
-                    match unify t1 t2 with
-                    | Error msg -> UnificationError msg, emptySubst
-                    | Ok (unifiedTau,substs) -> Constrained unifiedTau, substs
-                | MakeFun { inc1 = Tau t1; inc2 = Tau t2 } ->
-                    Constrained(TFun (t1, t2)), emptySubst
-                | GetProp { field = field; inc = Tau(TRecord recordFields) } ->
-                    let res =
-                        recordFields 
-                        |> List.tryFind (fun (n,_) -> n = field)
-                        |> Option.map snd
-                        |> Option.map Constrained
-                        |> Option.defaultValue (UnificationError $"Field not found: {field}")
-                    res, emptySubst
-                | MakeTuple { incs = AllConstrained incs } ->
-                    Constrained(TTuple incs), emptySubst
-                | MakeRecord { fields = fields; incs = AllConstrained incs } ->
-                    let fields = List.zip fields incs
-                    Constrained(TRecord fields), emptySubst
-                | Arg { argOp = In; inc = Tau(TFun(t1,_)) } ->
-                    Constrained t1, emptySubst
-                | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
-                    Constrained t2, emptySubst
-                | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
-                    // TODO: it matters if we use "b a " or "a b", but we have to know that :(
-                    match unify substIn substSource with
-                    | Error msg -> 
-                        UnificationError msg, emptySubst
-                    | Ok (_,substs) ->
-                        match substs with
-                        | [] as x ->
-                            Constrained applyTo, x
-                        | substs ->
-                            // TODO: shouldn't we take the substituted substs from substMany instead of the "untouched" ones?
-                            let taus = substMany substs [applyTo]
-                            Constrained (taus |> List.exactlyOne), substs
-                | _ ->
-                    UnificationError $"Invalid graph at node: {node.data}", emptySubst
+                // for now, let's better fail here so that we can detect valid error cases and match them
+                failwith $"Invalid graph at node: {nodeData}", Subst.empty
 
         let rec constrainNodes 
                 (unfinished: ResizeArray<Node>) 
@@ -444,7 +448,18 @@ module rec ConstraintGraph =
                 (allSubsts: ResizeArray<Subst>) =
             let mutable goOn = false
             for node in unfinished |> Seq.toArray do
-                let c,newSubsts = constrainNode node
+                let c,newSubsts = 
+                    let incomingNodes = getIncomingNodes node
+                    match incomingNodes with
+                    | AnyInitial _ -> Initial, Subst.empty
+                    | AnyError es ->
+                        let allIncomingsAreOperations = 
+                            let isOp = function | Source _ | Ast _ -> false | _ -> true
+                            incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
+                        match allIncomingsAreOperations with
+                        | true -> UnificationError Inherit, Subst.empty
+                        | false -> UnificationError es, Subst.empty
+                    | _ -> constrainNodeData node.data
                 allSubsts.AddRange(newSubsts)
                 node.constr <- c
                 match c with
