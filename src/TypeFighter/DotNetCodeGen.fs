@@ -2,8 +2,6 @@ namespace TypeFighter.CodeGen
 
 type Query<'context> = 'context -> obj
 
-open System.Collections.Generic
-open System.Globalization
 open TypeFighter
 
 module rec DotNetCodeModel =
@@ -24,9 +22,13 @@ module rec DotNetCodeModel =
 
 module CsCodeGen =
 
+    open System.Collections.Generic
+    open System.Globalization
+    open System.Text
+
     type ExpressionRendering =
-        | One of string
-        | Many of string * (int * string) list
+        | Inline of code: string
+        | Reference of varName: string
 
     type RenderResult =
         { records: string
@@ -40,17 +42,26 @@ module CsCodeGen =
     let csTrue = "true"
     let csFalse = "false"
 
-    let formatNumber (f: float) = f.ToString(CultureInfo.InvariantCulture) + "d"
+    module Format =
+        let number (f: float) = f.ToString(CultureInfo.InvariantCulture) + "d"
     
-    // TODO
-    let resolveDotNetTypeName (name: string) =
-        match name with
-        | TypeNames.string -> "string"
-        | TypeNames.bool -> "bool"
-        | TypeNames.number -> "double"
-        | TypeNames.seq -> "IEnumerable"
-        | TypeNames.unit -> "Unit"
-        | x -> x
+        // TODO
+        let typeName (name: string) =
+            match name with
+            | TypeNames.string -> "string"
+            | TypeNames.bool -> "bool"
+            | TypeNames.number -> "double"
+            | TypeNames.seq -> "IEnumerable"
+            | TypeNames.unit -> "Unit"
+            | x -> x
+
+        // TODO: this is crap (again)
+        let genVar (x: GenTyVar) = $"{char (x + 65)}"
+
+        let genArgList (args: string list) =
+            match args with
+            | [] -> ""
+            | args -> $"""<{args |> String.concat ", "}>"""
 
     let rec render (exp: TExp) =
 
@@ -68,38 +79,23 @@ module CsCodeGen =
                         name
                 recordName,fieldNames
 
-        let getGenVars (t: Tau) : GenTyVar list =
-            let rec getGenVars (t: Tau) : GenTyVar list =
-                match t with
-                | TGenVar v -> [v]
-                | TApp (_, vars) -> vars |> List.collect getGenVars
-                | TFun (t1, t2) -> [ yield! getGenVars t1; yield! getGenVars t2 ]
-                | TTuple taus -> taus |> List.collect getGenVars
-                | TRecord fields -> [ for _,t in fields do yield! getGenVars t ]
-            getGenVars t |> List.distinct
-
-        let renderGenArgs (args: string list) =
-            match args with
-            | [] -> ""
-            | args -> $"""<{args |> String.concat ", "}>"""
-
         // TODO: value tuple vars limit
         let rec toDotNetTypeDeclaration (t: Tau) =
             match t with
             | TGenVar v ->
                 (Format.genVar v).ToUpperInvariant()
             | TApp (name, vars) ->
-                let name = resolveDotNetTypeName name
-                let generics = renderGenArgs (vars |> List.map toDotNetTypeDeclaration)
+                let name = Format.typeName name
+                let generics = Format.genArgList (vars |> List.map toDotNetTypeDeclaration)
                 $"{name}{generics}"
             | TFun (t1, t2) ->
                 $"Func<{toDotNetTypeDeclaration t1}, {toDotNetTypeDeclaration t2}>"
             | TTuple taus ->
-                let taus = [ for t in taus do toDotNetTypeDeclaration t ] |> renderGenArgs
+                let taus = [ for t in taus do toDotNetTypeDeclaration t ] |> Format.genArgList
                 $"ValueTuple{taus}"
             | TRecord fields ->
                 let typeName,_ = getRecordDefinition fields
-                let recordArgs = [ for _,t in fields do toDotNetTypeDeclaration t ] |> renderGenArgs
+                let recordArgs = [ for _,t in fields do toDotNetTypeDeclaration t ] |> Format.genArgList
                 $"%s{typeName}%s{recordArgs}"
 
         let newLocal =
@@ -109,10 +105,7 @@ module CsCodeGen =
         let indent x = String.replicate x "    "
 
         // TODO
-        let tau =
-            function
-            | Constrained t -> t
-            | _ -> failwith "TODO: unconstrained!"
+        let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
 
         let rec collectRecords (exp: TExp) =
             [ for e in Exp.collectAll exp do
@@ -134,7 +127,7 @@ module CsCodeGen =
                     |> Seq.map fst 
                     |> Seq.map getArgName
                     |> Seq.toList 
-                    |> renderGenArgs
+                    |> Format.genArgList
                 yield $"public struct {rname}{genArgs} {{"
                 for i,fname in indexedFields do
                     yield $"{indent 1}public {getArgName i} {fname};"
@@ -143,60 +136,73 @@ module CsCodeGen =
             ]
             |> String.concat "\n"
 
+        let getGenVars (t: Tau) : GenTyVar list =
+            let rec getGenVars (t: Tau) : GenTyVar list =
+                match t with
+                | TGenVar v -> [v]
+                | TApp (_, vars) -> vars |> List.collect getGenVars
+                | TFun (t1, t2) -> [ yield! getGenVars t1; yield! getGenVars t2 ]
+                | TTuple taus -> taus |> List.collect getGenVars
+                | TRecord fields -> [ for _,t in fields do yield! getGenVars t ]
+            getGenVars t |> List.distinct
+
+        let main = StringBuilder()
+
+        let emit (sb: StringBuilder) (indentation: int) line =
+            sb.AppendLine (indent indentation + line) |> ignore
+
         let rec renderBody indentLevel (exp: TExp) : ExpressionRendering =
             match exp.exp with
             | Lit l ->
                 let code =
                     match l with
                     | LString x -> quote + x + quote
-                    | LNumber x -> formatNumber x
+                    | LNumber x -> Format.number x
                     | LBool x -> if x then csTrue else csFalse
                     | LUnit -> $"{nameof(Unit)}.{nameof(Unit.Instance)}"
-                One code
+                Inline code
             | Var ident ->
-                One ident
+                Inline ident
             | App (e1, e2) ->
                 let e1res = renderBody indentLevel e1
                 let e2res = renderBody indentLevel e2
                 let retType = toDotNetTypeDeclaration (tau exp.meta.constr)
-                let renderApp a b = $"{a}.Invoke({b})"
+                let renderApp a b = $"{a}({b})"
                 let renderAppLocal local a b = $"{retType} {local} = {renderApp a b};"
                 match e1res,e2res with
-                | Many (v1, e1code), Many (v2,e2code) ->
+                | Reference v1, Reference v2 ->
                     let local = newLocal()
-                    Many (local, [
-                        yield! e1code
-                        yield! e2code
-                        yield indentLevel, renderAppLocal local v1 v2
-                    ])
-                | One e1code, Many (v2,e2code) ->
+                    emit main indentLevel (renderAppLocal local v1 v2)
+                    Reference local
+                | Inline e1code, Reference v2 ->
                     let local = newLocal()
-                    Many(local, [
-                        yield! e2code
-                        yield indentLevel, renderAppLocal local e1code v2
-                    ])
-                | Many (v1,e1code), One e2code ->
+                    emit main indentLevel (renderAppLocal local e1code v2)
+                    Reference local
+                | Reference v1, Inline e2code ->
                     let local = newLocal()
-                    Many (local, [
-                        yield! e1code
-                        yield indentLevel, renderAppLocal local v1 e2code
-                    ])
-                | One e1code, One e2code ->
-                    One (renderApp e1code e2code)
+                    emit main indentLevel (renderAppLocal local v1 e2code)
+                    Reference local
+                | Inline e1code, Inline e2code ->
+                    Inline (renderApp e1code e2code)
             | Abs (ident, body) ->
                 let local = newLocal()
+                let tau = tau exp.meta.constr
+                let (TFun (t1,t2)) = tau
+                let inType = toDotNetTypeDeclaration t1
+                let retType = toDotNetTypeDeclaration t2
+                let genArgs = getGenVars tau |> List.map Format.genVar |> Format.genArgList
+
+                emit main indentLevel $"{retType} {local}{genArgs}({inType} %s{ident.exp})"
+                emit main indentLevel "{"
                 let bodyRes = renderBody (indentLevel + 1) body
-                let funcType = toDotNetTypeDeclaration (tau exp.meta.constr)
-                Many (local, [
-                    yield indentLevel, $"{funcType} {local} = new {funcType}(%s{ident.exp} => {{"
-                    match bodyRes with
-                    | Many (v, bodyCode) ->
-                        yield! bodyCode
-                        yield indentLevel + 1, $"return {v};"
-                    | One bodyCode ->
-                        yield indentLevel + 1, $"return {bodyCode};"
-                    yield indentLevel, $"}});"
-                ])
+                match bodyRes with
+                | Reference v ->
+                    emit main (indentLevel + 1) $"return {v};"
+                | Inline bodyCode ->
+                    emit main (indentLevel + 1) $"return {bodyCode};"
+                emit main indentLevel "}"
+
+                Reference local
             | Let (ident, e, body) ->
                 let local = newLocal()
                 let identType = toDotNetTypeDeclaration (tau e.meta.constr)
@@ -204,22 +210,21 @@ module CsCodeGen =
                 let bodyRes = renderBody indentLevel body
                 let retType = toDotNetTypeDeclaration (tau exp.meta.constr)
                 let decl s = $"{identType} {ident} = %s{s};"
-                Many (local, [
-                    match eres with
-                    | Many (v, ecode) ->
-                        yield! ecode
-                        yield indentLevel, decl v
-                    | One ecode ->
-                        yield indentLevel, decl ecode
+
+                match eres with
+                | Reference v ->
+                    emit main indentLevel (decl v)
+                | Inline ecode ->
+                    emit main indentLevel (decl ecode)
                     
-                    let makeBody x = $"{retType} {local} = %s{x};"
-                    match bodyRes with
-                    | Many (v, bodyCode) ->
-                        yield! bodyCode
-                        yield indentLevel, makeBody v
-                    | One bodyCode ->
-                        yield indentLevel, makeBody bodyCode
-                ])
+                let makeBody x = $"{retType} {local} = %s{x};"
+                match bodyRes with
+                | Reference v ->
+                    emit main indentLevel (makeBody v)
+                | Inline bodyCode ->
+                    emit main indentLevel (makeBody bodyCode)
+
+                Reference local
             | Prop (name, e) ->
                 failwith "TODO: Prop"
             | Tuple es ->
@@ -229,39 +234,35 @@ module CsCodeGen =
                 // TODO: why can't we encode that the type must be TRecord?
                 // TODO: also: this looks a bit delocated - we do many things more or less twice
                 let (TRecord trecord) = tau
-                let genArgs = [ for name,t in trecord do toDotNetTypeDeclaration t ] |> renderGenArgs
+                let genArgs = [ for name,t in trecord do toDotNetTypeDeclaration t ] |> Format.genArgList
                 let recordName,_ = getRecordDefinition trecord
                 let recordDecl = $"{recordName}{genArgs}"
                 let local = newLocal()
-                let renderedFieldExps = [ for fname,fe in fields do fname, renderBody indentLevel fe ]
-                Many (local,
-                    [ // first, yield the generated code of the field expressions
-                      for _,e in renderedFieldExps do
-                        match e with
-                        | Many (_, code) -> yield! code
-                        | _ -> ()
-                      
-                      yield indentLevel, $"{recordDecl} {local} = new {recordDecl}();"
-
-                      // then, the field assignements
-                      for fname,e in renderedFieldExps do
-                        let renderFieldAss e = indentLevel, $"{local}.{fname} = %s{e};"
-                        match e with
-                        | Many (v,_) -> yield renderFieldAss v
-                        | One code -> yield renderFieldAss code
-                    ])
+                let renderedFieldExps =
+                    [ for fname,fe in fields do
+                        fname, renderBody indentLevel fe ]
+                emit main indentLevel $"{recordDecl} {local} = new {recordDecl}();"
+                for fname,e in renderedFieldExps do
+                    let renderFieldAss e = $"{local}.{fname} = %s{e};"
+                    match e with
+                    | Reference v -> emit main indentLevel (renderFieldAss v)
+                    | Inline code -> emit main indentLevel (renderFieldAss code)
+                
+                Reference local
 
 
         let res = renderBody 0 exp
-        let codeString =
-            match res with
-            | Many (v, code) ->
-                code |> List.map (fun (i,s) -> $"{indent i}{s}") |>  String.concat "\n"
-            | One code ->
-                code
+
+        // TODO
+        //let codeString =
+        //    match res with
+        //    | Many v ->
+        //        code |> List.map (fun (i,s) -> $"{indent i}{s}") |>  String.concat "\n"
+        //    | One code ->
+        //        code
         
         { records = renderedRecords
-          body = codeString }
+          body = main.ToString() }
 
 
 
