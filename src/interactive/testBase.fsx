@@ -1,7 +1,8 @@
 
-#load "visuWrapper.fsx"
+#load "../TypeFighter/Core.fs"
+#load "../TypeFighter/Runtime.fs"
+#load "../TypeFighter/DotNetCodeGen.fs"
 open TypeFighter
-open VisuWrapper
 
 [<AutoOpen>]
 module Builtins =
@@ -21,11 +22,11 @@ module Builtins =
     let t3 x a b c = TApp (x, [a;b;c])
     let import(name, t) = name, Extern t
 
-    let numberTyp = t0 Types.number
-    let boolTyp = t0 Types.bool
-    let stringTyp = t0 Types.string
-    let unitTyp = t0 Types.unit
-    let seqOf arg = t1 Types.seq arg
+    let numberTyp = t0 TypeNames.number
+    let boolTyp = t0 TypeNames.bool
+    let stringTyp = t0 TypeNames.string
+    let unitTyp = t0 TypeNames.unit
+    let seqOf arg = t1 TypeNames.seq arg
 
     let binOpNumType = numberTyp ^-> numberTyp ^-> numberTyp
     let add = import("add", binOpNumType)

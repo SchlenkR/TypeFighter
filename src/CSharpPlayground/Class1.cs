@@ -48,7 +48,7 @@ namespace CSharpPlayground
             DateTime[] items = new DateTime[] { DateTime.Now };
 
             DisplayClass1 dc1 = new DisplayClass1 { now = now };
-            return items.Select<DateTime, IEnumerable<string>>(dc1.Invoke);
+            return items.Select<DateTime, IEnumerable<string>>(new Func<DateTime, IEnumerable<string>>(dc1.Invoke));
         }
     }
 }

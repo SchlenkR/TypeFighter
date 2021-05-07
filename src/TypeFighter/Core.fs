@@ -6,7 +6,9 @@ type Tau =
     | TApp of string * Tau list
     | TFun of Tau * Tau
     | TTuple of Tau list
-    | TRecord of (string * Tau) list
+    | TRecord of TRecordFields
+and TRecordField = string * Tau
+and TRecordFields = Set<TRecordField>
 type UnificationError =
     | Inherit
     | Origin of string
@@ -32,14 +34,14 @@ type Lit =
 type Exp<'meta> =
     | Lit of Lit
     | Var of Ident
-    | App of MExp<'meta> * MExp<'meta>
-    | Abs of Meta<Ident, 'meta> * MExp<'meta>
-    | Let of Ident * MExp<'meta> * MExp<'meta>
-    | Prop of Ident * MExp<'meta>
-    | Tuple of MExp<'meta> list
-    | Record of List<Ident * MExp<'meta>>
+    | App of MetaExp<'meta> * MetaExp<'meta>
+    | Abs of Meta<Ident, 'meta> * MetaExp<'meta>
+    | Let of Ident * MetaExp<'meta> * MetaExp<'meta>
+    | Prop of Ident * MetaExp<'meta>
+    | Tuple of MetaExp<'meta> list
+    | Record of List<Ident * MetaExp<'meta>>
 and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
-and MExp<'meta> = Meta<Exp<'meta>, 'meta>
+and MetaExp<'meta> = Meta<Exp<'meta>, 'meta>
 
 type Anno =
     { tyvar: TyVar
@@ -48,20 +50,42 @@ type Anno =
 type UExp = Meta<Exp<unit>, unit>
 type TExp = Meta<Exp<Anno>, Anno>
 
-module Types =
-    let string = "String"
-    let number = "Number"
-    let bool = "Bool"
-    let unit = "Unit"
-    let seq = "Seq"
+module TypeNames =
+    let [<Literal>] string = "String"
+    let [<Literal>] number = "Number"
+    let [<Literal>] bool = "Bool"
+    let [<Literal>] unit = "Unit"
+    let [<Literal>] seq = "Seq"
+
+module Exp =
+    let rec collectAll (exp: TExp) =
+        [ yield exp
+          match exp.exp with
+          | Lit _
+          | Var _ -> ()
+          | App (e1, e2) ->
+              yield! collectAll e1
+              yield! collectAll e2
+          | Abs (ident, body) -> 
+              yield! collectAll body
+          | Let (ident, e, body) ->
+              yield! collectAll e
+              yield! collectAll body
+          | Prop (ident, e) -> 
+              yield! collectAll e
+          | Tuple es ->
+              for e in es do yield! collectAll e
+          | Record fields ->
+              for _,e in fields do yield! collectAll e
+        ]
 
 module Lit =
     let getTypeName (l: Lit) =
         match l with
-        | LString _ -> Types.string
-        | LNumber _ -> Types.number
-        | LBool _ -> Types.bool
-        | LUnit _ -> Types.unit
+        | LString _ -> TypeNames.string
+        | LNumber _ -> TypeNames.number
+        | LBool _ -> TypeNames.bool
+        | LUnit _ -> TypeNames.unit
 
 module Env =
     let empty : Env = Map.empty
@@ -80,7 +104,7 @@ module AnnotatedAst =
 
     type AnnotationResult =
         { newGenVar: Counter
-          resultExp : MExp<Anno>
+          resultExp : TExp
           allExpressions: TExp list }
 
     let private remapGenVars (env: Env) : Counter * Env =
@@ -103,7 +127,7 @@ module AnnotatedAst =
                     | TApp (ident, taus) -> TApp (ident, [ for t in taus do remap t ])
                     | TFun (t1, t2) -> TFun (remap t1, remap t2)
                     | TTuple taus -> TTuple [ for t in taus do remap t ]
-                    | TRecord fields -> TRecord [ for f,t in fields do f, remap t ]
+                    | TRecord fields -> TRecord (Set.ofList [ for f,t in fields do f, remap t ])
                 Extern (remap tau))
 
     let create (env: Env) (exp: UExp) =
@@ -171,7 +195,6 @@ module Format =
             taus |> List.map tau |> String.concat " * " |> sprintf "(%s)"
         | TRecord fields ->
             [ for n,t in fields do $"{n}: {tau t}" ] |> String.concat "; " |> sprintf "{ %s }"
-
 
 
 module rec ConstraintGraph =
@@ -365,7 +388,7 @@ module rec ConstraintGraph =
                 | TFun (t1, t2) -> TFun (substTau t1, substTau t2)
                 | TApp (name, taus) -> TApp(name, [ for tau in taus do substTau tau ])
                 | TTuple taus -> TTuple [ for tau in taus do substTau tau ]
-                | TRecord fields -> TRecord [ for name,tau in fields do name,substTau tau ]
+                | TRecord fields -> TRecord (Set.ofList [ for name,tau in fields do name,substTau tau ])
             substTau a
         match substs with
         | [] -> taus
@@ -413,7 +436,8 @@ module rec ConstraintGraph =
             | GetProp { field = field; inc = Tau(TRecord recordFields) } ->
                 let res =
                     recordFields 
-                    |> List.tryFind (fun (n,_) -> n = field)
+                    |> Set.toArray
+                    |> Array.tryFind (fun (n,_) -> n = field)
                     |> Option.map snd
                     |> Option.map Constrained
                     |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
@@ -422,7 +446,7 @@ module rec ConstraintGraph =
                 Constrained(TTuple incs), Subst.empty
             | MakeRecord { fields = fields; incs = AllConstrained incs } ->
                 let fields = List.zip fields incs
-                Constrained(TRecord fields), Subst.empty
+                Constrained(TRecord (Set.ofList fields)), Subst.empty
             | Arg { argOp = In; inc = Tau(TFun(t1,_)) } ->
                 Constrained t1, Subst.empty
             | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
@@ -513,8 +537,8 @@ module rec ConstraintGraph =
         let rec applyResult (exp: TExp) =
             constrainExp exp
             match exp.exp with
-            | Lit x -> ()
-            | Var ident -> ()
+            | Lit _
+            | Var _ -> ()
             | App (e1, e2) ->
                 applyResult e1
                 applyResult e2

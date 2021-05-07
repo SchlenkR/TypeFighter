@@ -1,5 +1,5 @@
 
-#load "../TypeFighter/Core.fs"
+#load "testBase.fsx"
 open TypeFighter
 
 #load "visu/visu.fsx"
