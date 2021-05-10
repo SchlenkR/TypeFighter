@@ -124,21 +124,24 @@ let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) 
                     fields
                     |> List.map snd
                     |> List.collect Types.getGenVars
-                    |> List.distinct
-                    |> Format.genArgListVars
-                let invokeGenArgs = Format.genArgListTau tau
-                let preparedFields =
+                    |> set
+                let invokeGenArgs = 
+                    (Types.getGenVars tau |> set) - classGenArgs
+                
+                let fieldsString =
                     [ for ident,typeDef in fields do 
                         let typeDef = typeDef |> Format.renderTypeDeclaration cachedRecords
-                        ident,typeDef ]
+                        $"public {typeDef} {ident};" ]
+                let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
+                let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
 
                 [
-                    $"class Abs_{i}%s{classGenArgs}"
+                    $"class Abs_{i}%s{classGenArgsString}"
                     "{"
 
-                    yield! [ for i,t in preparedFields do indentLine 1 $"public {t} {i};" ]
+                    yield! [ for x in fieldsString do indentLine 1 x ]
 
-                    indentLine 1 $"public {retType} Invoke{invokeGenArgs}({inType} {ident.exp}) {{ throw new Exception(); }}"
+                    indentLine 1 $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp}) {{ throw new Exception(); }}"
 
                     "}"
                 ]

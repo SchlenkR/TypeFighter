@@ -32,13 +32,6 @@ class C3<C, B>
     // (closure)
     public C1 id;
 
-    // (Ctor erstellen)
-    public C3()
-    {
-        // (abs instanziieren)
-        id = new C1();
-    }
-
     public Tuple<B, C> Invoke(C b)
     {
         throw new Exception();
