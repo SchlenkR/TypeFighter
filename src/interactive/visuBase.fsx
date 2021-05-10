@@ -131,10 +131,11 @@ let showSolvedGraph env exp =
     do res.allNodes |> writeConstraintGraph annoRes.allExpressions
     res
 let showSolvedAst env exp =
+    // TODO: refine the Constraint API - this is a mess
     let annoRes = AnnotatedAst.create env exp
     let nodes = annoRes.resultExp |> ConstraintGraph.create
     let res = ConstraintGraph.solve annoRes.newGenVar nodes
-    do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
+    do ConstraintGraph.applyResult annoRes.resultExp res.allNodes |> ignore
     do annoRes.resultExp |> writeAnnotatedAst true false true
     res
 

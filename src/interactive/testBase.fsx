@@ -98,8 +98,9 @@ module Test =
             annoRes.resultExp
             |> ConstraintGraph.create
             |> ConstraintGraph.solve annoRes.newGenVar
-        do ConstraintGraph.applyResult annoRes.resultExp res.allNodes
-        annoRes.resultExp.meta.constr
+        ConstraintGraph.applyResult annoRes.resultExp res.allNodes
+        |> fst
+        |> fun exp -> exp.meta.constr
     let private error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
     let isOfType name env typ exp =
         let error actual = error name (Format.tau typ) actual

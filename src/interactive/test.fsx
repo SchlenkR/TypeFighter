@@ -154,3 +154,12 @@ let env8 = env [ ]
 |> showSolvedAst env8
 
 
+
+
+// TODO: unused abs field (Constraints sind nicht ganz korrekt bei Fun__)
+let env9 = env [ ]
+App (Abs "__" (Var "__")) (Num 0.0)
+//|> Test.isOfType "unused abs field" env9 (stringTyp)
+|> showSolvedAst env9
+
+

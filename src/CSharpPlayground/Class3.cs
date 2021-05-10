@@ -31,6 +31,23 @@ namespace CSharpPlayground
             }
         }
 
+        class DisplayClassTest<T>
+        {
+            public double y = 10d;
+
+            public Func<T, double> id;
+
+            public DisplayClassTest()
+            {
+                id = new Func<T, double>(Id);
+            }
+
+            private double Id(T x)
+            {
+                return y;
+            }
+        }
+
         static IEnumerable<IEnumerable<string>> TestC()
         {
             string now = DateTime.Now.ToString();

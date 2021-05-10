@@ -198,6 +198,8 @@ module Format =
 
 
 module rec ConstraintGraph =
+    open System.Collections.Generic
+
     type Subst = { genTyVar: GenTyVar; substitute: Tau }
 
     type Ast = { tyvar: TyVar; inc1: Node option; inc2: Node option }
@@ -529,11 +531,10 @@ module rec ConstraintGraph =
         res
 
     let applyResult exp (nodes: Node list) =
+        let tyVarToConstraints = Dictionary<TyVar, Tau>()
+
         let constrainExp (exp: Meta<_,Anno>) =
-            let findConstraint tyvar =
-                let node = findVarNode tyvar nodes
-                node.constr
-            exp.meta.constr <- findConstraint exp.meta.tyvar
+            exp.meta.constr <- (findVarNode exp.meta.tyvar nodes).constr
         let rec applyResult (exp: TExp) =
             constrainExp exp
             match exp.exp with
@@ -554,5 +555,17 @@ module rec ConstraintGraph =
                 for e in es do applyResult e
             | Record fields ->
                 for _,e in fields do applyResult e
-        applyResult exp
+        do applyResult exp
+        
+        // including env
+        let allConstraints =
+            [ for n in nodes do
+                match n.data, n.constr with
+                | Ast ast, Constrained tau -> Some (ast.tyvar, tau)
+                | _ -> ()
+            ]
+            |> List.choose id
+            |> Map.ofList
+
+        exp, allConstraints
 

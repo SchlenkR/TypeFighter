@@ -1,4 +1,4 @@
-module TypeFighter.CodeGen
+module TypeFighter.DotNetCodeGen
 
 open TypeFighter
 open System.Collections.Generic
@@ -17,11 +17,27 @@ type RecordDefinition =
     { name: string
       fields: Set<string> }
 
+type RecordCache = Dictionary<Set<string>, string>
+
 let quote = "\""
 let csTrue = "true"
 let csFalse = "false"
 
 let indent x = String.replicate x "    "
+let indentLine x s = (indent x) + s
+
+module Types =
+    let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
+
+    let getGenVars (t: Tau) : GenTyVar list =
+        let rec getGenVars (t: Tau) : GenTyVar list =
+            match t with
+            | TGenVar v -> [v]
+            | TApp (_, vars) -> vars |> List.collect getGenVars
+            | TFun (t1, t2) -> [ yield! getGenVars t1; yield! getGenVars t2 ]
+            | TTuple taus -> taus |> List.collect getGenVars
+            | TRecord fields -> [ for _,t in fields do yield! getGenVars t ]
+        getGenVars t |> List.distinct
 
 module Format =
     let number (f: float) = f.ToString(CultureInfo.InvariantCulture) + "d"
@@ -37,27 +53,18 @@ module Format =
         | x -> x
 
     // TODO: this is crap (again)
-    let genVar (x: GenTyVar) = $"{char (x + 65)}"
+    let genVar (x: GenTyVar) = $"{char (x + 64)}"
 
     let genArgList (args: string list) =
         match args with
         | [] -> ""
         | args -> $"""<{args |> String.concat ", "}>"""
-
-module Types =
-    type RecordCache = Dictionary<Set<string>, string>
-
-    let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
-
-    let getGenVars (t: Tau) : GenTyVar list =
-        let rec getGenVars (t: Tau) : GenTyVar list =
-            match t with
-            | TGenVar v -> [v]
-            | TApp (_, vars) -> vars |> List.collect getGenVars
-            | TFun (t1, t2) -> [ yield! getGenVars t1; yield! getGenVars t2 ]
-            | TTuple taus -> taus |> List.collect getGenVars
-            | TRecord fields -> [ for _,t in fields do yield! getGenVars t ]
-        getGenVars t |> List.distinct
+    let genArgListVars vars =
+         vars |> List.map genVar |> genArgList
+    let genArgListTaus taus =
+         taus |> List.collect Types.getGenVars |> List.distinct |> genArgListVars
+    let genArgListTau tau =
+         genArgListTaus [tau]
     
     let getGenericRecordDefinition (cachedRecords: RecordCache) (fields: TRecordFields) =
         let fieldNames = set [ for n,_ in fields do n ]
@@ -75,23 +82,73 @@ module Types =
         let rec renderTypeDeclaration (t: Tau) =
             match t with
             | TGenVar v ->
-                (Format.genVar v).ToUpperInvariant()
+                (genVar v).ToUpperInvariant()
             | TApp (name, vars) ->
-                let name = Format.typeName name
-                let generics = Format.genArgList (vars |> List.map renderTypeDeclaration)
+                let name = typeName name
+                let generics = [ for var in vars do renderTypeDeclaration var ] |> genArgList
                 $"{name}{generics}"
             | TFun (t1, t2) ->
                 $"Func<{renderTypeDeclaration t1}, {renderTypeDeclaration t2}>"
             | TTuple taus ->
-                let taus = [ for t in taus do renderTypeDeclaration t ] |> Format.genArgList
+                let taus = [ for t in taus do renderTypeDeclaration t ] |> genArgList
                 $"ValueTuple{taus}"
             | TRecord fields ->
                 let typeName,_ = getGenericRecordDefinition cachedRecords fields
-                let recordArgs = [ for _,t in fields do renderTypeDeclaration t ] |> Format.genArgList
+                let recordArgs = [ for _,t in fields do renderTypeDeclaration t ] |> genArgList
                 $"%s{typeName}%s{recordArgs}"
         renderTypeDeclaration t
 
-let renderRecords (cachedRecords: Types.RecordCache) (exp: TExp) =
+let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) (exp: TExp) =
+    let getFields (env: Env) =
+        env
+        |> Map.toList
+        |> List.choose (fun (ident,item) ->
+            match item with
+            | Intern tyvar -> Some (ident,tyvar)
+            | _ -> None)
+        |> List.map (fun (ident,tyvar) ->
+            let typeDef = tyvars |> Map.find tyvar
+            ident,typeDef)
+
+    let rec getLambdas exp =
+        Exp.collectAll exp
+        |> List.mapi (fun i exp ->
+            match exp.exp with
+            | Abs (ident, e) ->
+                let tau = Types.tau exp.meta.constr
+                let (TFun (t1,t2)) = tau
+                let inType = Format.renderTypeDeclaration cachedRecords t1
+                let retType = Format.renderTypeDeclaration cachedRecords t2
+                let fields = getFields exp.meta.env
+                let classGenArgs = 
+                    fields
+                    |> List.map snd
+                    |> List.collect Types.getGenVars
+                    |> List.distinct
+                    |> Format.genArgListVars
+                let invokeGenArgs = Format.genArgListTau tau
+                let preparedFields =
+                    [ for ident,typeDef in fields do 
+                        let typeDef = typeDef |> Format.renderTypeDeclaration cachedRecords
+                        ident,typeDef ]
+
+                [
+                    $"class Abs_{i}%s{classGenArgs}"
+                    "{"
+
+                    yield! [ for i,t in preparedFields do indentLine 1 $"public {t} {i};" ]
+
+                    indentLine 1 $"public {retType} Invoke{invokeGenArgs}({inType} {ident.exp}) {{ throw new Exception(); }}"
+
+                    "}"
+                ]
+                |> String.concat "\n"
+                |> Some
+            | _ -> None)
+        |> List.choose id
+    getLambdas exp
+
+let renderRecords (cachedRecords: RecordCache) (exp: TExp) =
     let rec collectedRecords =
         [ for e in Exp.collectAll exp do
             match e.meta.constr with
@@ -100,7 +157,7 @@ let renderRecords (cachedRecords: Types.RecordCache) (exp: TExp) =
         ]
     let recordDefinitions = 
         collectedRecords 
-        |> List.map (Types.getGenericRecordDefinition cachedRecords)
+        |> List.map (Format.getGenericRecordDefinition cachedRecords)
         |> List.distinct
     [ for rname,fields in recordDefinitions do
         let getArgName = sprintf "T%d"
@@ -119,7 +176,7 @@ let renderRecords (cachedRecords: Types.RecordCache) (exp: TExp) =
     ]
     |> String.concat "\n"
 
-let rec renderBody (cachedRecords: Types.RecordCache) (exp: TExp) =
+let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
     let newLocal =
         let varCounter = Counter(0)
         fun () -> $"_loc_{varCounter.next()}"
@@ -142,7 +199,7 @@ let rec renderBody (cachedRecords: Types.RecordCache) (exp: TExp) =
         | App (e1, e2) ->
             let e1res = renderBody indentLevel e1
             let e2res = renderBody indentLevel e2
-            let retType = Types.renderTypeDeclaration cachedRecords (Types.tau exp.meta.constr)
+            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.constr)
             let renderApp a b = $"{a}({b})"
             let renderAppLocal local a b = $"{retType} {local} = {renderApp a b};"
             match e1res,e2res with
@@ -164,9 +221,9 @@ let rec renderBody (cachedRecords: Types.RecordCache) (exp: TExp) =
             let local = newLocal()
             let tau = Types.tau exp.meta.constr
             let (TFun (t1,t2)) = tau
-            let inType = Types.renderTypeDeclaration cachedRecords t1
-            let retType = Types.renderTypeDeclaration cachedRecords t2
-            let genArgs = Types.getGenVars tau |> List.map Format.genVar |> Format.genArgList
+            let inType = Format.renderTypeDeclaration cachedRecords t1
+            let retType = Format.renderTypeDeclaration cachedRecords t2
+            let genArgs = Format.genArgListTau tau
 
             emit indentLevel $"{retType} {local}{genArgs}({inType} %s{ident.exp})"
             emit indentLevel "{"
@@ -181,10 +238,10 @@ let rec renderBody (cachedRecords: Types.RecordCache) (exp: TExp) =
             Reference local
         | Let (ident, e, body) ->
             let local = newLocal()
-            let identType = Types.renderTypeDeclaration cachedRecords (Types.tau e.meta.constr)
+            let identType = Format.renderTypeDeclaration cachedRecords (Types.tau e.meta.constr)
             let eres = renderBody indentLevel e
             let bodyRes = renderBody indentLevel body
-            let retType = Types.renderTypeDeclaration cachedRecords (Types.tau exp.meta.constr)
+            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.constr)
             let decl s = $"{identType} {ident} = %s{s};"
 
             match eres with
@@ -211,9 +268,11 @@ let rec renderBody (cachedRecords: Types.RecordCache) (exp: TExp) =
             // TODO: also: this looks a bit delocated - we do many things more or less twice
             let (TRecord trecord) = tau
             let genArgs =
-                [ for name,t in trecord do Types.renderTypeDeclaration cachedRecords t ] 
-                |> Format.genArgList
-            let recordName,_ = Types.getGenericRecordDefinition cachedRecords trecord
+                trecord
+                |> Set.toList
+                |> List.map snd
+                |> Format.genArgListTaus
+            let recordName,_ = Format.getGenericRecordDefinition cachedRecords trecord
             let recordDecl = $"{recordName}{genArgs}"
             let local = newLocal()
             let renderedFieldExps =
@@ -229,8 +288,8 @@ let rec renderBody (cachedRecords: Types.RecordCache) (exp: TExp) =
             Reference local
     renderBody 0 exp
 
-let rec render (exp: TExp) =
-    let cachedRecords = Types.RecordCache()
+let rec render (exp: TExp) (tyvarToTau: Map<TyVar, Tau>) =
+    let cachedRecords = RecordCache()
     let renderedBody = renderBody cachedRecords exp
     let renderedRecords = renderRecords cachedRecords exp
 
