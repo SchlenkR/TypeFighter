@@ -105,12 +105,12 @@ namespace Z
                 _loc_3.whatever = x;
                 return _loc_3;
             }
+
             RECORD_0<RECORD_1<double>, RECORD_1<string>> _loc_4 = new RECORD_0<RECORD_1<double>, RECORD_1<string>>();
             _loc_4.myString = id("Hello World");
             _loc_4.myNUmber = id(42d);
             Func<B, RECORD_1<B>> id = _loc_2;
             RECORD_0<RECORD_1<double>, RECORD_1<string>> _loc_1 = _loc_4;
-
         }
     }
 }
