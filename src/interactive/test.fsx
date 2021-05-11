@@ -167,6 +167,7 @@ App (Abs "__" (Var "__")) (Num 0.0)
 *)
 let env10 = env [ ]
 (Abs "f" (App (Var "f") (Num 42.0)))
+|> showAnnotatedAst env10
 |> showSolvedGraph env10
 |> showConstraintGraph env10
 |> showSolvedAst env10

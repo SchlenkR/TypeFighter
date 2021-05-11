@@ -127,8 +127,8 @@ let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) e
     do writeAnnotatedAst showVar showEnv showConstraint annoRes constraints
     exp
 
-let showLightAst env exp constraints = showAst env false false false exp constraints
-let showAnnotatedAst env exp constraints = showAst env true true false exp constraints
+let showLightAst env exp = showAst env false false false exp Map.empty
+let showAnnotatedAst env exp = showAst env true true false exp Map.empty
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
     do annoRes.root |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions

@@ -452,16 +452,16 @@ module rec ConstraintGraph =
                 Constrained t1, Subst.empty
             | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
                 Constrained t2, Subst.empty
-            | Arg { argOp = argOp; inc = Tau (TGenVar genvar) } ->
-                let t1 = TGenVar (annoRes.newGenVar.next())
-                let t2 = TGenVar (annoRes.newGenVar.next())
-                let tfun = TFun (t1, t2)
-                let c =
-                    match argOp with
-                    | In -> t1
-                    | Out -> t2
-                let subst = { genTyVar = genvar; substitute = tfun }
-                Constrained c, [subst]
+            //| Arg { argOp = argOp; inc = Tau (TGenVar genvar) } ->
+            //    let t1 = TGenVar (annoRes.newGenVar.next())
+            //    let t2 = TGenVar (annoRes.newGenVar.next())
+            //    let tfun = TFun (t1, t2)
+            //    let c =
+            //        match argOp with
+            //        | In -> t1
+            //        | Out -> t2
+            //    let subst = { genTyVar = genvar; substitute = tfun }
+            //    Constrained c, [subst]
             | Arg { argOp = argOp; inc = Tau x } ->
                 UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau x}"), Subst.empty
             | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
