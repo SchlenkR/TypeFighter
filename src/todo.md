@@ -8,6 +8,7 @@
 * DateTime, TimeSpan
 * Inheritance (double, int)
 * Import .Net Methods and Types
+* reorder Genvars (am Ende von Solve)
 
 * Hier sieht man: Es muss einen Constraint von Lit(0) nach Fun(__) geben - nicht umgekehrt (siehe Codekommentar)
 	let env9 = env [ ]

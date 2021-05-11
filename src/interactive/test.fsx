@@ -4,19 +4,18 @@ open VisuBase
 open TestBase
 
 
-let env1 = env [ map; add; numbers ]
-
 (*
     let x = 10.0
     map Numbers (number ->
         add number x)
 *)
 
+let env1 = env [ map; add; numbers ]
 (Let "x" (Num 10.0)
 (MapX (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
 |> Test.isOfType "map numbers by add" env1 (seqOf numberTyp)
-|> showSolvedAst env1
+//|> showSolvedAst env1
 
 
 
@@ -30,7 +29,7 @@ let env2 = env [ ]
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
 |> Test.isOfType "Get record property" env2 stringTyp
-|> showSolvedAst env2
+//|> showSolvedAst env2
 
 
 
@@ -41,13 +40,14 @@ let env3 = env [ cons; emptyList ]
     [ 1.0; 2.0; 3.0 ]   
 *)
 
-NewList [ Num 1.0; Num 2.0; Num 3.0 ]
+NewList [ Num 1.0; ]
+//|> showSolvedAst env3
+//|> showSolvedGraph env3
 |> Test.isOfType "Num list" env3 (seqOf numberTyp)
-|> showSolvedAst env3
 
 NewList [ Num 1.0; Num 2.0; Str "xxx" ]
+//|> showSolvedAst env3
 |> Test.isError "Disjunct list element types" env3
-|> showSolvedAst env3
 
 
 
@@ -57,26 +57,6 @@ let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 (*
     [ 1.0 ] |> map (fun x -> tostring x)
 *)
-
-//(Pipe
-//(NewList [ Num 1.0 ])
-//(MapP (Abs "x" (App (Var "tostring") (Var "x") )))
-//)
-//|> showSolvedAst env4
-
-//(App 
-//    (FComp
-//        (MapP (Abs "x" (App (Var "tostring") (Var "x") )))
-//        (FilterP (Abs "x" True ))
-//        )
-//    (NewList [ Num 1.0 ])
-//)
-//|> showSolvedGraph env4
-//|> showSolvedAst env4
-
-//|> showLightAst env4
-//|> showAnnotatedAst env4
-
 
 MapP (Abs "x" (App (Var "tostring") (Var "x")))
 |> Test.isOfType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
@@ -88,7 +68,7 @@ MapP (Abs "x" (App (Var "tostring") (Var "x")))
 
 (Abs "x" (App (Var "tostring") (Var "x")))
 |> Test.isOfType "Lambda with anon type" env4 (%1 ^-> stringTyp)
-|> showSolvedAst env4
+//|> showSolvedAst env4
 
 
 
@@ -104,15 +84,15 @@ let env5 = env []
 (Let "id" (Abs "x" (Var "x"))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
+//|> showSolvedAst env5
 |> Test.isOfType "Polymorphic let" (env5) (stringTyp * numberTyp)
-|> showSolvedAst env5
 
 
 (App
 (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
 (Abs "x" (Var "x")))
 |> Test.isError "No polymorphic abs" env5
-|> showSolvedAst env5
+//|> showSolvedAst env5
 
 
 
@@ -128,7 +108,7 @@ let tostr = Var "tostring"
 (App add3
 (Num 10.0))))
 |> Test.isOfType "Many abs / currying" env6 stringTyp
-|> showSolvedAst env6
+//|> showSolvedAst env6
 
 
 
@@ -139,7 +119,7 @@ let env7 = env [ ]
 (Let "x" (Str "Hello")
 (Var "x")))
 |> Test.isOfType "Shadowing" env7 stringTyp
-|> showSolvedAst env7
+//|> showSolvedAst env7
 
 
 
@@ -167,10 +147,8 @@ App (Abs "__" (Var "__")) (Num 0.0)
 *)
 let env10 = env [ ]
 (Abs "f" (App (Var "f") (Num 42.0)))
-|> showAnnotatedAst env10
-|> showSolvedGraph env10
-|> showConstraintGraph env10
 |> showSolvedAst env10
+|> showSolvedGraph env10
 //|> Test.isOfType "infer function type for lambda" env10 ((numberTyp ^-> %1) ^-> %1)
 
 fun f -> f 42.0

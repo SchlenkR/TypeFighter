@@ -253,7 +253,8 @@ module rec ConstraintGraph =
             | Ast v when v.tyvar = tyvar -> true
             | _ -> false)
 
-    let create (exp: TExp) =
+    // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
+    let create (annoRes: AnnotatedAst.AnnotationResult) =
         let nodes = ResizeArray()
 
         let addNode n constr =
@@ -298,14 +299,27 @@ module rec ConstraintGraph =
                 //     -- oder (NEU) --
                 //     subst: applySubst e2 (argIn e1) (argOut e1) ==> app
                 // infer: argIn(e1) ==> e2
-                let ne1 = None |> generateGraph e1
-                // Info: 
+                
+                // nö: ne1 muss ein Funktionstyp sein
+                //let ne1 = None |> generateGraph e1
+
+                // also so:
+                let ne2 = source (TGenVar (annoRes.newGenVar.next())) => generateGraph e2
+                let tto = source (TGenVar (annoRes.newGenVar.next()))
+                let ne1 = makeFunc ne2 tto => generateGraph e1
+                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
+
+                //let ne2 = (argIn ne1) => generateGraph e2 
+                //(applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
+                
+                // ---------------------
+                // Info:
                 // gegeben ist (\id. id 4, id "xxx")(\x.x)
                 // Da wir von (argIn ne1) nach ne2 gehen, wird also das Argument (rechts im Tree)
                 // von der Funktion bestimmt. Das könnte man prinzipiell auch anders machen; das
                 // geht aber mit dem aktuellen Vokabular nicht.
-                let ne2 = (argIn ne1) => generateGraph e2 
-                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
+                // ---------------------
+
                 //(argOut ne1, inc) ==> var exp.tyvar
             | Abs (ident, body) ->
                 let nfunc = makeFunc (ast ident.meta.tyvar None None None) (generateGraph body None)
@@ -331,7 +345,7 @@ module rec ConstraintGraph =
                 let es = fields |> List.map snd |> List.map (fun e -> generateGraph e None)
                 let nrecord = (fieldnames, es) ||> makeRecord
                 (nrecord, inc) ==> nthis
-        do generateGraph exp None |> ignore
+        do generateGraph (annoRes.root) None |> ignore
         nodes |> Seq.toList
     
     let rec unify2Types (a: Tau) (b: Tau) =
@@ -378,7 +392,7 @@ module rec ConstraintGraph =
         // TODO: consistency check of unifiers? (!IMPORTANT)
         unify1 a b
     
-    let rec substMany (substs: Subst list) taus =
+    let rec subst (substs: Subst list) taus =
         // TODO: quite similar with remapGenVars
         // TODO: Dieses "for" pattern haben wir ständig mit den Taus
         let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
@@ -398,7 +412,7 @@ module rec ConstraintGraph =
             let substs = xs |> List.map (fun next ->
                 let substitute = substVarInAwithB x.genTyVar next.substitute x.substitute
                 { genTyVar = next.genTyVar; substitute = substitute })
-            substMany substs taus
+            subst substs taus
 
     let solve (annoRes: AnnotatedAst.AnnotationResult) (nodes: Node list) =
         let (|Tau|Err|Init|) (node: Node) =
@@ -452,16 +466,6 @@ module rec ConstraintGraph =
                 Constrained t1, Subst.empty
             | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
                 Constrained t2, Subst.empty
-            //| Arg { argOp = argOp; inc = Tau (TGenVar genvar) } ->
-            //    let t1 = TGenVar (annoRes.newGenVar.next())
-            //    let t2 = TGenVar (annoRes.newGenVar.next())
-            //    let tfun = TFun (t1, t2)
-            //    let c =
-            //        match argOp with
-            //        | In -> t1
-            //        | Out -> t2
-            //    let subst = { genTyVar = genvar; substitute = tfun }
-            //    Constrained c, [subst]
             | Arg { argOp = argOp; inc = Tau x } ->
                 UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau x}"), Subst.empty
             | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
@@ -476,7 +480,7 @@ module rec ConstraintGraph =
                     | substs ->
                         // TODO: shouldn't we take the substituted substs from substMany instead of the "untouched" ones?
                         // OR: Do we need them at all?
-                        let taus = substMany substs [applyTo]
+                        let taus = subst substs [applyTo]
                         Constrained (taus |> List.exactlyOne), substs
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them
@@ -503,6 +507,7 @@ module rec ConstraintGraph =
                     | _ ->
                         let c,substs = constrainNodeData node.data
                         Some c, substs
+
                 allSubsts.AddRange(newSubsts)
                 node.constr <- c
                 match c with
@@ -515,6 +520,16 @@ module rec ConstraintGraph =
                     unfinished.Remove(node) |> ignore
                     errors.Add(node)
                 | _ -> ()
+
+                // applySubstsInAllNodes
+                for node in constrained do
+                    match node.constr with
+                    | Some (Constrained tau) ->
+                        // TODO: oben bei UnifySubst ist das auch so
+                        let newTau = subst newSubsts [tau] |> List.exactlyOne
+                        node.constr <- Some (Constrained newTau)
+                    | _ -> ()
+
             if not goOn then
                 { constrainedNodes = constrained |> List.ofSeq
                   errorNodes = errors |> List.ofSeq
@@ -543,7 +558,7 @@ module rec ConstraintGraph =
             for n in res.constrainedNodes do
                 match n.constr with
                 | Some (Constrained c) -> 
-                    let csubst = substMany finalSubsts [ c ]
+                    let csubst = subst finalSubsts [ c ]
                     n.constr <- Some (Constrained (csubst |> List.exactlyOne))
                 | _ -> ()
 

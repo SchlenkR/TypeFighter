@@ -131,11 +131,11 @@ let showLightAst env exp = showAst env false false false exp Map.empty
 let showAnnotatedAst env exp = showAst env true true false exp Map.empty
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
-    do annoRes.root |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
+    do annoRes |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
     exp
 let solve env exp =
     let annoRes = AnnotatedAst.create env exp
-    let nodes = annoRes.root |> ConstraintGraph.create
+    let nodes = annoRes |> ConstraintGraph.create
     ConstraintGraph.solve annoRes nodes
 let showSolvedGraph env exp =
     let res = solve env exp
