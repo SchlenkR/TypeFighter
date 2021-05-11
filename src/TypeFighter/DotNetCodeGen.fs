@@ -53,7 +53,7 @@ module Format =
         | x -> x
 
     // TODO: this is crap (again)
-    let genVar (x: GenTyVar) = $"{char (x + 64)}"
+    let genVar (x: GenTyVar) = $"T{x}"
 
     let genArgList (args: string list) =
         match args with
@@ -100,17 +100,23 @@ module Format =
 
 open ConstraintGraph
 
-let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
-    let abstractions =
-        solveRes.annotationResult.allExpressions
-        |> List.map (fun exp ->
-            match exp.exp with
-            | Abs (ident, e) -> Some (exp, ident, e)
-            | _ -> None)
-        |> List.choose id
-        |> List.mapi (fun i (exp,ident,e) -> exp, ($"Abs_{i}",exp,ident,e))
-        |> Map.ofList
+type Emitter() =
+    let allSbs = ResizeArray<StringBuilder>()
+    let stack = Stack<StringBuilder>()
+    let mutable currentSb = StringBuilder()
+    member this.push() =
+        do stack.Push currentSb
+        let newSb = StringBuilder()
+        do allSbs.Add(newSb)
+        do currentSb <- newSb
+    member this.pop() =
+        currentSb <- stack.Pop()
+    member this.emit indentation s =
+        currentSb.AppendLine (indentLine indentation s) |> ignore
+    member this.renderString() =
+        [ for s in allSbs do s.ToString() ] |> String.concat "\n\n"
 
+let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let getFields (env: Env) =
         env
         |> Env.getInterns
@@ -119,7 +125,67 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
             let tau = solveRes.constrainedVars |> Map.find tyvar
             ident,tau)
         |> Seq.toList
+    
+    let newName =
+        let counter = Counter(0)
+        fun () -> $"DisplayClass_{counter.next()}"
+    
+    let emitter = Emitter()
+    let rec walk indentation exp =
+        let walkNext = walk (indentation + 1)
+        match exp.exp with
+        | Lit x -> 
+            $"// lit: {x}" |> emitter.emit 0
+        | Var ident ->
+            $"// var: {ident}" |> emitter.emit 0
+        | App (e1, e2) ->
+            walkNext e1
+            walkNext e2
+        | Abs (ident, body) ->
+            let tau = SolveResult.findTau exp solveRes
+            let (TFun (t1,t2)) = tau
+            let inType = Format.renderTypeDeclaration cachedRecords t1
+            let retType = Format.renderTypeDeclaration cachedRecords t2
+            let fields = getFields exp.meta.env
+            let classGenArgs = 
+                fields
+                |> List.map snd
+                |> List.collect Types.getGenVars
+                |> set
+            let invokeGenArgs = 
+                (Types.getGenVars tau |> set) - classGenArgs
+                    
+            let fieldsString =
+                [ for ident,tau in fields do
+                    let typeDef = tau |> Format.renderTypeDeclaration cachedRecords
+                    $"public {typeDef} {ident};" ]
+            let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
+            let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
 
+            do emitter.push()
+            $"class {newName()}%s{classGenArgsString}" |> emitter.emit 0
+            "{" |> emitter.emit 0
+            for x in fieldsString do x |> emitter.emit 1
+            $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp})" |> emitter.emit 1
+            "{" |> emitter.emit 1
+            walkNext body
+            "}" |> emitter.emit 1
+            "}" |> emitter.emit 0
+            do emitter.pop()
+        | Let (ident, e, body) ->
+            walkNext e
+            walkNext body
+        | Prop (ident, e) ->
+            walkNext e
+        | Tuple es ->
+            for e in es do walkNext e
+        | Record fields ->
+            for _,e in fields do walkNext e
+    do walk 0 solveRes.annotationResult.root
+    emitter.renderString()
+    
+
+    (*
     abstractions
     |> Map.toList
     |> List.map (fun (_,(name,exp,ident,e)) ->
@@ -154,6 +220,7 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
             "}"
         ]
         |> String.concat "\n")
+    *)
 
 let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let rec collectedRecords =
@@ -182,116 +249,113 @@ let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveR
     |> String.concat "\n"
 
 let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
-    let newLocal =
-        let varCounter = Counter(0)
-        fun () -> $"_loc_{varCounter.next()}"
-    let emit =
-        let body = StringBuilder()
-        fun (indentation: int) line ->
-            body.AppendLine (indent indentation + line) |> ignore
-    let rec renderBody indentLevel (exp: TExp) : ExpressionRendering =
-        match exp.exp with
-        | Lit l ->
-            let code =
-                match l with
-                | LString x -> quote + x + quote
-                | LNumber x -> Format.number x
-                | LBool x -> if x then csTrue else csFalse
-                | LUnit -> $"{nameof(Unit)}.{nameof(Unit.Instance)}"
-            Inline code
-        | Var ident ->
-            Inline ident
-        | App (e1, e2) ->
-            let e1res = renderBody indentLevel e1
-            let e2res = renderBody indentLevel e2
-            let retType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
-            let renderApp a b = $"{a}({b})"
-            let renderAppLocal local a b = $"{retType} {local} = {renderApp a b};"
-            match e1res,e2res with
-            | Reference v1, Reference v2 ->
-                let local = newLocal()
-                emit indentLevel (renderAppLocal local v1 v2)
-                Reference local
-            | Inline e1code, Reference v2 ->
-                let local = newLocal()
-                emit indentLevel (renderAppLocal local e1code v2)
-                Reference local
-            | Reference v1, Inline e2code ->
-                let local = newLocal()
-                emit indentLevel (renderAppLocal local v1 e2code)
-                Reference local
-            | Inline e1code, Inline e2code ->
-                Inline (renderApp e1code e2code)
-        | Abs (ident, body) ->
-            let local = newLocal()
-            let tau = SolveResult.findTau exp solveRes
-            let (TFun (t1,t2)) = tau
-            let inType = Format.renderTypeDeclaration cachedRecords t1
-            let retType = Format.renderTypeDeclaration cachedRecords t2
-            let genArgs = Format.genArgListTau tau
+    failwith "TODO"
+    //let newLocal =
+    //    let varCounter = Counter(0)
+    //    fun () -> $"_loc_{varCounter.next()}"
+    //let rec renderBody indentLevel (exp: TExp) : ExpressionRendering =
+    //    match exp.exp with
+    //    | Lit l ->
+    //        let code =
+    //            match l with
+    //            | LString x -> quote + x + quote
+    //            | LNumber x -> Format.number x
+    //            | LBool x -> if x then csTrue else csFalse
+    //            | LUnit -> $"{nameof(Unit)}.{nameof(Unit.Instance)}"
+    //        Inline code
+    //    | Var ident ->
+    //        Inline ident
+    //    | App (e1, e2) ->
+    //        let e1res = renderBody indentLevel e1
+    //        let e2res = renderBody indentLevel e2
+    //        let retType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
+    //        let renderApp a b = $"{a}({b})"
+    //        let renderAppLocal local a b = $"{retType} {local} = {renderApp a b};"
+    //        match e1res,e2res with
+    //        | Reference v1, Reference v2 ->
+    //            let local = newLocal()
+    //            emit indentLevel (renderAppLocal local v1 v2)
+    //            Reference local
+    //        | Inline e1code, Reference v2 ->
+    //            let local = newLocal()
+    //            emit indentLevel (renderAppLocal local e1code v2)
+    //            Reference local
+    //        | Reference v1, Inline e2code ->
+    //            let local = newLocal()
+    //            emit indentLevel (renderAppLocal local v1 e2code)
+    //            Reference local
+    //        | Inline e1code, Inline e2code ->
+    //            Inline (renderApp e1code e2code)
+    //    | Abs (ident, body) ->
+    //        let local = newLocal()
+    //        let tau = SolveResult.findTau exp solveRes
+    //        let (TFun (t1,t2)) = tau
+    //        let inType = Format.renderTypeDeclaration cachedRecords t1
+    //        let retType = Format.renderTypeDeclaration cachedRecords t2
+    //        let genArgs = Format.genArgListTau tau
 
-            emit indentLevel $"{retType} {local}{genArgs}({inType} %s{ident.exp})"
-            emit indentLevel "{"
-            let bodyRes = renderBody (indentLevel + 1) body
-            match bodyRes with
-            | Reference v ->
-                emit (indentLevel + 1) $"return {v};"
-            | Inline bodyCode ->
-                emit (indentLevel + 1) $"return {bodyCode};"
-            emit indentLevel "}"
+    //        emit indentLevel $"{retType} {local}{genArgs}({inType} %s{ident.exp})"
+    //        emit indentLevel "{"
+    //        let bodyRes = renderBody (indentLevel + 1) body
+    //        match bodyRes with
+    //        | Reference v ->
+    //            emit (indentLevel + 1) $"return {v};"
+    //        | Inline bodyCode ->
+    //            emit (indentLevel + 1) $"return {bodyCode};"
+    //        emit indentLevel "}"
 
-            Reference local
-        | Let (ident, e, body) ->
-            let local = newLocal()
-            let identType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
-            let eres = renderBody indentLevel e
-            let bodyRes = renderBody indentLevel body
-            let retType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
-            let decl s = $"{identType} {ident} = %s{s};"
+    //        Reference local
+    //    | Let (ident, e, body) ->
+    //        let local = newLocal()
+    //        let identType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
+    //        let eres = renderBody indentLevel e
+    //        let bodyRes = renderBody indentLevel body
+    //        let retType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
+    //        let decl s = $"{identType} {ident} = %s{s};"
 
-            match eres with
-            | Reference v ->
-                emit indentLevel (decl v)
-            | Inline ecode ->
-                emit indentLevel (decl ecode)
+    //        match eres with
+    //        | Reference v ->
+    //            emit indentLevel (decl v)
+    //        | Inline ecode ->
+    //            emit indentLevel (decl ecode)
                     
-            let makeBody x = $"{retType} {local} = %s{x};"
-            match bodyRes with
-            | Reference v ->
-                emit indentLevel (makeBody v)
-            | Inline bodyCode ->
-                emit indentLevel (makeBody bodyCode)
+    //        let makeBody x = $"{retType} {local} = %s{x};"
+    //        match bodyRes with
+    //        | Reference v ->
+    //            emit indentLevel (makeBody v)
+    //        | Inline bodyCode ->
+    //            emit indentLevel (makeBody bodyCode)
 
-            Reference local
-        | Prop (name, e) ->
-            failwith "TODO: Prop"
-        | Tuple es ->
-            failwith "TODO: Tuple"
-        | Record fields ->
-            let tau = SolveResult.findTau exp solveRes
-            // TODO: why can't we encode that the type must be TRecord?
-            // TODO: also: this looks a bit delocated - we do many things more or less twice
-            let (TRecord trecord) = tau
-            let genArgs =
-                trecord
-                |> Set.toList
-                |> List.map snd
-                |> Format.genArgListTaus
-            let recordName,_ = Format.getGenericRecordDefinition cachedRecords trecord
-            let recordDecl = $"{recordName}{genArgs}"
-            let local = newLocal()
-            let renderedFieldExps =
-                [ for fname,fe in fields do
-                    fname, renderBody indentLevel fe ]
-            emit indentLevel $"{recordDecl} {local} = new {recordDecl}();"
-            for fname,e in renderedFieldExps do
-                let renderFieldAss e = $"{local}.{fname} = %s{e};"
-                match e with
-                | Reference v -> emit indentLevel (renderFieldAss v)
-                | Inline code -> emit indentLevel (renderFieldAss code)
+    //        Reference local
+    //    | Prop (name, e) ->
+    //        failwith "TODO: Prop"
+    //    | Tuple es ->
+    //        failwith "TODO: Tuple"
+    //    | Record fields ->
+    //        let tau = SolveResult.findTau exp solveRes
+    //        // TODO: why can't we encode that the type must be TRecord?
+    //        // TODO: also: this looks a bit delocated - we do many things more or less twice
+    //        let (TRecord trecord) = tau
+    //        let genArgs =
+    //            trecord
+    //            |> Set.toList
+    //            |> List.map snd
+    //            |> Format.genArgListTaus
+    //        let recordName,_ = Format.getGenericRecordDefinition cachedRecords trecord
+    //        let recordDecl = $"{recordName}{genArgs}"
+    //        let local = newLocal()
+    //        let renderedFieldExps =
+    //            [ for fname,fe in fields do
+    //                fname, renderBody indentLevel fe ]
+    //        emit indentLevel $"{recordDecl} {local} = new {recordDecl}();"
+    //        for fname,e in renderedFieldExps do
+    //            let renderFieldAss e = $"{local}.{fname} = %s{e};"
+    //            match e with
+    //            | Reference v -> emit indentLevel (renderFieldAss v)
+    //            | Inline code -> emit indentLevel (renderFieldAss code)
                 
-            Reference local
-    renderBody 0 solveRes.annotationResult.root
+    //        Reference local
+    //renderBody 0 solveRes.annotationResult.root
 
 let rec render (solveRes: ConstraintGraph.SolveResult) =
     let cachedRecords = RecordCache()

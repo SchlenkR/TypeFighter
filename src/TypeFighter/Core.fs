@@ -81,8 +81,8 @@ module Env =
         |> List.choose id
         |> Map.ofList
 
-type Counter(seed) =
-    let mutable varCounter = seed
+type Counter(exclSeed) =
+    let mutable varCounter = exclSeed
     member this.next() = varCounter <- varCounter + 1; varCounter
 
 module AnnotatedAst =
@@ -90,7 +90,7 @@ module AnnotatedAst =
     type AnnotationResult =
         { newGenVar: Counter
           root : TExp
-          allExpressions: TExp list
+          allExpressions: List<TExp>
           allEnvVars: Map<TyVar, Ident * TExp> }
 
     let private remapGenVars (env: Env) : Counter * Env =
@@ -220,11 +220,11 @@ module rec ConstraintGraph =
         member val constr = constr with get, set
 
     type SolveResult =
-        { constrainedNodes: Node list
-          errorNodes: Node list
-          unfinishedNodes: Node list
-          allNodes: Node list
-          substs: Subst list
+        { constrainedNodes: List<Node>
+          errorNodes: List<Node>
+          unfinishedNodes: List<Node>
+          allNodes: List<Node>
+          substs: Set<Subst>
           varsAndConstraints: Map<TyVar, ConstraintState>
           constrainedVars: Map<TyVar, Tau>
           annotationResult: AnnotatedAst.AnnotationResult
@@ -514,7 +514,7 @@ module rec ConstraintGraph =
                     yield! constrained
                     yield! unfinished
                     yield! errors ]
-                  substs = allSubsts |> List.ofSeq
+                  substs = allSubsts |> Set.ofSeq
                   varsAndConstraints = Map.empty
                   constrainedVars = Map.empty
                   annotationResult = annoRes
@@ -527,7 +527,7 @@ module rec ConstraintGraph =
         // final generic param substitution
         do
             let finalSubsts =
-                res.substs |> List.choose (
+                res.substs |> Set.toList |> List.choose (
                     function
                     | { genTyVar = _; substitute = TGenVar _ } as x -> Some x
                     | _ -> None)

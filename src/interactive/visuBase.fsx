@@ -153,10 +153,12 @@ let renderDisplayClasses env exp =
     exp
     |> solve env 
     |> fun res -> renderDisplayClasses (RecordCache()) res
-    |> List.map (fun res ->
-        printfn "------------------"
+    |> fun res ->
+        printfn ""
+        printfn ""
         printfn "%s" res
-        printfn "------------------")
+        printfn ""
+        printfn ""
 let render env exp =
     exp
     |> solve env 

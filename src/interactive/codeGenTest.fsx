@@ -49,7 +49,9 @@ let env3 = env [ ]
 (Let "add" (Abs "a" (Abs "b" (Record [ "field1", Var "a"; "field2", Var "b" ])))
 (App (App (Var "add") (Str "Hello")) (App (Var "id") (Num 42.0)))
 ))
-|> showSolvedAst env3
 |> renderDisplayClasses env3
+
+//|> solve env3 |> fun res -> res.substs
+//|> showSolvedAst env3
 
 
