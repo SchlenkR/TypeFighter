@@ -55,3 +55,26 @@ let env3 = env [ ]
 //|> showSolvedAst env3
 
 
+
+(*
+    let add = fun a -> { field1 = a }
+    let print = fun f -> f 42.0
+    print add
+*)
+let env4 = env [ ]
+
+(Let "add" (Abs "a" (Record [ "field1", Var "a" ]))
+(Let "print" (Abs "f" (App (Var "f") (Num 42.0)))
+(App (Var "print") (Var "add"))
+))
+|> showSolvedAst env4
+|> renderDisplayClasses env4
+
+(Abs "f" (App (Var "f") (Num 42.0)))
+|> showSolvedAst env4
+|> renderDisplayClasses env4
+
+//|> solve env3 |> fun res -> res.substs
+//|> showSolvedAst env3
+
+

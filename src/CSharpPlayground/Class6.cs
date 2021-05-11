@@ -1,19 +1,29 @@
 ﻿using System;
 
-class Abs_1
+class DisplayClass_1
 {
-    public A Invoke<A>(A x) { throw new Exception(); }
+    public T1 Invoke<T1>(T1 x)
+    {
+        // var: x
+    }
 }
 
-class Abs_4<A>
+class DisplayClass_2<T1>
 {
-    public Func<A, A> id;
-    public Func<C, RECORD_0<B, C>> Invoke<B, C>(B a) { throw new Exception(); }
+    public Func<T1, T1> id;
+    public Func<T3, Tuple<T2, T3>> Invoke<T2, T3>(T2 a)
+    {
+    }
 }
 
-class Abs_5<B, A>
+class DisplayClass_3<T1, T2>
 {
-    public B a;
-    public Func<A, A> id;
-    public RECORD_0<B, C> Invoke<C>(C b) { throw new Exception(); }
+    public T2 a;
+    public Func<T1, T1> id;
+    public Tuple<T2, T3> Invoke<T3>(T3 b)
+    {
+        // var: a
+        // var: b
+    }
 }
+

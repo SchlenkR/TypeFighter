@@ -162,3 +162,10 @@ App (Abs "__" (Var "__")) (Num 0.0)
 |> showSolvedAst env9
 
 
+// 
+// TODO: unused abs field (Constraints sind nicht ganz korrekt bei Fun__)
+let env10 = env [ ]
+(Abs "f" (App (Var "f") (Num 42.0)))
+|> Test.isOfType "infer function type for lambda" env10 ((numberTyp ^-> %1) ^-> %1)
+//|> showSolvedAst env10
+

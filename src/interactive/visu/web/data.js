@@ -3,26 +3,26 @@ window.layout = "tree";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "App",
-    "desc": "var = 1\ntype = Number",
+    "name": "Fun (f)",
+    "desc": "var = 1\ntype = ERROR (inherited)",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "Fun (__)",
-    "desc": "var = 2\ntype = ('a -> 'a)",
+    "name": "App",
+    "desc": "var = 3\ntype = ERROR (inherited)",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "Var (__)",
+    "name": "Var (f)",
     "desc": "var = 4\ntype = 'a",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "Lit (0)",
-    "desc": "var = 5\ntype = Number",
+    "name": "Lit (42)",
+    "desc": "var = 5\ntype = ERROR: Function type expected, but was: 'a",
     "fig": "Rectangle"
   }
 ];
@@ -32,12 +32,12 @@ window.linkDataArray = [
     "to": 1
   },
   {
-    "from": 0,
-    "to": 3
+    "from": 1,
+    "to": 2
   },
   {
     "from": 1,
-    "to": 2
+    "to": 3
   }
 ];
     

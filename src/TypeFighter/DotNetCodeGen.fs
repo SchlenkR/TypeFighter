@@ -116,37 +116,46 @@ type Emitter() =
     member this.renderString() =
         [ for s in allSbs do s.ToString() ] |> String.concat "\n\n"
 
-let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
-    let getFields (env: Env) =
-        env
-        |> Env.getInterns
-        |> Map.toSeq
-        |> Seq.map (fun (ident,tyvar) ->
-            let tau = solveRes.constrainedVars |> Map.find tyvar
-            ident,tau)
-        |> Seq.toList
-    
-    let newName =
+let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =   
+    let newName f =
         let counter = Counter(0)
-        fun () -> $"DisplayClass_{counter.next()}"
-    
+        fun () -> f (counter.next())
+    let newClassName = newName (sprintf "DisplayClass_%d")
+    let newLocVarName = newName (sprintf "loc_%d")
     let emitter = Emitter()
     let rec walk indentation exp =
         let walkNext = walk (indentation + 1)
         match exp.exp with
-        | Lit x -> 
-            $"// lit: {x}" |> emitter.emit 0
+        | Lit x ->
+            let code =
+                match x with
+                | LString x -> quote + x + quote
+                | LNumber x -> Format.number x
+                | LBool x -> if x then csTrue else csFalse
+                | LUnit -> $"{nameof(Unit)}.{nameof(Unit.Instance)}"
+            Inline code
         | Var ident ->
-            $"// var: {ident}" |> emitter.emit 0
+            Inline ident
         | App (e1, e2) ->
-            walkNext e1
-            walkNext e2
+            let t1 = SolveResult.findTau e1 solveRes
+            let t2 = SolveResult.findTau e2 solveRes
+            walkNext e1 |> ignore
+            walkNext e2 |> ignore
+            emitter.emit 0 $"t1: {Format.tau t1}   t2: {Format.tau t1}"
+            Inline ""
         | Abs (ident, body) ->
             let tau = SolveResult.findTau exp solveRes
             let (TFun (t1,t2)) = tau
             let inType = Format.renderTypeDeclaration cachedRecords t1
             let retType = Format.renderTypeDeclaration cachedRecords t2
-            let fields = getFields exp.meta.env
+            let fields =
+                exp.meta.env
+                |> Env.getInterns
+                |> Map.toSeq
+                |> Seq.map (fun (ident,tyvar) ->
+                    let tau = solveRes.constrainedVars |> Map.find tyvar
+                    ident,tau)
+                |> Seq.toList
             let classGenArgs = 
                 fields
                 |> List.map snd
@@ -156,72 +165,43 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 (Types.getGenVars tau |> set) - classGenArgs
                     
             let fieldsString =
-                [ for ident,tau in fields do
-                    let typeDef = tau |> Format.renderTypeDeclaration cachedRecords
-                    $"public {typeDef} {ident};" ]
+                fields
+                |> List.map (fun (ident,tau) ->
+                    let typeDef =
+                        match tau with
+                        | TFun (t1,t2) -> $"DISPLAY_CLASS_<{Format.tau t1}|{Format.tau t2}>"
+                        | tau -> tau |> Format.renderTypeDeclaration cachedRecords
+                    $"public {typeDef} {ident};")
             let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
             let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
 
             do emitter.push()
-            $"class {newName()}%s{classGenArgsString}" |> emitter.emit 0
+            $"class {newClassName()}%s{classGenArgsString}" |> emitter.emit 0
             "{" |> emitter.emit 0
             for x in fieldsString do x |> emitter.emit 1
             $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp})" |> emitter.emit 1
             "{" |> emitter.emit 1
-            walkNext body
+            walkNext body |> ignore
             "}" |> emitter.emit 1
             "}" |> emitter.emit 0
             do emitter.pop()
+            Inline ""
         | Let (ident, e, body) ->
-            walkNext e
-            walkNext body
+            walkNext e |> ignore
+            walkNext body |> ignore
+            Inline ""
         | Prop (ident, e) ->
-            walkNext e
+            walkNext e |> ignore
+            Inline ""
         | Tuple es ->
-            for e in es do walkNext e
+            for e in es do walkNext e |> ignore
+            Inline ""
         | Record fields ->
-            for _,e in fields do walkNext e
-    do walk 0 solveRes.annotationResult.root
+            for _,e in fields do walkNext e |> ignore
+            Inline ""
+    do walk 0 solveRes.annotationResult.root |> ignore
     emitter.renderString()
     
-
-    (*
-    abstractions
-    |> Map.toList
-    |> List.map (fun (_,(name,exp,ident,e)) ->
-        let tau = SolveResult.findTau exp solveRes
-        let (TFun (t1,t2)) = tau
-        let inType = Format.renderTypeDeclaration cachedRecords t1
-        let retType = Format.renderTypeDeclaration cachedRecords t2
-        let fields = getFields exp.meta.env
-        let classGenArgs = 
-            fields
-            |> List.map snd
-            |> List.collect Types.getGenVars
-            |> set
-        let invokeGenArgs = 
-            (Types.getGenVars tau |> set) - classGenArgs
-                
-        let fieldsString =
-            [ for ident,tau in fields do
-                let typeDef = tau |> Format.renderTypeDeclaration cachedRecords
-                $"public {typeDef} {ident};" ]
-        let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
-        let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
-
-        [
-            $"class {name}%s{classGenArgsString}"
-            "{"
-
-            yield! [ for x in fieldsString do indentLine 1 x ]
-
-            indentLine 1 $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp}) {{ throw new Exception(); }}"
-
-            "}"
-        ]
-        |> String.concat "\n")
-    *)
-
 let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let rec collectedRecords =
         [ for kvp in solveRes.constrainedVars do
