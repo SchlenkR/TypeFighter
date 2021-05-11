@@ -19,10 +19,24 @@ module Format =
 
     let constraintState cs =
         match cs with
-        | Some (Constrained t) -> Format.tau t
-        | Some (UnificationError (Origin e)) -> $"ERROR: {e}"
-        | Some (UnificationError Inherit) -> $"ERROR (inherited)"
+        | Some(Constrained t) -> Format.tau t
+        | Some(UnificationError (Origin e)) -> $"ERROR: {e}"
+        | Some(UnificationError Inherit) -> $"ERROR (inherited)"
         | None -> "???"
+
+    let items items fmt =
+        match items with
+        | [] -> "[ ]"
+        | [x] ->
+            $"[ {fmt x} ]"
+        | xs ->
+            [ for x in xs do $"-  {fmt x}" ]
+            |> String.concat "\n"
+            |> fun s -> $"\n{s}"
+
+    let substs (substs: Subst list) =
+        let fmt s = $"{Format.genVar s.genTyVar} = {Format.tau s.substitute}"
+        items substs fmt
 
     let envItem ident envItem =
         match envItem with
@@ -30,21 +44,16 @@ module Format =
         | Extern t -> $"{tyvar ident (Format.tau t)}"
 
     let env exp =
-        match exp.env |> Map.toList with
-        | [] -> "[ ]"
-        | [(ident, item)] ->
-            $"[ {envItem ident item} ]"
-        | _ ->
-            [ for x in exp.env do $"-  {envItem x.Key x.Value}" ]
-            |> String.concat "\n"
-            |> fun s -> $"\n{s}"
+        let fmt (ident,item) = envItem ident item
+        items (exp.env |> Map.toList) fmt
     
 let writeAnnotatedAst 
         (showVar: bool) 
         (showEnv: bool) 
         (showConstraint: bool) 
+        (showSubsts: bool) 
         (res: AnnotatedAst.AnnotationResult)
-        (constraints: Map<TyVar, ConstraintState>)
+        (constraints: Map<TyVar, ConstraintState * Subst list>)
         =
     let rec flatten (node: Tree.Node) =
         [
@@ -54,11 +63,13 @@ let writeAnnotatedAst
         ]
     let rec createNodes (exp: TExp) =
         let details =
+            let constr,substs = constraints |> Map.find exp.meta.tyvar
             [
                 if showVar then yield $"var = {exp.meta.tyvar}"
                 if showConstraint then
-                    let constr = constraints |> Map.tryFind exp.meta.tyvar 
-                    yield $"type = {Format.constraintState constr}"
+                    yield $"type = {Format.constraintState (Some constr)}"
+                if showSubsts then
+                    yield $"substs = {Format.substs substs}"
                 if showEnv then yield $"env = {Format.env exp.meta}"
             ]
             |> String.concat "\n"
@@ -117,18 +128,18 @@ let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node se
                 | _ -> Format.getUnionCaseName x.data, NodeTypes.op
             { key = i
               name = name
-              desc = Format.constraintState x.constr
+              desc = Format.constraintState (x.constr |> Option.map fst)
               layout = layout }
         ]
     Graph.write jsNodes jsLinks
     
-let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) exp constraints =
+let private showAst env showVar showEnv showConstraint showSubsts exp constraints =
     let annoRes = AnnotatedAst.create env exp
-    do writeAnnotatedAst showVar showEnv showConstraint annoRes constraints
+    do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes constraints
     exp
 
-let showLightAst env exp = showAst env false false false exp Map.empty
-let showAnnotatedAst env exp = showAst env true true false exp Map.empty
+let showLightAst env exp = showAst env false false false false exp Map.empty
+let showAnnotatedAst env exp = showAst env true true false false exp Map.empty
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
     do annoRes |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
@@ -143,7 +154,7 @@ let showSolvedGraph env exp =
     res
 let showSolvedAst env exp =
     let res = solve env exp
-    do writeAnnotatedAst true false true res.annotationResult res.varsAndConstraints
+    do writeAnnotatedAst true false true true res.annotationResult res.varsAndConstraints
     res
 
 

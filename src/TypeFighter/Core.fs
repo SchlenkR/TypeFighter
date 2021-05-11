@@ -15,6 +15,7 @@ type UnificationError =
 type ConstraintState =
     | Constrained of Tau
     | UnificationError of UnificationError
+type Subst = { genTyVar: GenTyVar; substitute: Tau }
 
 // TODO: in type inference, respect the fact that annos can be initially constrained
 
@@ -193,13 +194,11 @@ module Format =
 
 module rec ConstraintGraph =
 
-    type Subst = { genTyVar: GenTyVar; substitute: Tau }
-
-    type Ast = { tyvar: TyVar; inc1: Node option; inc2: Node option }
+    type Ast = { tyvar: TyVar; inc: Node }
     type MakeFun = { inc1: Node; inc2: Node }
     type ArgOp = In | Out
     type Arg = { argOp: ArgOp; inc: Node }
-    type UnifySubst = { substSource: Node; substIn: Node; applyTo: Node }
+    type Unify = { inc1: Node; inc2: Node }
     type GetProp = { field: string; inc: Node }
     type MakeTuple = { incs: Node list }
     type MakeRecord = { fields: string list; incs: Node list }
@@ -212,10 +211,10 @@ module rec ConstraintGraph =
         | MakeTuple of MakeTuple
         | MakeRecord of MakeRecord
         | Arg of Arg
-        | UnifySubst of UnifySubst
+        | Unify of Unify
     
     // TODO: maybe get rid of this and make everything immutable
-    type Node (data: NodeData, constr: ConstraintState option) =
+    type Node (data: NodeData, constr: (ConstraintState * Subst list) option) =
         member this.data = data
         member val constr = constr with get, set
 
@@ -224,14 +223,14 @@ module rec ConstraintGraph =
           errorNodes: List<Node>
           unfinishedNodes: List<Node>
           allNodes: List<Node>
-          substs: Set<Subst>
-          varsAndConstraints: Map<TyVar, ConstraintState>
-          constrainedVars: Map<TyVar, Tau>
+          varsAndConstraints: Map<TyVar, ConstraintState * Subst list>
+          constrainedVars: Map<TyVar, Tau * Subst list>
           annotationResult: AnnotatedAst.AnnotationResult
           success: bool }
 
     module SolveResult =
-        let findTau (exp: TExp) sr = sr.constrainedVars |> Map.find exp.meta.tyvar
+        let findTauAndSubsts (exp: TExp) sr = sr.constrainedVars |> Map.find exp.meta.tyvar
+        let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
 
     module Subst =
         let empty : Subst list = []
@@ -239,13 +238,13 @@ module rec ConstraintGraph =
     let getIncomingNodes (node: Node) =
         match node.data with
         | Source _ -> []
-        | Ast x -> [ x.inc1; x.inc2 ] |> List.choose id
+        | Ast x -> [ x.inc ]
         | MakeFun x -> [ x.inc1; x.inc2 ]
         | GetProp x -> [ x.inc ]
         | MakeTuple x -> x.incs
         | MakeRecord x -> x.incs
         | Arg x -> [ x.inc ]
-        | UnifySubst x -> [ x.substSource; x.substIn; x.applyTo ]
+        | Unify x -> [ x.inc1; x.inc2 ]
         
     let findVarNode (tyvar: TyVar) (nodes: Node seq) =
         nodes |> Seq.find (fun n ->
@@ -261,8 +260,9 @@ module rec ConstraintGraph =
             let node = Node(n, constr)
             do nodes.Add node
             node
-        let source tau = addNode (Source tau) (Some (Constrained tau))
-        let ast tyvar constr inc1 inc2 = addNode (Ast { tyvar = tyvar; inc1 = inc1; inc2 = inc2 }) constr
+        let source tau = addNode (Source tau) (Some (Constrained tau, Subst.empty))
+        let newGenVarSource() = source (TGenVar (annoRes.newGenVar.next()))
+        let ast tyvar constr inc = addNode (Ast { tyvar = tyvar; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
         let makeTuple incs = addNode (MakeTuple { incs = incs }) None
@@ -270,14 +270,21 @@ module rec ConstraintGraph =
         let arg op inc = addNode (Arg { argOp = op; inc = inc }) None
         let argIn = arg In
         let argOut = arg Out
-        let applySubst substSource substIn apply =
-            addNode (UnifySubst { substSource = substSource; substIn = substIn; applyTo = apply }) None
+        let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None
 
         let rec generateGraph (exp: TExp) (inc: Node option) =
-            let ( => ) x f = Some x |> f
-            let ( ==> ) (x,y) f = (Some x,y) ||> f
+            let ( |?> ) x f = Some x |> f
             
-            let nthis = ast exp.meta.tyvar (exp.meta.initialConstr |> Option.map Constrained)
+            // TODO: doch wieder mit (Node * Node option) machen?
+            //let ( ==> ) incs f = incs |> List.choose id |> List.reduce unify |> f
+            let ( ==> ) (x,y) f =
+                match y with
+                | None -> f x
+                | Some y -> unify x y |> f
+            
+            let nthis parent =
+                let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Subst.empty)
+                ast exp.meta.tyvar constr parent
             match exp.exp with
             | Lit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
@@ -289,28 +296,12 @@ module rec ConstraintGraph =
                     | Extern c -> source c
                 (nsource, inc) ==> nthis
             | App (e1, e2) ->
-                // TODO: where to check? SOmetimes implicit (unification), but not always?
-                // (check: e1 must be a fun type) implicit
-                // (check: app = e2) ??
-                // NEIN! Das ist zu allgemein (wir müssen das eine Zeile unten machen)
-                //     infer: argOut(e1) ==> app
-                // JA!
-                //     (ALT: subst: getSubst (argIn e1) e2 |> applySubst (argOut e1) ==> app)
-                //     -- oder (NEU) --
-                //     subst: applySubst e2 (argIn e1) (argOut e1) ==> app
-                // infer: argIn(e1) ==> e2
-                
-                // nö: ne1 muss ein Funktionstyp sein
-                //let ne1 = None |> generateGraph e1
-
-                // also so:
-                let ne2 = source (TGenVar (annoRes.newGenVar.next())) => generateGraph e2
-                let tto = source (TGenVar (annoRes.newGenVar.next()))
-                let ne1 = makeFunc ne2 tto => generateGraph e1
-                (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
-
-                //let ne2 = (argIn ne1) => generateGraph e2 
-                //(applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
+                let ne2 = None |> generateGraph e2
+                let nto = newGenVarSource()
+                let nfunc = makeFunc ne2 nto
+                let ne1 = None |> generateGraph e1
+                let uni = unify ne1 nfunc
+                (uni, inc) ==> nthis
                 
                 // ---------------------
                 // Info:
@@ -319,10 +310,9 @@ module rec ConstraintGraph =
                 // von der Funktion bestimmt. Das könnte man prinzipiell auch anders machen; das
                 // geht aber mit dem aktuellen Vokabular nicht.
                 // ---------------------
-
-                //(argOut ne1, inc) ==> var exp.tyvar
             | Abs (ident, body) ->
-                let nfunc = makeFunc (ast ident.meta.tyvar None None None) (generateGraph body None)
+                let nident = ast ident.meta.tyvar None (newGenVarSource())
+                let nfunc = makeFunc nident (generateGraph body None)
                 (nfunc, inc) ==> nthis
             | Let (ident, e, body) ->
                 do
@@ -348,7 +338,7 @@ module rec ConstraintGraph =
         do generateGraph (annoRes.root) None |> ignore
         nodes |> Seq.toList
     
-    let rec unify2Types (a: Tau) (b: Tau) =
+    let unify2Types (a: Tau) (b: Tau) =
         let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
         let rec unify1 t1 t2 =
             match t1,t2 with
@@ -392,7 +382,7 @@ module rec ConstraintGraph =
         // TODO: consistency check of unifiers? (!IMPORTANT)
         unify1 a b
     
-    let rec subst (substs: Subst list) taus =
+    let subst (substs: Subst list) taus =
         // TODO: quite similar with remapGenVars
         // TODO: Dieses "for" pattern haben wir ständig mit den Taus
         let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
@@ -415,73 +405,60 @@ module rec ConstraintGraph =
             subst substs taus
 
     let solve (annoRes: AnnotatedAst.AnnotationResult) (nodes: Node list) =
-        let (|Tau|Err|Init|) (node: Node) =
+        let (|Cons|Err|Init|) (node: Node) =
             match node.constr with
-            | Some (Constrained tau) -> Tau tau
-            | Some (UnificationError e) -> Err e
+            | Some (Constrained tau, substs) -> Cons (tau,substs)
+            | Some (UnificationError e, substs) -> Err e
             | None -> Init
 
         let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
-            let cs = nodes |> List.choose (function | Tau x -> Some x | _ -> None)
+            let cs = nodes |> List.choose (function | Cons x -> Some x | _ -> None)
             let es = nodes |> List.choose (function | Err x -> Some x | _ -> None)
             let ns = nodes |> List.choose (function | Init x -> Some x | _ -> None)
             match cs,es,ns with
             | _,es::_,_ -> AnyError es
             | _,_,ns::_ -> AnyInitial ns
-            | cs,[],[] -> AllConstrained cs
+            | cs,[],[] ->
+                let taus = cs |> List.map fst
+                let substs = cs |> List.collect snd
+                AllConstrained (taus,substs)
 
         let constrainNodeData nodeData =
             match nodeData with
             | Source tau ->
                 Constrained tau, Subst.empty
-            // The next 2 are edge cases. we could also model inc1 and inc2 as not optional
-            // and normalize them with a forall source node. But this would
-            // lead to a blown up graph with much more nodes and gen vars.
-            | Ast { tyvar = _; inc1 = None; inc2 = None } ->
-                Constrained(TGenVar(annoRes.newGenVar.next())), Subst.empty
-            | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
-            | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
-                Constrained(tau), Subst.empty
-            | Ast { tyvar = _; inc1 = Some(Tau t1); inc2 = Some(Tau t2) } ->
-                match unify2Types t1 t2 with
-                | Error msg -> UnificationError(Origin msg), Subst.empty
-                | Ok (unifiedTau,substs) -> Constrained unifiedTau, substs
-            | MakeFun { inc1 = Tau t1; inc2 = Tau t2 } ->
-                Constrained(TFun (t1, t2)), Subst.empty
-            | GetProp { field = field; inc = Tau(TRecord recordFields) } ->
+            | Ast { tyvar = _; inc = Cons(t,s) } ->
+                Constrained t, s
+            | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
+                Constrained(TFun (t1, t2)), s1 @ s2
+            | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
                 let res =
                     recordFields 
                     |> Set.toArray
                     |> Array.tryFind (fun (n,_) -> n = field)
                     |> Option.map snd
                     |> Option.map Constrained
+                    // TODO: this is not a unification error!
                     |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
-                res, Subst.empty
-            | MakeTuple { incs = AllConstrained incs } ->
-                Constrained(TTuple incs), Subst.empty
-            | MakeRecord { fields = fields; incs = AllConstrained incs } ->
-                let fields = List.zip fields incs
-                Constrained(TRecord (Set.ofList fields)), Subst.empty
-            | Arg { argOp = In; inc = Tau(TFun(t1,_)) } ->
-                Constrained t1, Subst.empty
-            | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
-                Constrained t2, Subst.empty
-            | Arg { argOp = argOp; inc = Tau x } ->
-                UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau x}"), Subst.empty
-            | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
-                // TODO: it matters if we use "b a " or "a b", but we have to know that :(
-                match unify2Types substIn substSource with
+                res, s
+            | MakeTuple { incs = AllConstrained (taus,substs) } ->
+                Constrained(TTuple taus), substs
+            | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
+                let fields = List.zip fields taus
+                Constrained(TRecord (Set.ofList fields)), substs
+            | Arg { argOp = In; inc = Cons(TFun(t1,_), s) } ->
+                Constrained t1, s
+            | Arg { argOp = Out; inc = Cons(TFun(_,t2), s) } ->
+                Constrained t2, s
+            | Arg { argOp = argOp; inc = Cons (t,s) } ->
+                UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
+            | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
+                // TODO: unify2Types is not distributiv!
+                match unify2Types t1 t2 with
                 | Error msg -> 
                     UnificationError(Origin msg), Subst.empty
-                | Ok (_,substs) ->
-                    match substs with
-                    | [] as x ->
-                        Constrained applyTo, x
-                    | substs ->
-                        // TODO: shouldn't we take the substituted substs from substMany instead of the "untouched" ones?
-                        // OR: Do we need them at all?
-                        let taus = subst substs [applyTo]
-                        Constrained (taus |> List.exactlyOne), substs
+                | Ok (tres,sres) ->
+                    Constrained tres, sres @ s1 @ s2
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them
                 failwith $"Invalid graph at node: {nodeData}", Subst.empty
@@ -489,46 +466,35 @@ module rec ConstraintGraph =
         let rec constrainNodes 
                 (unfinished: ResizeArray<Node>) 
                 (constrained: ResizeArray<Node>) 
-                (errors: ResizeArray<Node>)
-                (allSubsts: ResizeArray<Subst>) =
+                (errors: ResizeArray<Node>) =
             let mutable goOn = false
             for node in unfinished |> Seq.toArray do
-                let c,newSubsts = 
+                let constrainRes = 
                     let incomingNodes = getIncomingNodes node
                     match incomingNodes with
-                    | AnyInitial _ -> None, Subst.empty
-                    | AnyError es ->
+                    | AnyInitial _ -> None
+                    | AnyError err ->
                         let allIncomingsAreOperations = 
                             let isOp = function | Source _ | Ast _ -> false | _ -> true
                             incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
                         match allIncomingsAreOperations with
-                        | true -> Some(UnificationError Inherit), Subst.empty
-                        | false -> Some(UnificationError es), Subst.empty
+                        | true -> Some(UnificationError Inherit, Subst.empty)
+                        | false -> Some(UnificationError err, Subst.empty)
                     | _ ->
                         let c,substs = constrainNodeData node.data
-                        Some c, substs
+                        Some (c, substs)
 
-                allSubsts.AddRange(newSubsts)
-                node.constr <- c
-                match c with
-                | Some (Constrained _) ->
+                node.constr <- constrainRes
+                match constrainRes with
+                | Some (Constrained _, _) ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
                     constrained.Add(node)
-                | Some (UnificationError _) ->
+                | Some (UnificationError _, _) ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
                     errors.Add(node)
                 | _ -> ()
-
-                // applySubstsInAllNodes
-                for node in constrained do
-                    match node.constr with
-                    | Some (Constrained tau) ->
-                        // TODO: oben bei UnifySubst ist das auch so
-                        let newTau = subst newSubsts [tau] |> List.exactlyOne
-                        node.constr <- Some (Constrained newTau)
-                    | _ -> ()
 
             if not goOn then
                 { constrainedNodes = constrained |> List.ofSeq
@@ -538,41 +504,26 @@ module rec ConstraintGraph =
                     yield! constrained
                     yield! unfinished
                     yield! errors ]
-                  substs = allSubsts |> Set.ofSeq
                   varsAndConstraints = Map.empty
                   constrainedVars = Map.empty
                   annotationResult = annoRes
                   success = errors.Count = 0 && unfinished.Count = 0 }
             else
-                constrainNodes unfinished constrained errors allSubsts
+                constrainNodes unfinished constrained errors
         
-        let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray()) (ResizeArray())
-        
-        // final generic param substitution
-        do
-            let finalSubsts =
-                res.substs |> Set.toList |> List.choose (
-                    function
-                    | { genTyVar = _; substitute = TGenVar _ } as x -> Some x
-                    | _ -> None)
-            for n in res.constrainedNodes do
-                match n.constr with
-                | Some (Constrained c) -> 
-                    let csubst = subst finalSubsts [ c ]
-                    n.constr <- Some (Constrained (csubst |> List.exactlyOne))
-                | _ -> ()
+        let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
 
         let varsAndCs =
             [ for n in res.allNodes do
                 match n.data, n.constr with
-                | Ast ast, Some c -> Some (ast.tyvar, c)
+                | Ast ast, Some c -> Some (ast.tyvar,c)
                 | _ -> ()
             ]
             |> List.choose id
         let constrainedVars =
             [ for tyvar,constr in varsAndCs do
                 match constr with
-                | Constrained tau -> Some (tyvar,tau)
+                | Constrained tau, substs -> Some (tyvar,(tau,substs))
                 | _ -> None
             ]
             |> List.choose id

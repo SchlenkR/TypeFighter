@@ -53,14 +53,14 @@ module Format =
         | x -> x
 
     // TODO: this is crap (again)
-    let genVar (x: GenTyVar) = $"T{x}"
+    let genArg (x: GenTyVar) = $"T{x}"
 
     let genArgList (args: string list) =
         match args with
         | [] -> ""
         | args -> $"""<{args |> String.concat ", "}>"""
     let genArgListVars vars =
-         vars |> List.map genVar |> genArgList
+         vars |> List.map genArg |> genArgList
     let genArgListTaus taus =
          taus |> List.collect Types.getGenVars |> List.distinct |> genArgListVars
     let genArgListTau tau =
@@ -82,7 +82,7 @@ module Format =
         let rec renderTypeDeclaration (t: Tau) =
             match t with
             | TGenVar v ->
-                (genVar v).ToUpperInvariant()
+                (genArg v).ToUpperInvariant()
             | TApp (name, vars) ->
                 let name = typeName name
                 let generics = [ for var in vars do renderTypeDeclaration var ] |> genArgList
@@ -153,7 +153,7 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 |> Env.getInterns
                 |> Map.toSeq
                 |> Seq.map (fun (ident,tyvar) ->
-                    let tau = solveRes.constrainedVars |> Map.find tyvar
+                    let tau = solveRes.constrainedVars |> Map.find tyvar |> fst
                     ident,tau)
                 |> Seq.toList
             let classGenArgs = 
@@ -205,7 +205,7 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
 let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let rec collectedRecords =
         [ for kvp in solveRes.constrainedVars do
-            match kvp.Value with | TRecord trecord -> trecord | _ -> ()
+            match fst kvp.Value with | TRecord trecord -> trecord | _ -> ()
         ]
     let recordDefinitions = 
         collectedRecords 

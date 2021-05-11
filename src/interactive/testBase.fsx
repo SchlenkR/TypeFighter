@@ -102,14 +102,14 @@ module Test =
     let isOfType name env typ exp =
         let error actual = error name (Format.tau typ) actual
         match run env exp with
-        | Constrained c -> 
+        | Constrained c,_ -> 
             if c = typ
             then testPassed name
             else error (Format.tau c)
-        | UnificationError e -> error $"ERROR ({e})"
+        | UnificationError e,_ -> error $"ERROR ({e})"
     let isError name env exp =
         let error actual = error name "ERROR" actual
         match run env exp with
-        | Constrained c -> error (Format.tau c)
-        | UnificationError _ -> testPassed name
+        | Constrained c,_ -> error (Format.tau c)
+        | UnificationError _,_ -> testPassed name
 

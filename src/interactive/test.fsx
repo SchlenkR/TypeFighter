@@ -14,8 +14,8 @@ let env1 = env [ map; add; numbers ]
 (Let "x" (Num 10.0)
 (MapX (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
+|> showSolvedAst env1
 |> Test.isOfType "map numbers by add" env1 (seqOf numberTyp)
-//|> showSolvedAst env1
 
 
 
@@ -129,8 +129,8 @@ let env8 = env [ ]
 (Let "id" (Abs "x" (Record [ "whatever", Var "x" ] ))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
-//|> Test.isOfType "Generic records / instanciation of generic records" (env8) (stringTyp * numberTyp)
-|> showSolvedAst env8
+//|> showSolvedAst env8
+|> Test.isOfType "Generic records / instanciation of generic records" (env8) (stringTyp * numberTyp)
 
 
 
@@ -138,8 +138,9 @@ let env8 = env [ ]
 // TODO: unused abs field (Constraints sind nicht ganz korrekt bei Fun__)
 let env9 = env [ ]
 App (Abs "__" (Var "__")) (Num 0.0)
-//|> Test.isOfType "unused abs field" env9 (stringTyp)
+|> showSolvedGraph env9
 |> showSolvedAst env9
+|> Test.isOfType "unused abs field" env9 (numberTyp)
 
 
 (*
@@ -151,4 +152,8 @@ let env10 = env [ ]
 |> showSolvedGraph env10
 //|> Test.isOfType "infer function type for lambda" env10 ((numberTyp ^-> %1) ^-> %1)
 
-fun f -> f 42.0
+//fun f -> f 42.0
+
+
+
+
