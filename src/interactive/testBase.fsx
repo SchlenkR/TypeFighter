@@ -2,6 +2,7 @@
 #load "../TypeFighter/Core.fs"
 #load "../TypeFighter/Runtime.fs"
 #load "../TypeFighter/DotNetCodeGen.fs"
+
 open TypeFighter
 
 [<AutoOpen>]

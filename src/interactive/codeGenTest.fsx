@@ -10,34 +10,6 @@ open TestBase
 //#r "nuget: Microsoft.CodeAnalysis"
 //#r "nuget: Microsoft.CodeAnalysis.CSharp"
 
-let solve env exp =
-    let annoRes = AnnotatedAst.create env exp
-    let nodes = annoRes.resultExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve annoRes.newGenVar nodes
-    ConstraintGraph.applyResult annoRes.resultExp res.allNodes
-let renderDisplayClasses env exp =
-    //let exp = App (Abs "__" exp) (Num 0.0)
-    exp
-    |> solve env 
-    |> fun (exp,tyvarToTaus) -> renderDisplayClasses (RecordCache()) tyvarToTaus exp
-    |> List.map (fun res ->
-        printfn "------------------"
-        printfn "%s" res
-        printfn "------------------")
-let render env exp =
-    exp
-    |> solve env 
-    |> fun (exp,tyvarToTaus) -> render exp tyvarToTaus
-    |> fun res ->
-        printfn "------------------"
-        printfn ""
-        printfn "%s" res.records
-        printfn ""
-        printfn "%s" res.body
-        printfn ""
-        printfn "------------------"
-
-
 
 
 let env1 = env [ map; add; numbers ]

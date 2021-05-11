@@ -99,6 +99,16 @@ module Format =
         renderTypeDeclaration t
 
 let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) (exp: TExp) =
+    let abstractions =
+        Exp.collectAll exp
+        |> List.map (fun exp ->
+            match exp.exp with
+            | Abs (ident, e) -> Some (exp, ident, e)
+            | _ -> None)
+        |> List.choose id
+        |> List.mapi (fun i (exp,ident,e) -> exp, ($"Abs_{i}",exp,ident,e))
+        |> Map.ofList
+
     let getFields (env: Env) =
         env
         |> Map.toList
@@ -107,49 +117,43 @@ let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) 
             | Intern tyvar -> Some (ident,tyvar)
             | _ -> None)
         |> List.map (fun (ident,tyvar) ->
-            let typeDef = tyvars |> Map.find tyvar
-            ident,typeDef)
+            let tau = tyvars |> Map.find tyvar
+            ident,tau)
 
-    let rec getLambdas exp =
-        Exp.collectAll exp
-        |> List.mapi (fun i exp ->
-            match exp.exp with
-            | Abs (ident, e) ->
-                let tau = Types.tau exp.meta.constr
-                let (TFun (t1,t2)) = tau
-                let inType = Format.renderTypeDeclaration cachedRecords t1
-                let retType = Format.renderTypeDeclaration cachedRecords t2
-                let fields = getFields exp.meta.env
-                let classGenArgs = 
-                    fields
-                    |> List.map snd
-                    |> List.collect Types.getGenVars
-                    |> set
-                let invokeGenArgs = 
-                    (Types.getGenVars tau |> set) - classGenArgs
+    abstractions
+    |> Map.toList
+    |> List.map (fun (_,(name,exp,ident,e)) ->
+        let tau = Types.tau exp.meta.constr
+        let (TFun (t1,t2)) = tau
+        let inType = Format.renderTypeDeclaration cachedRecords t1
+        let retType = Format.renderTypeDeclaration cachedRecords t2
+        let fields = getFields exp.meta.env
+        let classGenArgs = 
+            fields
+            |> List.map snd
+            |> List.collect Types.getGenVars
+            |> set
+        let invokeGenArgs = 
+            (Types.getGenVars tau |> set) - classGenArgs
                 
-                let fieldsString =
-                    [ for ident,typeDef in fields do 
-                        let typeDef = typeDef |> Format.renderTypeDeclaration cachedRecords
-                        $"public {typeDef} {ident};" ]
-                let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
-                let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
+        let fieldsString =
+            [ for ident,tau in fields do
+                let typeDef = tau |> Format.renderTypeDeclaration cachedRecords
+                $"public {typeDef} {ident};" ]
+        let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
+        let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
 
-                [
-                    $"class Abs_{i}%s{classGenArgsString}"
-                    "{"
+        [
+            $"class {name}%s{classGenArgsString}"
+            "{"
 
-                    yield! [ for x in fieldsString do indentLine 1 x ]
+            yield! [ for x in fieldsString do indentLine 1 x ]
 
-                    indentLine 1 $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp}) {{ throw new Exception(); }}"
+            indentLine 1 $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp}) {{ throw new Exception(); }}"
 
-                    "}"
-                ]
-                |> String.concat "\n"
-                |> Some
-            | _ -> None)
-        |> List.choose id
-    getLambdas exp
+            "}"
+        ]
+        |> String.concat "\n")
 
 let renderRecords (cachedRecords: RecordCache) (exp: TExp) =
     let rec collectedRecords =

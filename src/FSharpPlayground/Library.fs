@@ -1,7 +1,7 @@
 ﻿namespace FSharpPlayground
 
 module MyModule =
-    let getResult myNumber =
-        let f x = x + myNumber
-        let g myFun x = myFun x
-        g (fun x -> x + 23) (f myNumber)
+    let it =
+        let id = fun x -> x
+        let add = fun a -> fun b -> {| a = a; b = b |}
+        add "Hello" (id 42.0)
