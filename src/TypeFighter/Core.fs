@@ -300,8 +300,8 @@ module rec ConstraintGraph =
                 let nto = newGenVarSource()
                 let nfunc = makeFunc ne2 nto
                 let ne1 = None |> generateGraph e1
-                let uni = unify ne1 nfunc
-                (uni, inc) ==> nthis
+                let uniAndArgOut = unify ne1 nfunc |> argOut
+                (uniAndArgOut, inc) ==> nthis
                 
                 // ---------------------
                 // Info:

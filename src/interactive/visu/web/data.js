@@ -4,13 +4,13 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "Fun (f)",
-    "desc": "var = 1\ntype = ('a -> (Number -> 'b))\nsubsts = [ 'a = (Number -> 'b) ]",
+    "desc": "var = 1\ntype = ('a -> 'b)\nsubsts = [ 'a = (Number -> 'b) ]",
     "fig": "Rectangle"
   },
   {
     "key": 1,
     "name": "App",
-    "desc": "var = 3\ntype = (Number -> 'b)\nsubsts = [ 'a = (Number -> 'b) ]",
+    "desc": "var = 3\ntype = 'b\nsubsts = [ 'a = (Number -> 'b) ]",
     "fig": "Rectangle"
   },
   {
