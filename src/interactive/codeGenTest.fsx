@@ -1,14 +1,9 @@
 
 #load "visuBase.fsx"
-open VisuBase
 open TypeFighter
 open TypeFighter.DotNetCodeGen
 open TestBase
-
-//#r "nuget: Basic.Reference.Assemblies"
-//#r "nuget: Microsoft.CSharp"
-//#r "nuget: Microsoft.CodeAnalysis"
-//#r "nuget: Microsoft.CodeAnalysis.CSharp"
+open VisuBase
 
 
 
@@ -54,7 +49,7 @@ let env3 = env [ ]
 (Let "add" (Abs "a" (Abs "b" (Record [ "field1", Var "a"; "field2", Var "b" ])))
 (App (App (Var "add") (Str "Hello")) (App (Var "id") (Num 42.0)))
 ))
+|> showSolvedAst env3
 |> renderDisplayClasses env3
-//|> showSolvedAst env3
 
 

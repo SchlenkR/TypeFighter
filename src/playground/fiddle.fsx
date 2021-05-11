@@ -34,3 +34,4 @@ ilgen.Emit(OpCodes.Throw)
             yield number + 1
     newNumbers
 ]
+

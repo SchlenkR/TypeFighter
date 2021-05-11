@@ -106,13 +106,11 @@ module Test =
         match run env exp with
         | Constrained c -> if c = typ  then () else error  (Format.tau c)
         | UnificationError e -> error $"ERROR ({e})"
-        | Initial -> error "Initial"
         exp
     let isError name env exp =
         let error actual = error name "ERROR" actual
         match run env exp with
         | Constrained c -> error (Format.tau c)
         | UnificationError e -> ()
-        | Initial -> error "Initial"
         exp
 

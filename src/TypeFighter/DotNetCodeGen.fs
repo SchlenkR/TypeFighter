@@ -98,6 +98,8 @@ module Format =
                 $"%s{typeName}%s{recordArgs}"
         renderTypeDeclaration t
 
+open ConstraintGraph
+
 let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let abstractions =
         solveRes.annotationResult.allExpressions
@@ -121,7 +123,7 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
     abstractions
     |> Map.toList
     |> List.map (fun (_,(name,exp,ident,e)) ->
-        let tau = Types.tau exp.meta.initialConstr
+        let tau = SolveResult.findTau exp solveRes
         let (TFun (t1,t2)) = tau
         let inType = Format.renderTypeDeclaration cachedRecords t1
         let retType = Format.renderTypeDeclaration cachedRecords t2
@@ -202,7 +204,7 @@ let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.Solve
         | App (e1, e2) ->
             let e1res = renderBody indentLevel e1
             let e2res = renderBody indentLevel e2
-            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.initialConstr)
+            let retType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
             let renderApp a b = $"{a}({b})"
             let renderAppLocal local a b = $"{retType} {local} = {renderApp a b};"
             match e1res,e2res with
@@ -222,7 +224,7 @@ let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.Solve
                 Inline (renderApp e1code e2code)
         | Abs (ident, body) ->
             let local = newLocal()
-            let tau = Types.tau exp.meta.initialConstr
+            let tau = SolveResult.findTau exp solveRes
             let (TFun (t1,t2)) = tau
             let inType = Format.renderTypeDeclaration cachedRecords t1
             let retType = Format.renderTypeDeclaration cachedRecords t2
@@ -241,10 +243,10 @@ let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.Solve
             Reference local
         | Let (ident, e, body) ->
             let local = newLocal()
-            let identType = Format.renderTypeDeclaration cachedRecords (Types.tau e.meta.initialConstr)
+            let identType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
             let eres = renderBody indentLevel e
             let bodyRes = renderBody indentLevel body
-            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.initialConstr)
+            let retType = Format.renderTypeDeclaration cachedRecords (SolveResult.findTau exp solveRes)
             let decl s = $"{identType} {ident} = %s{s};"
 
             match eres with
@@ -266,7 +268,7 @@ let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.Solve
         | Tuple es ->
             failwith "TODO: Tuple"
         | Record fields ->
-            let tau = Types.tau exp.meta.initialConstr
+            let tau = SolveResult.findTau exp solveRes
             // TODO: why can't we encode that the type must be TRecord?
             // TODO: also: this looks a bit delocated - we do many things more or less twice
             let (TRecord trecord) = tau

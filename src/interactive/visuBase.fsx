@@ -19,10 +19,10 @@ module Format =
 
     let constraintState cs =
         match cs with
-        | Constrained t -> Format.tau t
-        | UnificationError (Origin e) -> $"ERROR: {e}"
-        | UnificationError Inherit -> $"ERROR (inherited)"
-        | Initial -> "???"
+        | Some (Constrained t) -> Format.tau t
+        | Some (UnificationError (Origin e)) -> $"ERROR: {e}"
+        | Some (UnificationError Inherit) -> $"ERROR (inherited)"
+        | None -> "???"
 
     let envItem ident envItem =
         match envItem with
@@ -39,7 +39,13 @@ module Format =
             |> String.concat "\n"
             |> fun s -> $"\n{s}"
     
-let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (res: AnnotatedAst.AnnotationResult) =
+let writeAnnotatedAst 
+        (showVar: bool) 
+        (showEnv: bool) 
+        (showConstraint: bool) 
+        (res: AnnotatedAst.AnnotationResult)
+        (constraints: Map<TyVar, ConstraintState>)
+        =
     let rec flatten (node: Tree.Node) =
         [
             yield node
@@ -50,7 +56,9 @@ let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (re
         let details =
             [
                 if showVar then yield $"var = {exp.meta.tyvar}"
-                if showConstraint then yield $"type = {Format.constraintState exp.meta.initialConstr}"
+                if showConstraint then
+                    let constr = constraints |> Map.tryFind exp.meta.tyvar 
+                    yield $"type = {Format.constraintState constr}"
                 if showEnv then yield $"env = {Format.env exp.meta}"
             ]
             |> String.concat "\n"
@@ -114,13 +122,13 @@ let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node se
         ]
     Graph.write jsNodes jsLinks
     
-let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) exp =
+let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) exp constraints =
     let annoRes = AnnotatedAst.create env exp
-    do writeAnnotatedAst showVar showEnv showConstraint annoRes
+    do writeAnnotatedAst showVar showEnv showConstraint annoRes constraints
     exp
 
-let showLightAst env exp = showAst env false false false exp
-let showAnnotatedAst env exp = showAst env true true false exp
+let showLightAst env exp constraints = showAst env false false false exp constraints
+let showAnnotatedAst env exp constraints = showAst env true true false exp constraints
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
     do annoRes.root |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
@@ -135,7 +143,7 @@ let showSolvedGraph env exp =
     res
 let showSolvedAst env exp =
     let res = solve env exp
-    do writeAnnotatedAst true false true res.annotationResult
+    do writeAnnotatedAst true false true res.annotationResult res.varsAndConstraints
     res
 
 

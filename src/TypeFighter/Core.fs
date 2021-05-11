@@ -13,7 +13,6 @@ type UnificationError =
     | Inherit
     | Origin of string
 type ConstraintState =
-    | Initial
     | Constrained of Tau
     | UnificationError of UnificationError
 
@@ -47,7 +46,7 @@ and MetaIdent<'meta> = Meta<Ident, 'meta>
 type Anno =
     { tyvar: TyVar
       env: Env
-      initialConstr: ConstraintState }
+      initialConstr: Tau option }
 type UExp = Meta<Exp<unit>, unit>
 type TExp = Meta<Exp<Anno>, Anno>
 type IExp = Meta<Exp<Anno>, Anno>
@@ -127,7 +126,7 @@ module AnnotatedAst =
                 { meta =
                     { tyvar = newTyVar.next()
                       env = env
-                      initialConstr = Initial }
+                      initialConstr = None }
                   exp =
                     match exp.exp with
                     | Lit x ->
@@ -143,7 +142,7 @@ module AnnotatedAst =
                             { meta =
                                 { tyvar = tyvarIdent
                                   env = env
-                                  initialConstr = Initial }
+                                  initialConstr = None }
                               exp = ident.exp }
                         Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
@@ -216,7 +215,7 @@ module rec ConstraintGraph =
         | UnifySubst of UnifySubst
     
     // TODO: maybe get rid of this and make everything immutable
-    type Node (data: NodeData, constr: ConstraintState) =
+    type Node (data: NodeData, constr: ConstraintState option) =
         member this.data = data
         member val constr = constr with get, set
 
@@ -230,6 +229,9 @@ module rec ConstraintGraph =
           constrainedVars: Map<TyVar, Tau>
           annotationResult: AnnotatedAst.AnnotationResult
           success: bool }
+
+    module SolveResult =
+        let findTau (exp: TExp) sr = sr.constrainedVars |> Map.find exp.meta.tyvar
 
     module Subst =
         let empty : Subst list  = []
@@ -258,23 +260,23 @@ module rec ConstraintGraph =
             let node = Node(n, constr)
             do nodes.Add node
             node
-        let source tau = addNode (Source tau) (Constrained tau)
+        let source tau = addNode (Source tau) (Some (Constrained tau))
         let ast tyvar constr inc1 inc2 = addNode (Ast { tyvar = tyvar; inc1 = inc1; inc2 = inc2 }) constr
-        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) Initial
-        let getProp field inc = addNode (GetProp { field = field; inc = inc }) Initial
-        let makeTuple incs = addNode (MakeTuple { incs = incs }) Initial
-        let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) Initial
-        let arg op inc = addNode (Arg { argOp = op; inc = inc }) Initial
+        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
+        let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
+        let makeTuple incs = addNode (MakeTuple { incs = incs }) None
+        let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) None
+        let arg op inc = addNode (Arg { argOp = op; inc = inc }) None
         let argIn = arg In
         let argOut = arg Out
         let applySubst substSource substIn apply =
-            addNode (UnifySubst { substSource = substSource; substIn = substIn; applyTo = apply }) Initial
+            addNode (UnifySubst { substSource = substSource; substIn = substIn; applyTo = apply }) None
 
         let rec generateGraph (exp: TExp) (inc: Node option) =
             let ( => ) x f = Some x |> f
             let ( ==> ) (x,y) f = (Some x,y) ||> f
             
-            let nthis = ast exp.meta.tyvar exp.meta.initialConstr
+            let nthis = ast exp.meta.tyvar (exp.meta.initialConstr |> Option.map Constrained)
             match exp.exp with
             | Lit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
@@ -306,14 +308,14 @@ module rec ConstraintGraph =
                 (applySubst ne2 (argIn ne1) (argOut ne1), inc) ==> nthis
                 //(argOut ne1, inc) ==> var exp.tyvar
             | Abs (ident, body) ->
-                let nfunc = makeFunc (ast ident.meta.tyvar Initial None None) (generateGraph body None)
+                let nfunc = makeFunc (ast ident.meta.tyvar None None None) (generateGraph body None)
                 (nfunc, inc) ==> nthis
             | Let (ident, e, body) ->
                 do
                     // TODO: why do we have this exception? Can we express that let bound idents are always intern?
                     match Env.resolve ident body.meta.env with
                     | Intern tyvarIdent ->
-                        (generateGraph e None, None) ==> ast tyvarIdent Initial
+                        (generateGraph e None, None) ==> ast tyvarIdent None
                     | Extern _ ->
                         failwith "Invalid graph: let bound identifiers must be intern in env."
                     |> ignore
@@ -401,9 +403,9 @@ module rec ConstraintGraph =
     let solve (annoRes: AnnotatedAst.AnnotationResult) (nodes: Node list) =
         let (|Tau|Err|Init|) (node: Node) =
             match node.constr with
-            | Constrained tau -> Tau tau
-            | UnificationError e -> Err e
-            | Initial -> Init
+            | Some (Constrained tau) -> Tau tau
+            | Some (UnificationError e) -> Err e
+            | None -> Init
 
         let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
             let cs = nodes |> List.choose (function | Tau x -> Some x | _ -> None)
@@ -481,23 +483,25 @@ module rec ConstraintGraph =
                 let c,newSubsts = 
                     let incomingNodes = getIncomingNodes node
                     match incomingNodes with
-                    | AnyInitial _ -> Initial, Subst.empty
+                    | AnyInitial _ -> None, Subst.empty
                     | AnyError es ->
                         let allIncomingsAreOperations = 
                             let isOp = function | Source _ | Ast _ -> false | _ -> true
                             incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
                         match allIncomingsAreOperations with
-                        | true -> UnificationError Inherit, Subst.empty
-                        | false -> UnificationError es, Subst.empty
-                    | _ -> constrainNodeData node.data
+                        | true -> Some(UnificationError Inherit), Subst.empty
+                        | false -> Some(UnificationError es), Subst.empty
+                    | _ ->
+                        let c,substs = constrainNodeData node.data
+                        Some c, substs
                 allSubsts.AddRange(newSubsts)
                 node.constr <- c
                 match c with
-                | Constrained _ ->
+                | Some (Constrained _) ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
                     constrained.Add(node)
-                | UnificationError _ ->
+                | Some (UnificationError _) ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
                     errors.Add(node)
@@ -529,15 +533,15 @@ module rec ConstraintGraph =
                     | _ -> None)
             for n in res.constrainedNodes do
                 match n.constr with
-                | Constrained c -> 
+                | Some (Constrained c) -> 
                     let csubst = substMany finalSubsts [ c ]
-                    n.constr <- Constrained (csubst |> List.exactlyOne)
+                    n.constr <- Some (Constrained (csubst |> List.exactlyOne))
                 | _ -> ()
 
         let varsAndCs =
             [ for n in res.allNodes do
-                match n.data with
-                | Ast ast -> Some (ast.tyvar, n.constr)
+                match n.data, n.constr with
+                | Ast ast, Some c -> Some (ast.tyvar, c)
                 | _ -> ()
             ]
             |> List.choose id
