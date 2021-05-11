@@ -81,27 +81,25 @@ module Dsl =
     let private seqOp name seq lam = Appn (Var name) [ seq; lam ]
 
     let Pipe seq projection = seqOp (fst Builtins.map) seq projection
-    let Map seq projection = seqOp (fst Builtins.map) seq projection
+    let MapX seq projection = seqOp (fst Builtins.map) seq projection
     let MapP projection = App (Var(fst Builtins.mapp)) projection
-    let Filter seq predicate = seqOp (fst Builtins.filter) seq predicate
+    let FilterX seq predicate = seqOp (fst Builtins.filter) seq predicate
     let FilterP predicate = App (Var(fst Builtins.filterp)) predicate
     let NewList es =
         let rec makeList es =
             match es with
-            | [] -> Var (fst Builtins.emptyList)
-            | e :: es -> Appn (Var (fst Builtins.cons)) [ e; makeList es ]
+            | [] -> Var (fst emptyList)
+            | e :: es -> Appn (Var (fst cons)) [ e; makeList es ]
         makeList es
 
 module Test =
     let private run env exp =
         let annoRes = AnnotatedAst.create env exp
         let res = 
-            annoRes.resultExp
+            annoRes.root
             |> ConstraintGraph.create
-            |> ConstraintGraph.solve annoRes.newGenVar
-        ConstraintGraph.applyResult annoRes.resultExp res.allNodes
-        |> fst
-        |> fun exp -> exp.meta.constr
+            |> ConstraintGraph.solve annoRes
+        res.varsAndConstraints |> Map.find res.annotationResult.root.meta.tyvar
     let private error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
     let isOfType name env typ exp =
         let error actual = error name (Format.tau typ) actual

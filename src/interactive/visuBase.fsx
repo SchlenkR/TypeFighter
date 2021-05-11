@@ -39,7 +39,7 @@ module Format =
             |> String.concat "\n"
             |> fun s -> $"\n{s}"
     
-let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (exp: TExp) =
+let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (res: AnnotatedAst.AnnotationResult) =
     let rec flatten (node: Tree.Node) =
         [
             yield node
@@ -50,7 +50,7 @@ let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (ex
         let details =
             [
                 if showVar then yield $"var = {exp.meta.tyvar}"
-                if showConstraint then yield $"type = {Format.constraintState exp.meta.constr}"
+                if showConstraint then yield $"type = {Format.constraintState exp.meta.initialConstr}"
                 if showEnv then yield $"env = {Format.env exp.meta}"
             ]
             |> String.concat "\n"
@@ -79,7 +79,7 @@ let writeAnnotatedAst (showVar: bool) (showEnv: bool) (showConstraint: bool) (ex
             let fieldNames = Format.recordFields fields
             let details = $"fields = {fieldNames}\n{details}"
             Tree.var $"Record" details [ for _,e in fields do createNodes e ]
-    createNodes exp |> flatten |> Tree.write
+    createNodes res.root |> flatten |> Tree.write
 
 let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node seq) =
     let indexedNodes = nodes |> Seq.indexed |> Seq.toList
@@ -116,42 +116,35 @@ let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node se
     
 let private showAst env (showVar: bool) (showEnv: bool) (showConstraint: bool) exp =
     let annoRes = AnnotatedAst.create env exp
-    do annoRes.resultExp |> writeAnnotatedAst showVar showEnv showConstraint
+    do writeAnnotatedAst showVar showEnv showConstraint annoRes
     exp
 
 let showLightAst env exp = showAst env false false false exp
 let showAnnotatedAst env exp = showAst env true true false exp
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
-    do annoRes.resultExp |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
+    do annoRes.root |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
     exp
-let showSolvedGraph env exp =
-    let annoRes = AnnotatedAst.create env exp
-    let nodes = annoRes.resultExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve annoRes.newGenVar nodes
-    do res.allNodes |> writeConstraintGraph annoRes.allExpressions
-    res
-let showSolvedAst env exp =
-    // TODO: refine the Constraint API - this is a mess
-    let annoRes = AnnotatedAst.create env exp
-    let nodes = annoRes.resultExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve annoRes.newGenVar nodes
-    do ConstraintGraph.applyResult annoRes.resultExp res.allNodes |> ignore
-    do annoRes.resultExp |> writeAnnotatedAst true false true
-    res
-
-
-
 let solve env exp =
     let annoRes = AnnotatedAst.create env exp
-    let nodes = annoRes.resultExp |> ConstraintGraph.create
-    let res = ConstraintGraph.solve annoRes.newGenVar nodes
-    ConstraintGraph.applyResult annoRes.resultExp res.allNodes
+    let nodes = annoRes.root |> ConstraintGraph.create
+    ConstraintGraph.solve annoRes nodes
+let showSolvedGraph env exp =
+    let res = solve env exp
+    do res.allNodes |> writeConstraintGraph res.annotationResult.allExpressions
+    res
+let showSolvedAst env exp =
+    let res = solve env exp
+    do writeAnnotatedAst true false true res.annotationResult
+    res
+
+
+
 let renderDisplayClasses env exp =
     //let exp = App (Abs "__" exp) (Num 0.0)
     exp
     |> solve env 
-    |> fun (exp,tyvarToTaus) -> renderDisplayClasses (RecordCache()) tyvarToTaus exp
+    |> fun res -> renderDisplayClasses (RecordCache()) res
     |> List.map (fun res ->
         printfn "------------------"
         printfn "%s" res
@@ -159,7 +152,7 @@ let renderDisplayClasses env exp =
 let render env exp =
     exp
     |> solve env 
-    |> fun (exp,tyvarToTaus) -> render exp tyvarToTaus
+    |> fun res -> render res
     |> fun res ->
         printfn "------------------"
         printfn ""

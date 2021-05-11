@@ -35,20 +35,22 @@ type Exp<'meta> =
     | Lit of Lit
     | Var of Ident
     | App of MetaExp<'meta> * MetaExp<'meta>
-    | Abs of Meta<Ident, 'meta> * MetaExp<'meta>
+    | Abs of MetaIdent<'meta> * MetaExp<'meta>
     | Let of Ident * MetaExp<'meta> * MetaExp<'meta>
     | Prop of Ident * MetaExp<'meta>
     | Tuple of MetaExp<'meta> list
-    | Record of List<Ident * MetaExp<'meta>>
+    | Record of (Ident * MetaExp<'meta>) list
 and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
 and MetaExp<'meta> = Meta<Exp<'meta>, 'meta>
+and MetaIdent<'meta> = Meta<Ident, 'meta>
 
 type Anno =
     { tyvar: TyVar
       env: Env
-      mutable constr: ConstraintState }
+      initialConstr: ConstraintState }
 type UExp = Meta<Exp<unit>, unit>
 type TExp = Meta<Exp<Anno>, Anno>
+type IExp = Meta<Exp<Anno>, Anno>
 
 module TypeNames =
     let [<Literal>] string = "String"
@@ -56,28 +58,6 @@ module TypeNames =
     let [<Literal>] bool = "Bool"
     let [<Literal>] unit = "Unit"
     let [<Literal>] seq = "Seq"
-
-module Exp =
-    let rec collectAll (exp: TExp) =
-        [ yield exp
-          match exp.exp with
-          | Lit _
-          | Var _ -> ()
-          | App (e1, e2) ->
-              yield! collectAll e1
-              yield! collectAll e2
-          | Abs (ident, body) -> 
-              yield! collectAll body
-          | Let (ident, e, body) ->
-              yield! collectAll e
-              yield! collectAll body
-          | Prop (ident, e) -> 
-              yield! collectAll e
-          | Tuple es ->
-              for e in es do yield! collectAll e
-          | Record fields ->
-              for _,e in fields do yield! collectAll e
-        ]
 
 module Lit =
     let getTypeName (l: Lit) =
@@ -95,6 +75,12 @@ module Env =
         match env |> Map.tryFind varName with
         | None -> failwith $"Variable '{varName}' is unbound. Env: {env}"
         | Some t -> t
+    let getInterns (env: Env) =
+        env 
+        |> Map.toList
+        |> List.map (fun (ident,v) -> match v with | Intern tyvar -> Some (ident,tyvar) | _ -> None)
+        |> List.choose id
+        |> Map.ofList
 
 type Counter(seed) =
     let mutable varCounter = seed
@@ -104,8 +90,9 @@ module AnnotatedAst =
 
     type AnnotationResult =
         { newGenVar: Counter
-          resultExp : TExp
-          allExpressions: TExp list }
+          root : TExp
+          allExpressions: TExp list
+          allEnvVars: Map<TyVar, Ident * TExp> }
 
     let private remapGenVars (env: Env) : Counter * Env =
         let newGenVar = Counter(0)
@@ -133,13 +120,14 @@ module AnnotatedAst =
     let create (env: Env) (exp: UExp) =
         let newGenVar,env = remapGenVars env
         let newTyVar = Counter(0)
-        let allExp = ResizeArray<TExp>()
+        let mutable allExp = []
+        let mutable allEnvVars = Map.empty
         let rec annotate (env: Env) (exp: UExp) =
-            let res =
+            let texp =
                 { meta =
                     { tyvar = newTyVar.next()
                       env = env
-                      constr = Initial }
+                      initialConstr = Initial }
                   exp =
                     match exp.exp with
                     | Lit x ->
@@ -155,7 +143,7 @@ module AnnotatedAst =
                             { meta =
                                 { tyvar = tyvarIdent
                                   env = env
-                                  constr = Initial }
+                                  initialConstr = Initial }
                               exp = ident.exp }
                         Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
@@ -168,12 +156,20 @@ module AnnotatedAst =
                     | Record fields -> 
                         Record [ for ident,e in fields do ident, annotate env e ]
                 }
-            do allExp.Add(res)
-            res
+            do allExp <- texp :: allExp
+            do
+                let newStuff = 
+                    Env.getInterns env
+                    |> Map.toSeq
+                    |> Seq.filter (fun (ident,tyvar) -> not (allEnvVars |> Map.containsKey tyvar))
+                for ident,tyvar in newStuff do
+                    allEnvVars <- allEnvVars |> Map.add tyvar (ident, texp)
+            texp
         let res = annotate env exp
         { newGenVar = newGenVar
-          resultExp = res
-          allExpressions = allExp |> Seq.toList }
+          root = res
+          allExpressions = allExp |> Seq.toList
+          allEnvVars = allEnvVars }
 
 module Format =
     // TODO: this is crap!
@@ -196,9 +192,7 @@ module Format =
         | TRecord fields ->
             [ for n,t in fields do $"{n}: {tau t}" ] |> String.concat "; " |> sprintf "{ %s }"
 
-
 module rec ConstraintGraph =
-    open System.Collections.Generic
 
     type Subst = { genTyVar: GenTyVar; substitute: Tau }
 
@@ -232,6 +226,9 @@ module rec ConstraintGraph =
           unfinishedNodes: Node list
           allNodes: Node list
           substs: Subst list
+          varsAndConstraints: Map<TyVar, ConstraintState>
+          constrainedVars: Map<TyVar, Tau>
+          annotationResult: AnnotatedAst.AnnotationResult
           success: bool }
 
     module Subst =
@@ -277,7 +274,7 @@ module rec ConstraintGraph =
             let ( => ) x f = Some x |> f
             let ( ==> ) (x,y) f = (Some x,y) ||> f
             
-            let nthis = ast exp.meta.tyvar exp.meta.constr
+            let nthis = ast exp.meta.tyvar exp.meta.initialConstr
             match exp.exp with
             | Lit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
@@ -401,7 +398,7 @@ module rec ConstraintGraph =
                 { genTyVar = next.genTyVar; substitute = substitute })
             substMany substs taus
 
-    let solve (newGenVar: Counter) (nodes: Node list) =
+    let solve (annoRes: AnnotatedAst.AnnotationResult) (nodes: Node list) =
         let (|Tau|Err|Init|) (node: Node) =
             match node.constr with
             | Constrained tau -> Tau tau
@@ -425,7 +422,7 @@ module rec ConstraintGraph =
             // and normalize them with a forall source node. But this would
             // lead to a blown up graph with much more nodes and gen vars.
             | Ast { tyvar = _; inc1 = None; inc2 = None } ->
-                Constrained(TGenVar(newGenVar.next())), Subst.empty
+                Constrained(TGenVar(annoRes.newGenVar.next())), Subst.empty
             | Ast { tyvar = _; inc1 = Some(Tau tau); inc2 = None }
             | Ast { tyvar = _; inc1 = None; inc2 = Some(Tau tau) } ->
                 Constrained(tau), Subst.empty
@@ -509,14 +506,22 @@ module rec ConstraintGraph =
                 { constrainedNodes = constrained |> List.ofSeq
                   errorNodes = errors |> List.ofSeq
                   unfinishedNodes = unfinished |> List.ofSeq
-                  allNodes = [ yield! constrained; yield! unfinished; yield! errors ]
+                  allNodes = [
+                    yield! constrained
+                    yield! unfinished
+                    yield! errors ]
                   substs = allSubsts |> List.ofSeq
+                  varsAndConstraints = Map.empty
+                  constrainedVars = Map.empty
+                  annotationResult = annoRes
                   success = errors.Count = 0 && unfinished.Count = 0 }
             else
                 constrainNodes unfinished constrained errors allSubsts
+        
         let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray()) (ResizeArray())
         
-        do // final generic param substitution
+        // final generic param substitution
+        do
             let finalSubsts =
                 res.substs |> List.choose (
                     function
@@ -528,44 +533,23 @@ module rec ConstraintGraph =
                     let csubst = substMany finalSubsts [ c ]
                     n.constr <- Constrained (csubst |> List.exactlyOne)
                 | _ -> ()
-        res
 
-    let applyResult exp (nodes: Node list) =
-        let tyVarToConstraints = Dictionary<TyVar, Tau>()
-
-        let constrainExp (exp: Meta<_,Anno>) =
-            exp.meta.constr <- (findVarNode exp.meta.tyvar nodes).constr
-        let rec applyResult (exp: TExp) =
-            constrainExp exp
-            match exp.exp with
-            | Lit _
-            | Var _ -> ()
-            | App (e1, e2) ->
-                applyResult e1
-                applyResult e2
-            | Abs (ident, body) ->
-                constrainExp ident
-                applyResult body
-            | Let (ident, e, body) ->
-                applyResult e
-                applyResult body
-            | Prop (ident, e) ->
-                applyResult e
-            | Tuple es ->
-                for e in es do applyResult e
-            | Record fields ->
-                for _,e in fields do applyResult e
-        do applyResult exp
-        
-        // including env
-        let allConstraints =
-            [ for n in nodes do
-                match n.data, n.constr with
-                | Ast ast, Constrained tau -> Some (ast.tyvar, tau)
+        let varsAndCs =
+            [ for n in res.allNodes do
+                match n.data with
+                | Ast ast -> Some (ast.tyvar, n.constr)
                 | _ -> ()
+            ]
+            |> List.choose id
+        let constrainedVars =
+            [ for tyvar,constr in varsAndCs do
+                match constr with
+                | Constrained tau -> Some (tyvar,tau)
+                | _ -> None
             ]
             |> List.choose id
             |> Map.ofList
 
-        exp, allConstraints
-
+        { res with
+            varsAndConstraints = Map.ofList varsAndCs
+            constrainedVars = constrainedVars }

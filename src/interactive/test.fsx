@@ -4,7 +4,6 @@ open VisuBase
 open TestBase
 
 
-
 let env1 = env [ map; add; numbers ]
 
 (*
@@ -14,7 +13,7 @@ let env1 = env [ map; add; numbers ]
 *)
 
 (Let "x" (Num 10.0)
-(Map (Var "Numbers") (Abs "number"
+(MapX (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
 |> Test.isOfType "map numbers by add" env1 (seqOf numberTyp)
 |> showSolvedAst env1

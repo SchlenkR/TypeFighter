@@ -98,9 +98,9 @@ module Format =
                 $"%s{typeName}%s{recordArgs}"
         renderTypeDeclaration t
 
-let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) (exp: TExp) =
+let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let abstractions =
-        Exp.collectAll exp
+        solveRes.annotationResult.allExpressions
         |> List.map (fun exp ->
             match exp.exp with
             | Abs (ident, e) -> Some (exp, ident, e)
@@ -111,19 +111,17 @@ let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) 
 
     let getFields (env: Env) =
         env
-        |> Map.toList
-        |> List.choose (fun (ident,item) ->
-            match item with
-            | Intern tyvar -> Some (ident,tyvar)
-            | _ -> None)
-        |> List.map (fun (ident,tyvar) ->
-            let tau = tyvars |> Map.find tyvar
+        |> Env.getInterns
+        |> Map.toSeq
+        |> Seq.map (fun (ident,tyvar) ->
+            let tau = solveRes.constrainedVars |> Map.find tyvar
             ident,tau)
+        |> Seq.toList
 
     abstractions
     |> Map.toList
     |> List.map (fun (_,(name,exp,ident,e)) ->
-        let tau = Types.tau exp.meta.constr
+        let tau = Types.tau exp.meta.initialConstr
         let (TFun (t1,t2)) = tau
         let inType = Format.renderTypeDeclaration cachedRecords t1
         let retType = Format.renderTypeDeclaration cachedRecords t2
@@ -155,12 +153,10 @@ let renderDisplayClasses (cachedRecords: RecordCache) (tyvars: Map<TyVar, Tau>) 
         ]
         |> String.concat "\n")
 
-let renderRecords (cachedRecords: RecordCache) (exp: TExp) =
+let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let rec collectedRecords =
-        [ for e in Exp.collectAll exp do
-            match e.meta.constr with
-            | Constrained (TRecord trecord) -> yield trecord
-            | _ -> ()
+        [ for kvp in solveRes.constrainedVars do
+            match kvp.Value with | TRecord trecord -> trecord | _ -> ()
         ]
     let recordDefinitions = 
         collectedRecords 
@@ -183,7 +179,7 @@ let renderRecords (cachedRecords: RecordCache) (exp: TExp) =
     ]
     |> String.concat "\n"
 
-let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
+let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let newLocal =
         let varCounter = Counter(0)
         fun () -> $"_loc_{varCounter.next()}"
@@ -206,7 +202,7 @@ let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
         | App (e1, e2) ->
             let e1res = renderBody indentLevel e1
             let e2res = renderBody indentLevel e2
-            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.constr)
+            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.initialConstr)
             let renderApp a b = $"{a}({b})"
             let renderAppLocal local a b = $"{retType} {local} = {renderApp a b};"
             match e1res,e2res with
@@ -226,7 +222,7 @@ let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
                 Inline (renderApp e1code e2code)
         | Abs (ident, body) ->
             let local = newLocal()
-            let tau = Types.tau exp.meta.constr
+            let tau = Types.tau exp.meta.initialConstr
             let (TFun (t1,t2)) = tau
             let inType = Format.renderTypeDeclaration cachedRecords t1
             let retType = Format.renderTypeDeclaration cachedRecords t2
@@ -245,10 +241,10 @@ let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
             Reference local
         | Let (ident, e, body) ->
             let local = newLocal()
-            let identType = Format.renderTypeDeclaration cachedRecords (Types.tau e.meta.constr)
+            let identType = Format.renderTypeDeclaration cachedRecords (Types.tau e.meta.initialConstr)
             let eres = renderBody indentLevel e
             let bodyRes = renderBody indentLevel body
-            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.constr)
+            let retType = Format.renderTypeDeclaration cachedRecords (Types.tau exp.meta.initialConstr)
             let decl s = $"{identType} {ident} = %s{s};"
 
             match eres with
@@ -270,7 +266,7 @@ let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
         | Tuple es ->
             failwith "TODO: Tuple"
         | Record fields ->
-            let tau = Types.tau exp.meta.constr
+            let tau = Types.tau exp.meta.initialConstr
             // TODO: why can't we encode that the type must be TRecord?
             // TODO: also: this looks a bit delocated - we do many things more or less twice
             let (TRecord trecord) = tau
@@ -293,12 +289,12 @@ let rec renderBody (cachedRecords: RecordCache) (exp: TExp) =
                 | Inline code -> emit indentLevel (renderFieldAss code)
                 
             Reference local
-    renderBody 0 exp
+    renderBody 0 solveRes.annotationResult.root
 
-let rec render (exp: TExp) (tyvarToTau: Map<TyVar, Tau>) =
+let rec render (solveRes: ConstraintGraph.SolveResult) =
     let cachedRecords = RecordCache()
-    let renderedBody = renderBody cachedRecords exp
-    let renderedRecords = renderRecords cachedRecords exp
+    let renderedBody = renderBody cachedRecords solveRes
+    let renderedRecords = renderRecords cachedRecords solveRes
 
     // TODO (in renderBody verschieben)
     let bodyCode =

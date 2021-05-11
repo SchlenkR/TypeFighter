@@ -21,7 +21,7 @@ map Numbers (number ->
 *)
 
 (Let "x" (Num 10.0)
-(Map (Var "Numbers") (Abs "number"
+(MapX (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
 |> renderDisplayClasses env1
 //|> render env1
