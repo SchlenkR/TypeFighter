@@ -234,7 +234,7 @@ module rec ConstraintGraph =
         let findTau (exp: TExp) sr = sr.constrainedVars |> Map.find exp.meta.tyvar
 
     module Subst =
-        let empty : Subst list  = []
+        let empty : Subst list = []
 
     let getIncomingNodes (node: Node) =
         match node.data with
@@ -452,9 +452,18 @@ module rec ConstraintGraph =
                 Constrained t1, Subst.empty
             | Arg { argOp = Out; inc = Tau(TFun(_,t2)) } ->
                 Constrained t2, Subst.empty
-            | Arg { argOp = In; inc = Tau x }
-            | Arg { argOp = Out; inc = Tau x } ->
-                UnificationError(Origin $"Function type expected, but was: {Format.tau x}"), Subst.empty
+            | Arg { argOp = argOp; inc = Tau (TGenVar genvar) } ->
+                let t1 = TGenVar (annoRes.newGenVar.next())
+                let t2 = TGenVar (annoRes.newGenVar.next())
+                let tfun = TFun (t1, t2)
+                let c =
+                    match argOp with
+                    | In -> t1
+                    | Out -> t2
+                let subst = { genTyVar = genvar; substitute = tfun }
+                Constrained c, [subst]
+            | Arg { argOp = argOp; inc = Tau x } ->
+                UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau x}"), Subst.empty
             | UnifySubst { substSource = Tau substSource; substIn = Tau substIn; applyTo = Tau applyTo } ->
                 // TODO: it matters if we use "b a " or "a b", but we have to know that :(
                 match unify2Types substIn substSource with
