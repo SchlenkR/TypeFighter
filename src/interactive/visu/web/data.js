@@ -4,79 +4,25 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "App",
-    "desc": "var = 1\ntype = ERROR (inherited)\nsubsts = [ ]",
+    "desc": "var = 1\ntype = Number\nsubsts = [ ]\nenv = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "App",
-    "desc": "var = 2\ntype = (Seq<Number> -> Seq<Number>)\nsubsts = [ ]",
+    "name": "Fun (x)",
+    "desc": "var = 2\ntype = ('b -> 'b)\nsubsts = [ ]\nenv = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "Var (cons)",
-    "desc": "var = 3\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
+    "name": "Var (x)",
+    "desc": "var = 4\ntype = 'b\nsubsts = [ ]\nenv = [ 'x' : (tv=3) 'b ]",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "Lit (1)",
-    "desc": "var = 4\ntype = Number\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 4,
-    "name": "App",
-    "desc": "var = 5\ntype = ERROR: Cannot unify types \"Number\" and \"String\": Type mismatch\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 5,
-    "name": "App",
-    "desc": "var = 6\ntype = (Seq<Number> -> Seq<Number>)\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 6,
-    "name": "Var (cons)",
-    "desc": "var = 7\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 7,
-    "name": "Lit (2)",
-    "desc": "var = 8\ntype = Number\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 8,
-    "name": "App",
-    "desc": "var = 9\ntype = Seq<String>\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 9,
-    "name": "App",
-    "desc": "var = 10\ntype = (Seq<String> -> Seq<String>)\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 10,
-    "name": "Var (cons)",
-    "desc": "var = 11\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 11,
-    "name": "Lit (xxx)",
-    "desc": "var = 12\ntype = String\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 12,
-    "name": "Var (emptyList)",
-    "desc": "var = 13\ntype = Seq<'a>\nsubsts = [ ]",
+    "name": "Lit (42)",
+    "desc": "var = 5\ntype = Number\nsubsts = [ ]\nenv = [ ]",
     "fig": "Rectangle"
   }
 ];
@@ -87,47 +33,11 @@ window.linkDataArray = [
   },
   {
     "from": 0,
-    "to": 4
+    "to": 3
   },
   {
     "from": 1,
     "to": 2
-  },
-  {
-    "from": 1,
-    "to": 3
-  },
-  {
-    "from": 4,
-    "to": 5
-  },
-  {
-    "from": 4,
-    "to": 8
-  },
-  {
-    "from": 5,
-    "to": 6
-  },
-  {
-    "from": 5,
-    "to": 7
-  },
-  {
-    "from": 8,
-    "to": 9
-  },
-  {
-    "from": 8,
-    "to": 12
-  },
-  {
-    "from": 9,
-    "to": 10
-  },
-  {
-    "from": 9,
-    "to": 11
   }
 ];
     

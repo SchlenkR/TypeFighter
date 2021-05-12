@@ -45,10 +45,16 @@ NewList [ Num 1.0; Num 2.0; ]
 //|> showSolvedGraph env3
 |> Test.isOfType "Num list" env3 (seqOf numberTyp)
 
+
+(*
+    [ 1.0; 2.0; "xxx" ]
+*)
+let env3_1 = env [ cons; emptyList ]
+
 NewList [ Num 1.0; Num 2.0; Str "xxx" ]
-|> showSolvedAst env3
-|> showSolvedGraph env3
-|> Test.isError "Disjunct list element types" env3
+|> showSolvedAst env3_1
+|> showSolvedGraph env3_1
+|> Test.isError "Disjunct list element types" env3_1
 
 
 
@@ -63,38 +69,44 @@ MapP (Abs "x" (App (Var "tostring") (Var "x")))
 |> showSolvedAst env4
 |> Test.isOfType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
 
+
 (*
     x => tostring(x)
 *)
+let env4_1 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 
 (Abs "x" (App (Var "tostring") (Var "x")))
-|> Test.isOfType "Lambda with anon type" env4 (%1 ^-> stringTyp)
-//|> showSolvedAst env4
+|> Test.isOfType "Lambda with anon type" env4_1 (%1 ^-> stringTyp)
+//|> showSolvedAst env4_1
 
 
 
 
 
-// Polymorphic let
-let env5 = env []
 (*
     let id = fun x -> x
     (id "Hello World", id 42.0)
 *)
+let env5 = env []
 
 (Let "id" (Abs "x" (Var "x"))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
-|> showSolvedGraph env5
-|> showSolvedAst env5
+//|> showSolvedAst env5
 |> Test.isOfType "Polymorphic let" (env5) (stringTyp * numberTyp)
 
 
+(*
+    (fun id -> id "Hello World", id 42.0)(fun x -> x)
+*)
+let env5_1 = env []
+
 (App
-(Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
+(Abs "id" (App (Var "id") (Str "Hello World")))
 (Abs "x" (Var "x")))
-|> Test.isError "No polymorphic abs" env5
-//|> showSolvedAst env5
+|> showSolvedAstWEnv env5_1
+|> showSolvedGraph env5_1
+|> Test.isError "No polymorphic abs" env5_1
 
 
 
@@ -157,5 +169,17 @@ let env10 = env [ ]
 //fun f -> f 42.0
 
 
+
+
+(*
+    (fun x -> x) 42.0
+*)
+let env11 = env []
+
+(App
+(Abs "x" (Var "x")) (Num 42.0))
+|> showSolvedAstWEnv env5_1
+|> showSolvedGraph env5_1
+|> Test.isError "No polymorphic abs" env11
 
 
