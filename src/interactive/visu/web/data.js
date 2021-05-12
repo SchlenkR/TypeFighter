@@ -3,26 +3,38 @@ window.layout = "tree";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "Fun (f)",
-    "desc": "var = 1\ntype = ('a -> 'b)\nsubsts = [ 'a = (Number -> 'b) ]",
+    "name": "App",
+    "desc": "var = 1\ntype = (Seq<'a> -> Seq<'b>)\nsubsts = \n-  'a = 'c\n-  'b = String\n-  'e = (Seq<'a> -> Seq<'b>)\n-  'a = 'c\n-  'd = String",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "App",
-    "desc": "var = 3\ntype = 'b\nsubsts = [ 'a = (Number -> 'b) ]",
+    "name": "Var (mapp)",
+    "desc": "var = 2\ntype = (('a -> 'b) -> (Seq<'a> -> Seq<'b>))\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "Var (f)",
-    "desc": "var = 4\ntype = 'a\nsubsts = [ ]",
+    "name": "Fun (x)",
+    "desc": "var = 3\ntype = ('c -> String)\nsubsts = \n-  'a = 'c\n-  'd = String",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "Lit (42)",
-    "desc": "var = 5\ntype = Number\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 5\ntype = String\nsubsts = \n-  'a = 'c\n-  'd = String",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 4,
+    "name": "Var (tostring)",
+    "desc": "var = 6\ntype = ('a -> String)\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 5,
+    "name": "Var (x)",
+    "desc": "var = 7\ntype = 'c\nsubsts = [ ]",
     "fig": "Rectangle"
   }
 ];
@@ -32,12 +44,20 @@ window.linkDataArray = [
     "to": 1
   },
   {
-    "from": 1,
+    "from": 0,
     "to": 2
   },
   {
-    "from": 1,
+    "from": 2,
     "to": 3
+  },
+  {
+    "from": 3,
+    "to": 4
+  },
+  {
+    "from": 3,
+    "to": 5
   }
 ];
     

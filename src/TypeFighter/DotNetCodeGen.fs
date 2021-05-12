@@ -31,12 +31,7 @@ module Types =
 
     let getGenVars (t: Tau) : GenTyVar list =
         let rec getGenVars (t: Tau) : GenTyVar list =
-            match t with
-            | TGenVar v -> [v]
-            | TApp (_, vars) -> vars |> List.collect getGenVars
-            | TFun (t1, t2) -> [ yield! getGenVars t1; yield! getGenVars t2 ]
-            | TTuple taus -> taus |> List.collect getGenVars
-            | TRecord fields -> [ for _,t in fields do yield! getGenVars t ]
+            t |> Tau.map getGenVars (fun v -> [v])
         getGenVars t |> List.distinct
 
 module Format =

@@ -34,9 +34,9 @@ module Format =
             |> String.concat "\n"
             |> fun s -> $"\n{s}"
 
-    let substs (substs: Subst list) =
+    let substs (substs: Set<Subst>) =
         let fmt s = $"{Format.genVar s.genTyVar} = {Format.tau s.substitute}"
-        items substs fmt
+        items (substs |> Set.toList) fmt
 
     let envItem ident envItem =
         match envItem with
@@ -50,10 +50,10 @@ module Format =
 let writeAnnotatedAst 
         (showVar: bool) 
         (showEnv: bool) 
-        (showConstraint: bool) 
+        (showConstraint: bool)
         (showSubsts: bool) 
         (res: AnnotatedAst.AnnotationResult)
-        (constraints: Map<TyVar, ConstraintState * Subst list>)
+        (constraints: Map<TyVar, ConstraintState * Set<Subst>>)
         =
     let rec flatten (node: Tree.Node) =
         [

@@ -11,6 +11,7 @@ open TestBase
 *)
 
 let env1 = env [ map; add; numbers ]
+
 (Let "x" (Num 10.0)
 (MapX (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
@@ -20,47 +21,46 @@ let env1 = env [ map; add; numbers ]
 
 
 
-let env2 = env [ ]
 (*
     let x = { a = 5.0; b = "hello" }
     x.b
 *)
+let env2 = env [ ]
 
 (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
 (Prop "b" (Var "x")))
+|> showSolvedAst env2
 |> Test.isOfType "Get record property" env2 stringTyp
-//|> showSolvedAst env2
 
 
 
-
-let env3 = env [ cons; emptyList ]
 
 (*
     [ 1.0; 2.0; 3.0 ]   
 *)
+let env3 = env [ cons; emptyList ]
 
-NewList [ Num 1.0; ]
-//|> showSolvedAst env3
+NewList [ Num 1.0; Num 2.0; ]
+|> showSolvedAst env3
 //|> showSolvedGraph env3
 |> Test.isOfType "Num list" env3 (seqOf numberTyp)
 
 NewList [ Num 1.0; Num 2.0; Str "xxx" ]
-//|> showSolvedAst env3
+|> showSolvedAst env3
 |> Test.isError "Disjunct list element types" env3
 
 
 
 
 
-let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 (*
     [ 1.0 ] |> map (fun x -> tostring x)
 *)
+let env4 = env [ add; tostring; mapp; filterp; cons; emptyList ]
 
 MapP (Abs "x" (App (Var "tostring") (Var "x")))
+|> showSolvedAst env4
 |> Test.isOfType "Lambda applied to MapP" env4 (seqOf %1 ^-> seqOf stringTyp)
-//|> showSolvedAst env4 |> fun x -> x.substs
 
 (*
     x => tostring(x)

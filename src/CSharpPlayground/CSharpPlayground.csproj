@@ -8,6 +8,9 @@
     <Compile Remove="Class1.cs" />
     <Compile Remove="Class2.cs" />
     <Compile Remove="Class3.cs" />
+    <Compile Remove="Class4.cs" />
+    <Compile Remove="Class5.cs" />
+    <Compile Remove="Class6.cs" />
   </ItemGroup>
 
 </Project>
