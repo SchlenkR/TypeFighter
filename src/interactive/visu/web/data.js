@@ -3,74 +3,80 @@ window.layout = "tree";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "Let x",
-    "desc": "var = 1\ntype = Seq<'b>\nsubsts = \n-  'b = Number\n-  'c = Number",
+    "name": "App",
+    "desc": "var = 1\ntype = ERROR (inherited)\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "Lit (10)",
-    "desc": "var = 3\ntype = Number\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 2\ntype = (Seq<Number> -> Seq<Number>)\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "App",
-    "desc": "var = 4\ntype = Seq<'b>\nsubsts = \n-  'b = Number\n-  'c = Number",
+    "name": "Var (cons)",
+    "desc": "var = 3\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "App",
-    "desc": "var = 5\ntype = (('a -> 'b) -> Seq<'b>)\nsubsts = [ 'a = Number ]",
+    "name": "Lit (1)",
+    "desc": "var = 4\ntype = Number\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 4,
-    "name": "Var (map)",
-    "desc": "var = 6\ntype = (Seq<'a> -> (('a -> 'b) -> Seq<'b>))\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 5\ntype = ERROR: Cannot unify types \"Number\" and \"String\": Type mismatch\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 5,
-    "name": "Var (Numbers)",
-    "desc": "var = 7\ntype = Seq<Number>\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 6\ntype = (Seq<Number> -> Seq<Number>)\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 6,
-    "name": "Fun (number)",
-    "desc": "var = 8\ntype = ('c -> Number)\nsubsts = [ 'c = Number ]",
+    "name": "Var (cons)",
+    "desc": "var = 7\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 7,
-    "name": "App",
-    "desc": "var = 10\ntype = Number\nsubsts = [ 'c = Number ]",
+    "name": "Lit (2)",
+    "desc": "var = 8\ntype = Number\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 8,
     "name": "App",
-    "desc": "var = 11\ntype = (Number -> Number)\nsubsts = [ 'c = Number ]",
+    "desc": "var = 9\ntype = Seq<String>\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 9,
-    "name": "Var (add)",
-    "desc": "var = 12\ntype = (Number -> (Number -> Number))\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 10\ntype = (Seq<String> -> Seq<String>)\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 10,
-    "name": "Var (number)",
-    "desc": "var = 13\ntype = 'c\nsubsts = [ ]",
+    "name": "Var (cons)",
+    "desc": "var = 11\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 11,
-    "name": "Var (x)",
-    "desc": "var = 14\ntype = Number\nsubsts = [ ]",
+    "name": "Lit (xxx)",
+    "desc": "var = 12\ntype = String\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 12,
+    "name": "Var (emptyList)",
+    "desc": "var = 13\ntype = Seq<'a>\nsubsts = [ ]",
     "fig": "Rectangle"
   }
 ];
@@ -81,35 +87,31 @@ window.linkDataArray = [
   },
   {
     "from": 0,
-    "to": 2
-  },
-  {
-    "from": 2,
-    "to": 3
-  },
-  {
-    "from": 2,
-    "to": 6
-  },
-  {
-    "from": 3,
     "to": 4
   },
   {
-    "from": 3,
+    "from": 1,
+    "to": 2
+  },
+  {
+    "from": 1,
+    "to": 3
+  },
+  {
+    "from": 4,
     "to": 5
   },
   {
-    "from": 6,
-    "to": 7
-  },
-  {
-    "from": 7,
+    "from": 4,
     "to": 8
   },
   {
-    "from": 7,
-    "to": 11
+    "from": 5,
+    "to": 6
+  },
+  {
+    "from": 5,
+    "to": 7
   },
   {
     "from": 8,
@@ -117,7 +119,15 @@ window.linkDataArray = [
   },
   {
     "from": 8,
+    "to": 12
+  },
+  {
+    "from": 9,
     "to": 10
+  },
+  {
+    "from": 9,
+    "to": 11
   }
 ];
     

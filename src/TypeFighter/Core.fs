@@ -274,22 +274,22 @@ module ConstraintGraph =
             let usedVars = Tau.getGenVars tau
             substs |> Set.filter (fun s -> usedVars |> Set.contains s.genTyVar)
 
-        let subst (substs: Set<Subst>) taus =
-            let rec substRec (substs: Set<Subst>) taus =
+        let subst (substs: Set<Subst>) tau =
+            let rec substRec (substs: Set<Subst>) tau =
                 // TODO: quite similar with remapGenVars
                 let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
                     let rec substTau tau =
                         tau |> Tau.mapEndo substTau (fun var -> if var = tvar then b else tau)
                     substTau a
                 match substs |> Set.toList with
-                | [] -> taus
+                | [] -> tau
                 | x :: xs ->
-                    let taus = [ for tau in taus do substVarInAwithB x.genTyVar tau x.substitute ]
+                    let taus = substVarInAwithB x.genTyVar tau x.substitute
                     let substs = xs |> List.map (fun next ->
                         let substitute = substVarInAwithB x.genTyVar next.substitute x.substitute
                         { genTyVar = next.genTyVar; substitute = substitute })
                     substRec (set substs) taus
-            substRec substs taus
+            substRec substs tau
 
         let rec flatten (substs: Set<Subst>) =
             // TODO: Does this terminate?
@@ -323,10 +323,10 @@ module ConstraintGraph =
                             Ok (state + x))))
                 (Ok Set.empty)
         
-        and unify (a: Tau) (b: Tau) =
-            let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
-            
+        and unify (a: Tau) (b: Tau) =           
             let rec unify1 t1 t2 =
+                let error (msg: string) =
+                    Error $"""Cannot unify types "{Format.tau t1}" and "{Format.tau t2}": {msg}"""
                 match t1,t2 with
                 | x,y when x = y ->
                     Ok (x, empty)
@@ -510,12 +510,18 @@ module ConstraintGraph =
             | Arg { argOp = argOp; inc = Cons (t,s) } ->
                 UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
             | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
-                // TODO: unify2Types is not distributiv!
+                // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
                 match Subst.unify t1 t2 with
                 | Error msg ->
                     UnificationError(Origin msg), Subst.empty
                 | Ok (tres,sres) ->
-                    Constrained tres, [ sres; s1; s2 ] |> List.reduce (+)
+                    let flattenedSubsts = [ sres; s1; s2 ] |> List.reduce (+) |> Subst.flatten
+                    match flattenedSubsts with
+                    | Error msg ->
+                        UnificationError(Origin msg), Subst.empty
+                    | Ok substs ->
+                        let tau = Subst.subst substs tres
+                        Constrained tau, Subst.empty
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them
                 failwith $"Invalid graph at node: {nodeData}", Subst.empty
@@ -543,25 +549,16 @@ module ConstraintGraph =
                             if isEnvVar then err else inh
                         | false, _ -> inh
                     | AllConstrained _ ->
-                        let c,substs = constrainNodeData node.data
-                        Some (c, substs)
+                        Some(constrainNodeData node.data)
 
+                node.constr <- constrainRes
                 match constrainRes with
-                | Some (Constrained cs, substs) ->
-                    goOn <- true
+                | Some x ->
                     unfinished.Remove(node) |> ignore
-                    constrained.Add(node)
-                    let finalConstr =
-                        let flattenedSubsts = Subst.flatten substs
-                        match flattenedSubsts with
-                        | Ok substs -> Constrained cs, substs
-                        | Error msg -> UnificationError(Origin msg), Subst.empty
-                    node.constr <- Some finalConstr
-                | Some (UnificationError _, _) ->
                     goOn <- true
-                    unfinished.Remove(node) |> ignore
-                    errors.Add(node)
-                    node.constr <- constrainRes
+                    match x with
+                    | Constrained _, _ -> constrained.Add(node)
+                    | UnificationError _, _ -> errors.Add(node)
                 | _ -> ()
 
             if not goOn then

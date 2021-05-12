@@ -80,11 +80,11 @@ module Dsl =
 
     let private seqOp name seq lam = Appn (Var name) [ seq; lam ]
 
-    let Pipe seq projection = seqOp (fst Builtins.map) seq projection
-    let MapX seq projection = seqOp (fst Builtins.map) seq projection
-    let MapP projection = App (Var(fst Builtins.mapp)) projection
-    let FilterX seq predicate = seqOp (fst Builtins.filter) seq predicate
-    let FilterP predicate = App (Var(fst Builtins.filterp)) predicate
+    let Pipe seq projection = seqOp (fst map) seq projection
+    let MapX seq projection = seqOp (fst map) seq projection
+    let MapP projection = App (Var(fst mapp)) projection
+    let FilterX seq predicate = seqOp (fst filter) seq predicate
+    let FilterP predicate = App (Var(fst filterp)) predicate
     let NewList es =
         let rec makeList es =
             match es with
