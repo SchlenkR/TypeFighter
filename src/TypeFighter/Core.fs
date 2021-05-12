@@ -434,14 +434,6 @@ module ConstraintGraph =
                 let ne1 = None |> generateGraph e1
                 let uniAndArgOut = unify ne1 nfunc |> argOut
                 (uniAndArgOut, inc) ==> nthis
-                
-                // ---------------------
-                // Info:
-                // gegeben ist (\id. id 4, id "xxx")(\x.x)
-                // Da wir von (argIn ne1) nach ne2 gehen, wird also das Argument (rechts im Tree)
-                // von der Funktion bestimmt. Das könnte man prinzipiell auch anders machen; das
-                // geht aber mit dem aktuellen Vokabular nicht.
-                // ---------------------
             | Abs (ident, body) ->
                 let nident = ast ident.meta.tyvar None (newGenVarSource())
                 let nfunc = makeFunc nident (generateGraph body None)

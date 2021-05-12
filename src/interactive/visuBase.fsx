@@ -70,15 +70,12 @@ let writeAnnotatedAst
         ]
     let rec createNodes (exp: TExp) =
         let details =
-            let a = exprConstraintStates |> Map.keys |> List.map (fun x -> x.meta.tyvar)
-            let b = exp.meta.tyvar
+            let constr,substs = exprConstraintStates |> Map.find exp
             [
                 if showVar then yield $"var = {exp.meta.tyvar}"
                 if showConstraint then
-                    let constr,_ = exprConstraintStates |> Map.find exp
                     yield $"type = {Format.constraintState (Some constr)}"
                 if showSubsts then
-                    let _,substs = exprConstraintStates |> Map.find exp
                     yield $"substs = {Format.substs substs}"
                 if showEnv then yield $"env = {Format.env exp.meta envConstraintStates}"
             ]
@@ -110,7 +107,10 @@ let writeAnnotatedAst
             Tree.var $"Record" details [ for _,e in fields do createNodes e ]
     createNodes res.root |> flatten |> Tree.write
 
-let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node seq) =
+let writeConstraintGraph 
+        (allAnnoExp: TExp list) 
+        (nodes: ConstraintGraph.Node seq)
+        =
     let indexedNodes = nodes |> Seq.indexed |> Seq.toList
     let jsLinks =
         [ 
@@ -121,24 +121,34 @@ let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node se
                       Visu.JsLink.toNode = nodesLookup.[n] }
         ]
     let jsNodes =
-        [ for i,x in indexedNodes do
-            let name, layout =
-                match x.data with
+        [ for i,n in indexedNodes do
+            let name,layout =
+                match n.data with
                 | ConstraintGraph.Source _ -> "SOURCE", NodeTypes.op
                 | ConstraintGraph.Ast x ->
                     let expName =
                         match allAnnoExp |> List.tryFind (fun a -> a.meta.tyvar = x.tyvar) with
                         | None -> "Env"
-                        | Some x -> Format.getUnionCaseName x.exp
-                    $"{x.tyvar} ({expName})", NodeTypes.var
+                        | Some exp -> Format.getUnionCaseName exp.exp
+                    let name = $"{x.tyvar} ({expName})"
+                    name,NodeTypes.var
                 | ConstraintGraph.MakeFun _ -> "MakeFun", NodeTypes.op
                 | ConstraintGraph.Arg x -> $"Arg {x.argOp}", NodeTypes.op
                 | ConstraintGraph.GetProp x -> $"GetProp ({x.field})", NodeTypes.op
                 | ConstraintGraph.MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
-                | _ -> Format.getUnionCaseName x.data, NodeTypes.op
+                | _ -> Format.getUnionCaseName n.data, NodeTypes.op
             { key = i
               name = name
-              desc = Format.constraintState (x.constr |> Option.map fst)
+              desc = 
+                [
+                    yield Format.constraintState (n.constr |> Option.map fst)
+                    yield 
+                        n.constr 
+                        |> Option.map snd 
+                        |> Option.map (fun substs -> $"substs = {Format.substs substs}")
+                        |> Option.defaultValue ""
+                ]
+                |> String.concat "\n"
               layout = layout }
         ]
     Graph.write jsNodes jsLinks
@@ -148,8 +158,8 @@ let private showAst env showVar showEnv showConstraint showSubsts exp exprCs env
     do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
     exp
 
-let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
-let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
+let showLightAst env exp = showAst env false false false false exp Map.empty
+let showAnnotatedAst env exp = showAst env true true false false exp Map.empty
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
     do annoRes |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions

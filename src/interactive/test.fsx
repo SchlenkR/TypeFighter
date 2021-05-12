@@ -85,6 +85,7 @@ let env5 = env []
 (Let "id" (Abs "x" (Var "x"))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
+|> showSolvedGraph env5
 |> showSolvedAst env5
 |> Test.isOfType "Polymorphic let" (env5) (stringTyp * numberTyp)
 

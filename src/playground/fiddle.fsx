@@ -28,10 +28,6 @@ ilgen.Emit(OpCodes.Newobj)
 ilgen.Emit(OpCodes.Throw)
 
 
-[ for numbers in [ [1;2]; [3;4;5] ] do
-    let newNumbers =
-        for number in numbers do
-            yield number + 1
-    newNumbers
-]
-
+let replace (a: 'a) (s: seq<'a>) = s
+let x = replace 3 [4]
+let y = replace "3" ["4"]
