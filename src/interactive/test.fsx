@@ -47,6 +47,7 @@ NewList [ Num 1.0; Num 2.0; ]
 
 NewList [ Num 1.0; Num 2.0; Str "xxx" ]
 |> showSolvedAst env3
+|> showSolvedGraph env3
 |> Test.isError "Disjunct list element types" env3
 
 

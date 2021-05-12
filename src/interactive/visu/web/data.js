@@ -4,7 +4,7 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "App",
-    "desc": "var = 1\ntype = Seq<'a>\nsubsts = \n-  'a = Number\n-  'a = String",
+    "desc": "var = 1\ntype = ERROR (inherited)\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
@@ -28,7 +28,7 @@ window.nodeDataArray = [
   {
     "key": 4,
     "name": "App",
-    "desc": "var = 5\ntype = Seq<'a>\nsubsts = \n-  'a = Number\n-  'a = String",
+    "desc": "var = 5\ntype = ERROR: Cannot unify types \"Number\" and \"String\": Type mismatch\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {

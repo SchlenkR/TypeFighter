@@ -70,12 +70,15 @@ let writeAnnotatedAst
         ]
     let rec createNodes (exp: TExp) =
         let details =
-            let constr,substs = exprConstraintStates |> Map.find exp
+            let a = exprConstraintStates |> Map.keys |> List.map (fun x -> x.meta.tyvar)
+            let b = exp.meta.tyvar
             [
                 if showVar then yield $"var = {exp.meta.tyvar}"
                 if showConstraint then
+                    let constr,_ = exprConstraintStates |> Map.find exp
                     yield $"type = {Format.constraintState (Some constr)}"
                 if showSubsts then
+                    let _,substs = exprConstraintStates |> Map.find exp
                     yield $"substs = {Format.substs substs}"
                 if showEnv then yield $"env = {Format.env exp.meta envConstraintStates}"
             ]
@@ -145,8 +148,8 @@ let private showAst env showVar showEnv showConstraint showSubsts exp exprCs env
     do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
     exp
 
-let showLightAst env exp = showAst env false false false false exp Map.empty
-let showAnnotatedAst env exp = showAst env true true false false exp Map.empty
+let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
+let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create env exp
     do annoRes |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
