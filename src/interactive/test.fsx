@@ -85,7 +85,7 @@ let env5 = env []
 (Let "id" (Abs "x" (Var "x"))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
-//|> showSolvedAst env5
+|> showSolvedAst env5
 |> Test.isOfType "Polymorphic let" (env5) (stringTyp * numberTyp)
 
 
@@ -130,16 +130,17 @@ let env8 = env [ ]
 (Let "id" (Abs "x" (Record [ "whatever", Var "x" ] ))
 (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
 )
-//|> showSolvedAst env8
+|> showSolvedAst env8
 |> Test.isOfType "Generic records / instanciation of generic records" (env8) (stringTyp * numberTyp)
 
 
 
-
 // TODO: unused abs field (Constraints sind nicht ganz korrekt bei Fun__)
+(*
+    (fun __ -> __) 0.0
+*)
 let env9 = env [ ]
 App (Abs "__" (Var "__")) (Num 0.0)
-|> showSolvedGraph env9
 |> showSolvedAst env9
 |> Test.isOfType "unused abs field" env9 (numberTyp)
 
@@ -150,7 +151,6 @@ App (Abs "__" (Var "__")) (Num 0.0)
 let env10 = env [ ]
 (Abs "f" (App (Var "f") (Num 42.0)))
 |> showSolvedAst env10
-|> showSolvedGraph env10
 //|> Test.isOfType "infer function type for lambda" env10 ((numberTyp ^-> %1) ^-> %1)
 
 //fun f -> f 42.0

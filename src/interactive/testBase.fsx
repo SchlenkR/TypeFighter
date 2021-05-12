@@ -93,13 +93,13 @@ module Dsl =
         makeList es
 
 module Test =
-    let private testPassed name = Ok ($"TEST PASSES: {name}")
+    let private testPassed name = $"TEST PASSES: {name}"
     let private error name expected actual = failwith $"Failed '{name}'\nExpected: {expected}\nActual:   {actual}"
     let private run env exp =
         let annoRes = AnnotatedAst.create env exp
         let res = annoRes |> ConstraintGraph.create |> ConstraintGraph.solve annoRes
         res.exprConstraintStates |> Map.find res.annotationResult.root
-    let isOfType name env typ exp =
+    let isOfType (name: string) env typ exp =
         let error actual = error name (Format.tau typ) actual
         match run env exp with
         | Constrained c,_ -> 
@@ -107,7 +107,7 @@ module Test =
             then testPassed name
             else error (Format.tau c)
         | UnificationError e,_ -> error $"ERROR ({e})"
-    let isError name env exp =
+    let isError (name: string) env exp =
         let error actual = error name "ERROR" actual
         match run env exp with
         | Constrained c,_ -> error (Format.tau c)
