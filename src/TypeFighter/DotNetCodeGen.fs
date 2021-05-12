@@ -26,14 +26,6 @@ let csFalse = "false"
 let indent x = String.replicate x "    "
 let indentLine x s = (indent x) + s
 
-module Types =
-    let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
-
-    let getGenVars (t: Tau) : GenTyVar list =
-        let rec getGenVars (t: Tau) : GenTyVar list =
-            t |> Tau.map getGenVars (fun v -> [v])
-        getGenVars t |> List.distinct
-
 module Format =
     let number (f: float) = f.ToString(CultureInfo.InvariantCulture) + "d"
     
@@ -55,9 +47,9 @@ module Format =
         | [] -> ""
         | args -> $"""<{args |> String.concat ", "}>"""
     let genArgListVars vars =
-         vars |> List.map genArg |> genArgList
+         vars |> Set.map genArg |> Set.toList |> genArgList
     let genArgListTaus taus =
-         taus |> List.collect Types.getGenVars |> List.distinct |> genArgListVars
+         taus |> Tau.getGenVarsMany |> genArgListVars
     let genArgListTau tau =
          genArgListTaus [tau]
     
@@ -148,27 +140,27 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 |> Env.getInterns
                 |> Map.toSeq
                 |> Seq.map (fun (ident,tyvar) ->
-                    let tau = solveRes.constrainedVars |> Map.find tyvar |> fst
+                    let tau = solveRes.envConstraintStates |> Map.find tyvar
                     ident,tau)
                 |> Seq.toList
             let classGenArgs = 
                 fields
                 |> List.map snd
-                |> List.collect Types.getGenVars
-                |> set
-            let invokeGenArgs = 
-                (Types.getGenVars tau |> set) - classGenArgs
+                |> List.map Tau.tau
+                |> Tau.getGenVarsMany
+            let invokeGenArgs = (Tau.getGenVars tau) - classGenArgs
                     
             let fieldsString =
                 fields
                 |> List.map (fun (ident,tau) ->
                     let typeDef =
-                        match tau with
+                        // TODO: am Anfang mal eine Liste machen, so dass ConstrState zu Tau wird
+                        match Tau.tau tau with
                         | TFun (t1,t2) -> $"DISPLAY_CLASS_<{Format.tau t1}|{Format.tau t2}>"
                         | tau -> tau |> Format.renderTypeDeclaration cachedRecords
                     $"public {typeDef} {ident};")
-            let classGenArgsString = classGenArgs |> Set.toList |> Format.genArgListVars
-            let invokeGenArgsString = invokeGenArgs |> Set.toList |> Format.genArgListVars
+            let classGenArgsString = classGenArgs |> Format.genArgListVars
+            let invokeGenArgsString = invokeGenArgs |> Format.genArgListVars
 
             do emitter.push()
             $"class {newClassName()}%s{classGenArgsString}" |> emitter.emit 0
@@ -199,8 +191,8 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
     
 let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =
     let rec collectedRecords =
-        [ for kvp in solveRes.constrainedVars do
-            match fst kvp.Value with | TRecord trecord -> trecord | _ -> ()
+        [ for exp in solveRes.exprConstraintStates |> Map.values do
+            match fst exp |> Tau.tau with | TRecord trecord -> trecord | _ -> ()
         ]
     let recordDefinitions = 
         collectedRecords 

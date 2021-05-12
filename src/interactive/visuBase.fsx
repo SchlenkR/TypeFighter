@@ -38,22 +38,29 @@ module Format =
         let fmt s = $"{Format.genVar s.genTyVar} = {Format.tau s.substitute}"
         items (substs |> Set.toList) fmt
 
-    let envItem ident envItem =
-        match envItem with
-        | Intern tv -> $"{tyvar ident (string tv)}"
-        | Extern t -> $"{tyvar ident (Format.tau t)}"
-
-    let env exp =
-        let fmt (ident,item) = envItem ident item
+    let env exp (envCs: Map<TyVar, ConstraintState>) =
+        let fmt (ident,item) =
+            match item with
+            | Extern t ->
+                $"{tyvar ident (Format.tau t)}"
+            | Intern tv ->
+                let tvstring = $"(tv={tv})"
+                let csstring =
+                    envCs
+                    |> Map.tryFind tv
+                    |> constraintState
+                let content = $"{tvstring} {csstring}"
+                $"{tyvar ident content}"
         items (exp.env |> Map.toList) fmt
     
 let writeAnnotatedAst 
         (showVar: bool) 
         (showEnv: bool) 
         (showConstraint: bool)
-        (showSubsts: bool) 
+        (showSubsts: bool)
         (res: AnnotatedAst.AnnotationResult)
-        (constraints: Map<TyVar, ConstraintState * Set<Subst>>)
+        (exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>)
+        (envConstraintStates: Map<TyVar, ConstraintState>)
         =
     let rec flatten (node: Tree.Node) =
         [
@@ -63,14 +70,14 @@ let writeAnnotatedAst
         ]
     let rec createNodes (exp: TExp) =
         let details =
-            let constr,substs = constraints |> Map.find exp.meta.tyvar
+            let constr,substs = exprConstraintStates |> Map.find exp
             [
                 if showVar then yield $"var = {exp.meta.tyvar}"
                 if showConstraint then
                     yield $"type = {Format.constraintState (Some constr)}"
                 if showSubsts then
                     yield $"substs = {Format.substs substs}"
-                if showEnv then yield $"env = {Format.env exp.meta}"
+                if showEnv then yield $"env = {Format.env exp.meta envConstraintStates}"
             ]
             |> String.concat "\n"
         match exp.exp with
@@ -133,9 +140,9 @@ let writeConstraintGraph (allAnnoExp: TExp list) (nodes: ConstraintGraph.Node se
         ]
     Graph.write jsNodes jsLinks
     
-let private showAst env showVar showEnv showConstraint showSubsts exp constraints =
+let private showAst env showVar showEnv showConstraint showSubsts exp exprCs envCs =
     let annoRes = AnnotatedAst.create env exp
-    do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes constraints
+    do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
     exp
 
 let showLightAst env exp = showAst env false false false false exp Map.empty
@@ -154,7 +161,11 @@ let showSolvedGraph env exp =
     res
 let showSolvedAst env exp =
     let res = solve env exp
-    do writeAnnotatedAst true false true true res.annotationResult res.varsAndConstraints
+    do writeAnnotatedAst true false true true res.annotationResult res.exprConstraintStates res.envConstraintStates
+    res
+let showSolvedAstWEnv env exp =
+    let res = solve env exp
+    do writeAnnotatedAst true true true true res.annotationResult res.exprConstraintStates res.envConstraintStates
     res
 
 

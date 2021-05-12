@@ -4,37 +4,79 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "App",
-    "desc": "var = 1\ntype = (Seq<'a> -> Seq<'b>)\nsubsts = \n-  'a = 'c\n-  'b = String\n-  'e = (Seq<'a> -> Seq<'b>)\n-  'a = 'c\n-  'd = String",
+    "desc": "var = 1\ntype = Seq<'a>\nsubsts = \n-  'a = Number\n-  'a = String",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "Var (mapp)",
-    "desc": "var = 2\ntype = (('a -> 'b) -> (Seq<'a> -> Seq<'b>))\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 2\ntype = (Seq<'a> -> Seq<'a>)\nsubsts = [ 'a = Number ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "Fun (x)",
-    "desc": "var = 3\ntype = ('c -> String)\nsubsts = \n-  'a = 'c\n-  'd = String",
+    "name": "Var (cons)",
+    "desc": "var = 3\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "App",
-    "desc": "var = 5\ntype = String\nsubsts = \n-  'a = 'c\n-  'd = String",
+    "name": "Lit (1)",
+    "desc": "var = 4\ntype = Number\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 4,
-    "name": "Var (tostring)",
-    "desc": "var = 6\ntype = ('a -> String)\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 5\ntype = Seq<'a>\nsubsts = \n-  'a = Number\n-  'a = String",
     "fig": "Rectangle"
   },
   {
     "key": 5,
-    "name": "Var (x)",
-    "desc": "var = 7\ntype = 'c\nsubsts = [ ]",
+    "name": "App",
+    "desc": "var = 6\ntype = (Seq<'a> -> Seq<'a>)\nsubsts = [ 'a = Number ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 6,
+    "name": "Var (cons)",
+    "desc": "var = 7\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 7,
+    "name": "Lit (2)",
+    "desc": "var = 8\ntype = Number\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 8,
+    "name": "App",
+    "desc": "var = 9\ntype = Seq<'a>\nsubsts = [ 'a = String ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 9,
+    "name": "App",
+    "desc": "var = 10\ntype = (Seq<'a> -> Seq<'a>)\nsubsts = [ 'a = String ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 10,
+    "name": "Var (cons)",
+    "desc": "var = 11\ntype = ('a -> (Seq<'a> -> Seq<'a>))\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 11,
+    "name": "Lit (xxx)",
+    "desc": "var = 12\ntype = String\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 12,
+    "name": "Var (emptyList)",
+    "desc": "var = 13\ntype = Seq<'a>\nsubsts = [ ]",
     "fig": "Rectangle"
   }
 ];
@@ -45,19 +87,47 @@ window.linkDataArray = [
   },
   {
     "from": 0,
-    "to": 2
-  },
-  {
-    "from": 2,
-    "to": 3
-  },
-  {
-    "from": 3,
     "to": 4
   },
   {
-    "from": 3,
+    "from": 1,
+    "to": 2
+  },
+  {
+    "from": 1,
+    "to": 3
+  },
+  {
+    "from": 4,
     "to": 5
+  },
+  {
+    "from": 4,
+    "to": 8
+  },
+  {
+    "from": 5,
+    "to": 6
+  },
+  {
+    "from": 5,
+    "to": 7
+  },
+  {
+    "from": 8,
+    "to": 9
+  },
+  {
+    "from": 8,
+    "to": 12
+  },
+  {
+    "from": 9,
+    "to": 10
+  },
+  {
+    "from": 9,
+    "to": 11
   }
 ];
     

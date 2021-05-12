@@ -15,7 +15,7 @@ let env1 = env [ map; add; numbers ]
 (Let "x" (Num 10.0)
 (MapX (Var "Numbers") (Abs "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
-|> showSolvedAst env1
+|> showSolvedAstWEnv env1
 |> Test.isOfType "map numbers by add" env1 (seqOf numberTyp)
 
 

@@ -98,11 +98,27 @@ module Tau =
         | TFun (t1, t2) -> TFun (proj t1, proj t2)
         | TTuple taus -> TTuple [ for t in taus do proj t ]
         | TRecord fields -> TRecord (set [ for f,t in fields do f, proj t ])
+    
+    let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
 
+    let getGenVars (t: Tau) =
+        let rec getGenVars (t: Tau) : GenTyVar list =
+            t |> map getGenVars (fun v -> [v])
+        getGenVars t |> set
 
-type Counter(exclSeed) =
-    let mutable varCounter = exclSeed
-    member this.next() = varCounter <- varCounter + 1; varCounter
+    let getGenVarsMany (taus: Tau list) =
+        taus |> List.map getGenVars |> List.fold (+) Set.empty
+
+[<AutoOpen>]
+module Helper =
+    type Counter(exclSeed) =
+        let mutable varCounter = exclSeed
+        member this.next() = varCounter <- varCounter + 1; varCounter
+    
+    module Map =
+        let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
+        let keys (m: Map<_,_>) = xtract (fun kvp -> kvp.Key) m
+        let values (m: Map<_,_>) = xtract (fun kvp -> kvp.Value) m
 
 module AnnotatedAst =
 
@@ -236,17 +252,27 @@ module rec ConstraintGraph =
           errorNodes: List<Node>
           unfinishedNodes: List<Node>
           allNodes: List<Node>
-          varsAndConstraints: Map<TyVar, ConstraintState * Set<Subst>>
-          constrainedVars: Map<TyVar, Tau * Set<Subst>>
+          allConstraintStates: Map<TyVar, ConstraintState * Set<Subst>>
+          exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>
+          envConstraintStates: Map<TyVar, ConstraintState>
           annotationResult: AnnotatedAst.AnnotationResult
           success: bool }
 
     module SolveResult =
-        let findTauAndSubsts (exp: TExp) sr = sr.constrainedVars |> Map.find exp.meta.tyvar
+        let findTauAndSubsts (exp: TExp) sr =
+            sr.exprConstraintStates
+            |> Map.find exp
+            |> fun (cs,substs) ->
+                let tau = Tau.tau cs
+                tau,substs
         let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
 
     module Subst =
         let empty : Set<Subst> = Set.empty
+
+        let eliminateUnused (tau: Tau) (substs: Set<Subst>) =
+            let usedVars = Tau.getGenVars tau
+            substs |> Set.filter (fun s -> usedVars |> Set.contains s.genTyVar)
 
         let subst (substs: Set<Subst>) taus =
             // TODO: quite similar with remapGenVars
@@ -368,6 +394,7 @@ module rec ConstraintGraph =
     
     let unify (a: Tau) (b: Tau) =
         let error (msg: string) = Error $"""Cannot unify types "{Format.tau a}" and "{Format.tau b}": {msg}"""
+        
         let rec unify1 t1 t2 =
             match t1,t2 with
             | x,y when x = y ->
@@ -396,7 +423,7 @@ module rec ConstraintGraph =
                     failwith $"inconsistent TFun unification: {t1} <> {t2}"
             | _ ->
                 error "Unspecified cases"
-        // TODO: muss das sein? "and" -> kann das nicht wieder nach innen?
+        
         and unifyMany taus1 taus2 =
             let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
             let rec allOk (taus: Tau list) (allSubsts: Set<Subst>) remainingTaus =
@@ -407,6 +434,7 @@ module rec ConstraintGraph =
                     | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts + substs) xs
                     | Error e -> Error e
             allOk [] Subst.empty unifiedTaus
+        
         // TODO: consistency check of unifiers? (!IMPORTANT)
         unify1 a b
     
@@ -439,9 +467,8 @@ module rec ConstraintGraph =
                 Constrained(TFun (t1, t2)), Subst.merge s1 s2
             | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
                 let res =
-                    recordFields 
-                    |> Set.toArray
-                    |> Array.tryFind (fun (n,_) -> n = field)
+                    recordFields
+                    |> Seq.tryFind (fun (n,_) -> n = field)
                     |> Option.map snd
                     |> Option.map Constrained
                     // TODO: this is not a unification error!
@@ -490,16 +517,17 @@ module rec ConstraintGraph =
                         let c,substs = constrainNodeData node.data
                         Some (c, substs)
 
-                node.constr <- constrainRes
                 match constrainRes with
                 | Some (Constrained _, _) ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
                     constrained.Add(node)
+                    node.constr <- constrainRes
                 | Some (UnificationError _, _) ->
                     goOn <- true
                     unfinished.Remove(node) |> ignore
                     errors.Add(node)
+                    node.constr <- constrainRes
                 | _ -> ()
 
             if not goOn then
@@ -510,8 +538,9 @@ module rec ConstraintGraph =
                     yield! constrained
                     yield! unfinished
                     yield! errors ]
-                  varsAndConstraints = Map.empty
-                  constrainedVars = Map.empty
+                  allConstraintStates = Map.empty
+                  exprConstraintStates = Map.empty
+                  envConstraintStates = Map.empty
                   annotationResult = annoRes
                   success = errors.Count = 0 && unfinished.Count = 0 }
             else
@@ -519,22 +548,48 @@ module rec ConstraintGraph =
         
         let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
 
-        let varsAndCs =
+        let allConstraintStates =
             [ for n in res.allNodes do
                 match n.data, n.constr with
                 | Ast ast, Some c -> Some (ast.tyvar,c)
                 | _ -> ()
             ]
             |> List.choose id
-        let constrainedVars =
-            [ for tyvar,constr in varsAndCs do
-                match constr with
-                | Constrained tau, substs -> Some (tyvar,(tau,substs))
-                | _ -> None
+        
+        let envConstraintStates =
+            [ for tyvar,(cs,_) in allConstraintStates do
+                // TODO: substs for env items are always empty - can we be sure of that?
+                res.annotationResult.allEnvVars
+                |> Map.tryFind tyvar
+                |> Option.map (fun _ -> tyvar,cs)
             ]
             |> List.choose id
             |> Map.ofList
 
+        let exprConstraintStates =
+            let usedGenVarsInEnv =
+                envConstraintStates
+                |> Map.values
+                |> List.choose (fun x -> match x with | Constrained tau -> Some tau | _ -> None)
+                |> Tau.getGenVarsMany
+            let resWithAllSubsts =
+                [ for tyvar,(cs,substs) in allConstraintStates do
+                    let texp = 
+                        res.annotationResult.allExpressions 
+                        |> List.tryFind (fun x -> x.meta.tyvar = tyvar)
+                    match cs,texp with
+                    | Constrained tau, Some texp ->
+                        let usedGenVars = Tau.getGenVars tau + usedGenVarsInEnv
+                        let filteredSubsts =
+                            substs |> Set.filter (fun s -> usedGenVars |> Set.contains s.genTyVar)
+                        Some (texp,(cs,filteredSubsts))
+                    | _ ->
+                        None
+                ]
+                |> List.choose id
+            resWithAllSubsts
+
         { res with
-            varsAndConstraints = Map.ofList varsAndCs
-            constrainedVars = constrainedVars }
+            allConstraintStates = Map.ofList allConstraintStates
+            exprConstraintStates = Map.ofList exprConstraintStates
+            envConstraintStates = envConstraintStates }

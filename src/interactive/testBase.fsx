@@ -98,7 +98,7 @@ module Test =
     let private run env exp =
         let annoRes = AnnotatedAst.create env exp
         let res = annoRes |> ConstraintGraph.create |> ConstraintGraph.solve annoRes
-        res.varsAndConstraints |> Map.find res.annotationResult.root.meta.tyvar
+        res.exprConstraintStates |> Map.find res.annotationResult.root
     let isOfType name env typ exp =
         let error actual = error name (Format.tau typ) actual
         match run env exp with
