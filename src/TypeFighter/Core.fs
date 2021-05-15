@@ -52,6 +52,29 @@ type UExp = Meta<Exp<unit>, unit>
 type TExp = Meta<Exp<Anno>, Anno>
 type IExp = Meta<Exp<Anno>, Anno>
 
+
+
+[<AutoOpen>]
+module Helper =
+    type Counter(exclSeed) =
+        let mutable varCounter = exclSeed
+        member this.next() = varCounter <- varCounter + 1; varCounter
+    
+    module Map =
+        let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
+        let keys (m: Map<_,_>) = xtract (fun kvp -> kvp.Key) m
+        let values (m: Map<_,_>) = xtract (fun kvp -> kvp.Value) m
+        let ofListUnique l =
+            let rec build l map =
+                match l with
+                | [] -> map
+                | (k,v) :: xs ->
+                    if map |> Map.containsKey k then
+                        failwith $"Key already in map: {k}"
+                    let map = map |> Map.add k v
+                    build xs map
+            build l Map.empty
+
 module TypeNames =
     let [<Literal>] string = "String"
     let [<Literal>] number = "Number"
@@ -80,7 +103,7 @@ module Env =
         |> Map.toList
         |> List.map (fun (ident,v) -> match v with | Intern tyvar -> Some (ident,tyvar) | _ -> None)
         |> List.choose id
-        |> Map.ofList
+        |> Map.ofListUnique
 
 module Tau =
     let map (proj: Tau -> 'a list) (projGenVar: GenTyVar -> 'a list) (tau: Tau) =
@@ -109,16 +132,6 @@ module Tau =
     let getGenVarsMany (taus: Tau list) =
         taus |> List.map getGenVars |> List.fold (+) Set.empty
 
-[<AutoOpen>]
-module Helper =
-    type Counter(exclSeed) =
-        let mutable varCounter = exclSeed
-        member this.next() = varCounter <- varCounter + 1; varCounter
-    
-    module Map =
-        let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
-        let keys (m: Map<_,_>) = xtract (fun kvp -> kvp.Key) m
-        let values (m: Map<_,_>) = xtract (fun kvp -> kvp.Value) m
 
 module AnnotatedAst =
 
@@ -267,12 +280,8 @@ module ConstraintGraph =
                 tau,substs
         let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
 
-    module Subst =
+    module Unification =
         let empty : Set<Subst> = Set.empty
-
-        let eliminateUnused (tau: Tau) (substs: Set<Subst>) =
-            let usedVars = Tau.getGenVars tau
-            substs |> Set.filter (fun s -> usedVars |> Set.contains s.genTyVar)
 
         let subst (substs: Set<Subst>) tau =
             let rec substRec (substs: Set<Subst>) tau =
@@ -292,6 +301,9 @@ module ConstraintGraph =
             substRec substs tau
 
         let rec flatten (substs: Set<Subst>) =
+
+            //Ok substs
+
             // TODO: Does this terminate?
 
             let varGroups = substs |> Set.toList |> List.groupBy (fun x -> x.genTyVar)
@@ -394,7 +406,7 @@ module ConstraintGraph =
             let node = Node(n, constr)
             do nodes.Add node
             node
-        let source tau = addNode (Source tau) (Some (Constrained tau, Subst.empty))
+        let source tau = addNode (Source tau) (Some (Constrained tau, Unification.empty))
         let newGenVarSource() = source (TGenVar (annoRes.newGenVar.next()))
         let ast tyvar constr inc = addNode (Ast { tyvar = tyvar; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
@@ -413,7 +425,7 @@ module ConstraintGraph =
                 | Some n2 -> unify n1 n2 |> f
             
             let nthis parent =
-                let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Subst.empty)
+                let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Unification.empty)
                 ast exp.meta.tyvar constr parent
             match exp.exp with
             | Lit x ->
@@ -469,6 +481,7 @@ module ConstraintGraph =
         nodes |> Seq.toList
     
     let solve (annoRes: AnnotatedAst.AnnotationResult) (nodes: Node list) =
+        // TODO: Hier ggf. was machen
         let (|Cons|Err|Init|) (node: Node) =
             match node.constr with
             | Some (Constrained tau, substs) -> Cons (tau,substs)
@@ -490,7 +503,7 @@ module ConstraintGraph =
         let constrainNodeData nodeData =
             match nodeData with
             | Source tau ->
-                Constrained tau, Subst.empty
+                Constrained tau, Unification.empty
             | Ast { tyvar = _; inc = Cons(t,s) } ->
                 Constrained t, s
             | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
@@ -517,20 +530,21 @@ module ConstraintGraph =
                 UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
             | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
                 // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
-                match Subst.unify t1 t2 with
+                match Unification.unify t1 t2 with
                 | Error msg ->
-                    UnificationError(Origin msg), Subst.empty
+                    UnificationError(Origin msg), Unification.empty
                 | Ok (tres,sres) ->
-                    let flattenedSubsts = [ sres; s1; s2 ] |> List.reduce (+) |> Subst.flatten
+                    let union = [ sres; s1; s2 ] |> List.reduce (+)
+                    let flattenedSubsts = union |> Unification.flatten
                     match flattenedSubsts with
                     | Error msg ->
-                        UnificationError(Origin msg), Subst.empty
+                        UnificationError(Origin msg), Unification.empty
                     | Ok substs ->
-                        let tau = Subst.subst substs tres
+                        let tau = Unification.subst substs tres
                         Constrained tau, substs
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them
-                failwith $"Invalid graph at node: {nodeData}", Subst.empty
+                failwith $"Invalid graph at node: {nodeData}", Unification.empty
 
         let rec constrainNodes
                 (unfinished: ResizeArray<Node>) 
@@ -541,10 +555,13 @@ module ConstraintGraph =
                 let constrainRes = 
                     let incomingNodes = getIncomingNodes node
                     match incomingNodes with
-                    | AnyInitial _ -> None
+                    | AnyInitial _ -> 
+                        None
+                    | AllConstrained _ ->
+                        Some(constrainNodeData node.data)
                     | AnyError err ->
-                        let inh = Some(UnificationError Inherit, Subst.empty)
-                        let err = Some(UnificationError err, Subst.empty)
+                        let inh = Some(UnificationError Inherit, Unification.empty)
+                        let err = Some(UnificationError err, Unification.empty)
                         let allIncomingsAreOperations = 
                             let isOp = function | Source _ | Ast _ -> false | _ -> true
                             incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
@@ -554,8 +571,6 @@ module ConstraintGraph =
                             let isEnvVar = annoRes.allEnvVars |> Map.containsKey x.tyvar
                             if isEnvVar then err else inh
                         | false, _ -> inh
-                    | AllConstrained _ ->
-                        Some(constrainNodeData node.data)
 
                 node.constr <- constrainRes
                 match constrainRes with
@@ -604,35 +619,22 @@ module ConstraintGraph =
                 |> Option.map (fun _ -> tyvar,cs)
             ]
             |> List.choose id
-            |> Map.ofList
+            |> Map.ofListUnique
 
         let exprConstraintStates =
-            let usedGenVarsInEnv =
-                envConstraintStates
-                |> Map.values
-                |> List.choose (fun x -> match x with | Constrained tau -> Some tau | _ -> None)
-                |> Tau.getGenVarsMany
             let resWithAllSubsts =
                 [ for tyvar,(cs,substs) in allConstraintStates do
                     let texp = 
                         res.annotationResult.allExpressions 
                         |> List.tryFind (fun x -> x.meta.tyvar = tyvar)
                     match texp with
-                    | Some texp ->
-                        let filteredSubsts =
-                            match cs with
-                            | Constrained tau ->
-                                let usedGenVars = Tau.getGenVars tau + usedGenVarsInEnv
-                                substs |> Set.filter (fun s -> usedGenVars |> Set.contains s.genTyVar)
-                            | _ -> substs
-                        Some (texp,(cs,filteredSubsts))
-                    | _ ->
-                        None
+                    | Some texp -> Some (texp,(cs, substs))
+                    | _ -> None
                 ]
                 |> List.choose id
             resWithAllSubsts
 
         { res with
-            allConstraintStates = Map.ofList allConstraintStates
-            exprConstraintStates = Map.ofList exprConstraintStates
+            allConstraintStates = Map.ofListUnique allConstraintStates
+            exprConstraintStates = Map.ofListUnique exprConstraintStates
             envConstraintStates = envConstraintStates }

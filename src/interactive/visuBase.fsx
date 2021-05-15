@@ -157,14 +157,14 @@ let writeConstraintGraph
 let private showAst env showVar showEnv showConstraint showSubsts exp exprCs envCs =
     let annoRes = AnnotatedAst.create (Map.ofList env) exp
     do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
-    exp
+    annoRes
 
 let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
 let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
 let showConstraintGraph env exp =
     let annoRes = AnnotatedAst.create (Map.ofList env) exp
     do annoRes |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
-    exp
+    annoRes
 let solve env exp =
     let annoRes = AnnotatedAst.create (Map.ofList env) exp
     let nodes = annoRes |> ConstraintGraph.create
@@ -172,15 +172,15 @@ let solve env exp =
 let showSolvedGraph env exp =
     let res = solve env exp
     do res.allNodes |> writeConstraintGraph res.annotationResult.allExpressions
-    exp
+    res
 let showSolvedAst env exp =
     let res = solve env exp
     do writeAnnotatedAst true false true true res.annotationResult res.exprConstraintStates res.envConstraintStates
-    exp
+    res
 let showSolvedAstWEnv env exp =
     let res = solve env exp
     do writeAnnotatedAst true true true true res.annotationResult res.exprConstraintStates res.envConstraintStates
-    exp
+    res
 
 
 
