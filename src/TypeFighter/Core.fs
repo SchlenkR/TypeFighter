@@ -362,9 +362,7 @@ module ConstraintGraph =
                     | [] -> Ok (taus, allSubsts)
                     | x :: xs ->
                         match x with
-                        | Ok (tau, substs) ->
-                            flatten (allSubsts + substs)
-                            |> Result.bind (fun mergedSubsts -> allOk (taus @ [tau]) mergedSubsts xs)
+                        | Ok (tau, substs) -> allOk (taus @ [tau]) (allSubsts + substs) xs
                         | Error e -> Error e
                 allOk [] empty unifiedTaus
             
@@ -428,6 +426,13 @@ module ConstraintGraph =
                     | Extern c -> source c
                 (nsource, inc) ==> nthis
             | App (e1, e2) ->
+                (*
+                e1 e2
+                    - t(e1): t1 -> t2
+                    - t(e2) = t1
+                    - t(app): t2
+
+                *)
                 let ne2 = None |> generateGraph e2
                 let nto = newGenVarSource()
                 let nfunc = makeFunc ne2 nto
@@ -436,7 +441,8 @@ module ConstraintGraph =
                 (uniAndArgOut, inc) ==> nthis
             | Abs (ident, body) ->
                 let nident = ast ident.meta.tyvar None (newGenVarSource())
-                let nfunc = makeFunc nident (generateGraph body None)
+                let nbody = generateGraph body None
+                let nfunc = makeFunc nident nbody
                 (nfunc, inc) ==> nthis
             | Let (ident, e, body) ->
                 do
@@ -521,7 +527,7 @@ module ConstraintGraph =
                         UnificationError(Origin msg), Subst.empty
                     | Ok substs ->
                         let tau = Subst.subst substs tres
-                        Constrained tau, Subst.empty
+                        Constrained tau, substs
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them
                 failwith $"Invalid graph at node: {nodeData}", Subst.empty

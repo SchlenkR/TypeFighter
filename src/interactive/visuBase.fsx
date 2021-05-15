@@ -1,7 +1,7 @@
 
 #load "testBase.fsx"
 open TypeFighter
-open TypeFighter.DotNetCodeGen
+//open TypeFighter.DotNetCodeGen
 
 #load "visu/visu.fsx"
 open Visu
@@ -171,38 +171,38 @@ let solve env exp =
 let showSolvedGraph env exp =
     let res = solve env exp
     do res.allNodes |> writeConstraintGraph res.annotationResult.allExpressions
-    res
+    exp
 let showSolvedAst env exp =
     let res = solve env exp
     do writeAnnotatedAst true false true true res.annotationResult res.exprConstraintStates res.envConstraintStates
-    res
+    exp
 let showSolvedAstWEnv env exp =
     let res = solve env exp
     do writeAnnotatedAst true true true true res.annotationResult res.exprConstraintStates res.envConstraintStates
-    res
-
-
-
-let renderDisplayClasses env exp =
-    //let exp = App (Abs "__" exp) (Num 0.0)
     exp
-    |> solve env 
-    |> fun res -> renderDisplayClasses (RecordCache()) res
-    |> fun res ->
-        printfn ""
-        printfn ""
-        printfn "%s" res
-        printfn ""
-        printfn ""
-let render env exp =
-    exp
-    |> solve env 
-    |> fun res -> render res
-    |> fun res ->
-        printfn "------------------"
-        printfn ""
-        printfn "%s" res.records
-        printfn ""
-        printfn "%s" res.body
-        printfn ""
-        printfn "------------------"
+
+
+
+//let renderDisplayClasses env exp =
+//    //let exp = App (Abs "__" exp) (Num 0.0)
+//    exp
+//    |> solve env 
+//    |> fun res -> renderDisplayClasses (RecordCache()) res
+//    |> fun res ->
+//        printfn ""
+//        printfn ""
+//        printfn "%s" res
+//        printfn ""
+//        printfn ""
+//let render env exp =
+//    exp
+//    |> solve env 
+//    |> fun res -> render res
+//    |> fun res ->
+//        printfn "------------------"
+//        printfn ""
+//        printfn "%s" res.records
+//        printfn ""
+//        printfn "%s" res.body
+//        printfn ""
+//        printfn "------------------"
