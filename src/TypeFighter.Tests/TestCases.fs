@@ -101,6 +101,19 @@ let tests = testList "Main Tests" [
         |> inferType [] (stringTyp * numberTyp)
     }
 
+    test "Pass id to lambda" {
+        (*
+            (fun id -> id "Hello World")(fun x -> x)
+        *)
+        (
+            (App
+                (Abs "id" (App (Var "id") (Str "Hello World")))
+                (Abs "x" (Var "x")))
+        )
+
+        |> inferType [] (stringTyp)
+    }
+
     test "No polymorphic abs" {
         (*
             (fun id -> id "Hello World", id 42.0)(fun x -> x)
@@ -108,7 +121,7 @@ let tests = testList "Main Tests" [
 
         (
             (App
-                (Abs "id" (App (Var "id") (Str "Hello World")))
+                (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]) )
                 (Abs "x" (Var "x")))
         )
 
@@ -173,6 +186,5 @@ let tests = testList "Main Tests" [
 
         |> inferType [] ((numberTyp ^-> %1) ^-> %1)
     }
-
 ]
 

@@ -501,50 +501,60 @@ module ConstraintGraph =
                 AllConstrained (taus,substs)
                 
         let constrainNodeData nodeData =
-            match nodeData with
-            | Source tau ->
-                Constrained tau, Unification.empty
-            | Ast { tyvar = _; inc = Cons(t,s) } ->
-                Constrained t, s
-            | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
-                Constrained(TFun (t1, t2)), s1 + s2
-            | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
-                let res =
-                    recordFields
-                    |> Seq.tryFind (fun (n,_) -> n = field)
-                    |> Option.map snd
-                    |> Option.map Constrained
-                    // TODO: this is not a unification error!
-                    |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
-                res, s
-            | MakeTuple { incs = AllConstrained (taus,substs) } ->
-                Constrained(TTuple taus), substs
-            | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
-                let fields = List.zip fields taus
-                Constrained(TRecord (set fields)), substs
-            | Arg { argOp = In; inc = Cons(TFun(t1,_), s) } ->
-                Constrained t1, s
-            | Arg { argOp = Out; inc = Cons(TFun(_,t2), s) } ->
-                Constrained t2, s
-            | Arg { argOp = argOp; inc = Cons (t,s) } ->
-                UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
-            | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
-                // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
-                match Unification.unify t1 t2 with
-                | Error msg ->
-                    UnificationError(Origin msg), Unification.empty
-                | Ok (tres,sres) ->
-                    let union = [ sres; s1; s2 ] |> List.reduce (+)
-                    let flattenedSubsts = union |> Unification.flatten
-                    match flattenedSubsts with
+            let cs,substs =
+                match nodeData with
+                | Source tau ->
+                    Constrained tau, Unification.empty
+                | Ast { tyvar = _; inc = Cons(t,s) } ->
+                    Constrained t, s
+                | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
+                    Constrained(TFun (t1, t2)), s1 + s2
+                | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
+                    let res =
+                        recordFields
+                        |> Seq.tryFind (fun (n,_) -> n = field)
+                        |> Option.map snd
+                        |> Option.map Constrained
+                        // TODO: this is not a unification error!
+                        |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
+                    res, s
+                | MakeTuple { incs = AllConstrained (taus,substs) } ->
+                    Constrained(TTuple taus), substs
+                | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
+                    let fields = List.zip fields taus
+                    Constrained(TRecord (set fields)), substs
+                | Arg { argOp = In; inc = Cons(TFun(t1,_), s) } ->
+                    Constrained t1, s
+                | Arg { argOp = Out; inc = Cons(TFun(_,t2), s) } ->
+                    Constrained t2, s
+                | Arg { argOp = argOp; inc = Cons (t,s) } ->
+                    UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
+                | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
+                    // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
+                    match Unification.unify t1 t2 with
                     | Error msg ->
                         UnificationError(Origin msg), Unification.empty
-                    | Ok substs ->
-                        let tau = Unification.subst substs tres
-                        Constrained tau, substs
-            | _ ->
-                // for now, let's better fail here so that we can detect valid error cases and match them
-                failwith $"Invalid graph at node: {nodeData}", Unification.empty
+                    | Ok (tres,sres) ->
+                        Constrained tres, (sres + s1 + s2)
+                | _ ->
+                    // for now, let's better fail here so that we can detect valid error cases and match them
+                    failwith $"Invalid graph at node: {nodeData}", Unification.empty
+            
+            match cs with
+            | Constrained tau ->
+                let flattenedSubsts = substs |> Unification.flatten
+                match flattenedSubsts with
+                | Error msg ->
+                    UnificationError(Origin msg), Unification.empty
+                | Ok substs ->
+                    let tau = Unification.subst substs tau
+                    Constrained tau, substs
+                    //let usedGenVars = tau |> Tau.getGenVars
+                    //let referencedSubsts =
+                    //    substs |> Set.filter (fun subst -> usedGenVars |> Set.contains subst.genTyVar)
+                    //Constrained tau, referencedSubsts
+            | _ as cs ->
+                cs,substs
 
         let rec constrainNodes
                 (unfinished: ResizeArray<Node>) 

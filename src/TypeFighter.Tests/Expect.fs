@@ -7,7 +7,7 @@ let private fail msg =
     raise (AssertException msg)
 
 let private error expected actual =
-    let msg = $"type mismatch.\nExpected:\n    {Format.tau expected}\nActual:\n    {Format.tau actual}"
+    let msg = $"type mismatch.     Expected :: {Format.tau expected}      Actual :: {Format.tau actual}"
     fail msg
 
 let private infer env exp =

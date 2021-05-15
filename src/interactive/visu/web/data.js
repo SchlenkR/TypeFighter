@@ -1,136 +1,70 @@
 
-window.layout = "graph";
+window.layout = "tree";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "SOURCE",
-    "desc": "'a\nsubsts = [ ]",
-    "fig": "Ellipse"
+    "name": "App",
+    "desc": "var = 1\ntype = ERROR (inherited)\nsubsts = [ ]",
+    "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "8 (Env)",
-    "desc": "'a\nsubsts = [ ]",
+    "name": "Fun (id)",
+    "desc": "var = 2\ntype = ERROR (inherited)\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "9 (Var)",
-    "desc": "'a\nsubsts = [ ]",
+    "name": "Tuple",
+    "desc": "var = 4\ntype = ERROR: Cannot unify types \"Number\" and \"String\": Type mismatch\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "MakeFun",
-    "desc": "('a -> 'a)\nsubsts = [ ]",
-    "fig": "Ellipse"
+    "name": "App",
+    "desc": "var = 5\ntype = 'd\nsubsts = [ 'c = (String -> 'd) ]",
+    "fig": "Rectangle"
   },
   {
     "key": 4,
-    "name": "7 (Abs)",
-    "desc": "('a -> 'a)\nsubsts = [ ]",
+    "name": "Var (id)",
+    "desc": "var = 6\ntype = 'c\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 5,
-    "name": "SOURCE",
-    "desc": "'b\nsubsts = [ ]",
-    "fig": "Ellipse"
+    "name": "Lit (Hello World)",
+    "desc": "var = 7\ntype = String\nsubsts = [ ]",
+    "fig": "Rectangle"
   },
   {
     "key": 6,
-    "name": "MakeFun",
-    "desc": "(('a -> 'a) -> 'b)\nsubsts = [ ]",
-    "fig": "Ellipse"
+    "name": "App",
+    "desc": "var = 8\ntype = 'e\nsubsts = [ 'c = (Number -> 'e) ]",
+    "fig": "Rectangle"
   },
   {
     "key": 7,
-    "name": "SOURCE",
-    "desc": "'c\nsubsts = [ ]",
-    "fig": "Ellipse"
+    "name": "Var (id)",
+    "desc": "var = 9\ntype = 'c\nsubsts = [ ]",
+    "fig": "Rectangle"
   },
   {
     "key": 8,
-    "name": "3 (Env)",
-    "desc": "'c\nsubsts = [ ]",
+    "name": "Lit (42)",
+    "desc": "var = 10\ntype = Number\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 9,
-    "name": "SOURCE",
-    "desc": "String\nsubsts = [ ]",
-    "fig": "Ellipse"
+    "name": "Fun (x)",
+    "desc": "var = 11\ntype = ('a -> 'a)\nsubsts = [ ]",
+    "fig": "Rectangle"
   },
   {
     "key": 10,
-    "name": "6 (Lit)",
-    "desc": "String\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 11,
-    "name": "SOURCE",
-    "desc": "'d\nsubsts = [ ]",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 12,
-    "name": "MakeFun",
-    "desc": "(String -> 'd)\nsubsts = [ ]",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 13,
-    "name": "5 (Var)",
-    "desc": "'c\nsubsts = [ ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 14,
-    "name": "Unify",
-    "desc": "(String -> 'd)\nsubsts = [ 'c = (String -> 'd) ]",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 15,
-    "name": "Arg Out",
-    "desc": "'d\nsubsts = [ 'c = (String -> 'd) ]",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 16,
-    "name": "4 (App)",
-    "desc": "'d\nsubsts = [ 'c = (String -> 'd) ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 17,
-    "name": "MakeFun",
-    "desc": "('c -> 'd)\nsubsts = [ 'c = (String -> 'd) ]",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 18,
-    "name": "2 (Abs)",
-    "desc": "('c -> 'd)\nsubsts = [ 'c = (String -> 'd) ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 19,
-    "name": "Unify",
-    "desc": "(('b -> 'b) -> 'b)\nsubsts = \n-  'a = 'd\n-  'a = String\n-  'c = (String -> 'd)\n-  'd = 'b",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 20,
-    "name": "Arg Out",
-    "desc": "'b\nsubsts = \n-  'a = 'd\n-  'a = String\n-  'c = (String -> 'd)\n-  'd = 'b",
-    "fig": "Ellipse"
-  },
-  {
-    "key": 21,
-    "name": "1 (App)",
-    "desc": "'b\nsubsts = \n-  'a = 'd\n-  'a = String\n-  'c = (String -> 'd)\n-  'd = 'b",
+    "name": "Var (x)",
+    "desc": "var = 13\ntype = 'a\nsubsts = [ ]",
     "fig": "Rectangle"
   }
 ];
@@ -140,92 +74,40 @@ window.linkDataArray = [
     "to": 1
   },
   {
-    "from": 1,
-    "to": 2
+    "from": 0,
+    "to": 9
   },
   {
     "from": 1,
-    "to": 3
+    "to": 2
   },
   {
     "from": 2,
     "to": 3
   },
   {
+    "from": 2,
+    "to": 6
+  },
+  {
     "from": 3,
     "to": 4
   },
   {
-    "from": 4,
-    "to": 6
+    "from": 3,
+    "to": 5
   },
   {
-    "from": 5,
-    "to": 6
+    "from": 6,
+    "to": 7
   },
   {
-    "from": 7,
+    "from": 6,
     "to": 8
   },
   {
     "from": 9,
     "to": 10
-  },
-  {
-    "from": 10,
-    "to": 12
-  },
-  {
-    "from": 11,
-    "to": 12
-  },
-  {
-    "from": 8,
-    "to": 13
-  },
-  {
-    "from": 13,
-    "to": 14
-  },
-  {
-    "from": 12,
-    "to": 14
-  },
-  {
-    "from": 14,
-    "to": 15
-  },
-  {
-    "from": 15,
-    "to": 16
-  },
-  {
-    "from": 8,
-    "to": 17
-  },
-  {
-    "from": 16,
-    "to": 17
-  },
-  {
-    "from": 17,
-    "to": 18
-  },
-  {
-    "from": 18,
-    "to": 19
-  },
-  {
-    "from": 6,
-    "to": 19
-  },
-  {
-    "from": 19,
-    "to": 20
-  },
-  {
-    "from": 20,
-    "to": 21
   }
 ];
     
