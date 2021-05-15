@@ -222,6 +222,10 @@ module AnnotatedAst =
           allEnvVars = allEnvVars }
 
 module Format =
+    let getUnionCaseName x =
+        match Reflection.FSharpValue.GetUnionFields(x, x.GetType()) with
+        | c, _ -> c.Name
+
     // TODO: this is crap!
     let genVar (x: GenTyVar) = $"'{char (x + 96)}"
 
@@ -249,12 +253,13 @@ module ConstraintGraph =
         | TExp of TExp
         | IExp of IExp
     and MakeFun = { inc1: Node; inc2: Node }
-    and ArgOp = In | Out
+    and ArgOp = In | Out // TODO: In braucht man nicht mehr
     and Arg = { argOp: ArgOp; inc: Node }
     and Unify = { inc1: Node; inc2: Node }
     and GetProp = { field: string; inc: Node }
     and MakeTuple = { incs: Node list }
     and MakeRecord = { fields: string list; incs: Node list }
+    and Inst = { scope: string; inc: Node }
 
     and NodeData =
         | Source of Tau
@@ -265,6 +270,7 @@ module ConstraintGraph =
         | MakeRecord of MakeRecord
         | Arg of Arg
         | Unify of Unify
+        | Inst of Inst
     
     // TODO: maybe get rid of this and make everything immutable
     and Node (data: NodeData, constr: (ConstraintState * Set<Subst>) option) =
@@ -401,6 +407,7 @@ module ConstraintGraph =
         | MakeRecord x -> x.incs
         | Arg x -> [ x.inc ]
         | Unify x -> [ x.inc1; x.inc2 ]
+        | Inst x -> [ x.inc ]
         
     // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
     let create (annoRes: AnnotatedAst.AnnotationResult) =
@@ -421,6 +428,7 @@ module ConstraintGraph =
         let argIn = arg In
         let argOut = arg Out
         let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None
+        let inst scope inc = addNode (Inst { scope = scope; inc = inc }) None
 
         let rec generateGraph (exp: TExp) (inc: Node option) =
             let ( ==> ) (n1, maybeN2) f =
@@ -431,59 +439,63 @@ module ConstraintGraph =
             let nthis parent =
                 let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Unification.empty)
                 ast (TExp exp) constr parent
-            match exp.exp with
-            | Lit x ->
-                let nsource = source (TApp(Lit.getTypeName x, []))
-                (nsource, inc) ==> nthis
-            | Var ident ->
-                let nsource =
-                    match Env.resolve ident exp.meta.env with
-                    | Intern tyvarIdent ->
-                        nodes |> Seq.find (fun n ->
-                            match n.data with
-                            | Ast { exp = TExp { meta = meta } }
-                            | Ast { exp = IExp { meta = meta } }
-                              when meta.tyvar = tyvarIdent ->
-                                true
-                            | _ ->
-                                false)
-                    | Extern c -> source c
-                (nsource, inc) ==> nthis
-            | App (e1, e2) ->
-                (*
-                e1 e2
-                    - t(e1): t1 -> t2
-                    - t(e2) = t1
-                    - t(app): t2
+            
+            let res =
+                match exp.exp with
+                | Lit x ->
+                    let nsource = source (TApp(Lit.getTypeName x, []))
+                    (nsource, inc) ==> nthis
+                | Var ident ->
+                    let nsource =
+                        match Env.resolve ident exp.meta.env with
+                        | Intern tyvarIdent ->
+                            nodes |> Seq.find (fun n ->
+                                match n.data with
+                                | Ast { exp = TExp { meta = meta } }
+                                | Ast { exp = IExp { meta = meta } }
+                                  when meta.tyvar = tyvarIdent ->
+                                    true
+                                | _ ->
+                                    false)
+                        | Extern c -> source c
+                    (nsource, inc) ==> nthis
+                | App (e1, e2) ->
+                    (*
+                    e1 e2
+                        - t(e1): t1 -> t2
+                        - t(e2) = t1
+                        - t(app): t2
 
-                *)
-                let ne2 = None |> generateGraph e2
-                let nto = newGenVarSource()
-                let nfunc = makeFunc ne2 nto
-                let ne1 = None |> generateGraph e1
-                let uniAndArgOut = unify ne1 nfunc |> argOut
-                (uniAndArgOut, inc) ==> nthis
-            | Abs (ident, body) ->
-                let nident = ast (IExp ident) None (newGenVarSource())
-                let nbody = generateGraph body None
-                let nfunc = makeFunc nident nbody
-                (nfunc, inc) ==> nthis
-            | Let (ident, e, body) ->
-                do
-                    (generateGraph e None, None) ==> ast (IExp ident) None
-                    |> ignore
-                (generateGraph body None, inc) ==> nthis
-            | Prop (ident, e) -> 
-                let nprop = (ident, generateGraph e None) ||> getProp
-                (nprop, inc) ==> nthis
-            | Tuple es ->
-                let ntuple = [ for e in es do generateGraph e None ] |> makeTuple
-                (ntuple, inc) ==> nthis
-            | Record fields ->
-                let fieldnames = fields |> List.map fst
-                let es = fields |> List.map snd |> List.map (fun e -> generateGraph e None)
-                let nrecord = (fieldnames, es) ||> makeRecord
-                (nrecord, inc) ==> nthis
+                    *)
+                    let ne2 = None |> generateGraph e2
+                    let nto = newGenVarSource()
+                    let nfunc = makeFunc ne2 nto
+                    let ne1 = None |> generateGraph e1
+                    let uniAndArgOut = unify ne1 nfunc |> argOut
+                    (uniAndArgOut, inc) ==> nthis
+                | Abs (ident, body) ->
+                    let nident = ast (IExp ident) None (newGenVarSource())
+                    let nbody = generateGraph body None
+                    let nfunc = makeFunc nident nbody
+                    (nfunc, inc) ==> nthis
+                | Let (ident, e, body) ->
+                    do
+                        (generateGraph e None, None) ==> ast (IExp ident) None
+                        |> ignore
+                    (generateGraph body None, inc) ==> nthis
+                | Prop (ident, e) -> 
+                    let nprop = (ident, generateGraph e None) ||> getProp
+                    (nprop, inc) ==> nthis
+                | Tuple es ->
+                    let ntuple = [ for e in es do generateGraph e None ] |> makeTuple
+                    (ntuple, inc) ==> nthis
+                | Record fields ->
+                    let fieldnames = fields |> List.map fst
+                    let es = fields |> List.map snd |> List.map (fun e -> generateGraph e None)
+                    let nrecord = (fieldnames, es) ||> makeRecord
+                    (nrecord, inc) ==> nthis
+            res |> inst (Format.getUnionCaseName exp.exp)
+
         do generateGraph (annoRes.root) None |> ignore
         nodes |> Seq.toList
     
@@ -508,60 +520,58 @@ module ConstraintGraph =
                 AllConstrained (taus,substs)
                 
         let constrainNodeData nodeData =
-            let cs,substs =
-                match nodeData with
-                | Source tau ->
-                    Constrained tau, Unification.empty
-                | Ast { inc = Cons(t,s) } ->
-                    Constrained t, s
-                | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
-                    Constrained(TFun (t1, t2)), s1 + s2
-                | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
-                    let res =
-                        recordFields
-                        |> Seq.tryFind (fun (n,_) -> n = field)
-                        |> Option.map snd
-                        |> Option.map Constrained
-                        // TODO: this is not a unification error!
-                        |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
-                    res, s
-                | MakeTuple { incs = AllConstrained (taus,substs) } ->
-                    Constrained(TTuple taus), substs
-                | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
-                    let fields = List.zip fields taus
-                    Constrained(TRecord (set fields)), substs
-                | Arg { argOp = In; inc = Cons(TFun(t1,_), s) } ->
-                    Constrained t1, s
-                | Arg { argOp = Out; inc = Cons(TFun(_,t2), s) } ->
-                    Constrained t2, s
-                | Arg { argOp = argOp; inc = Cons (t,s) } ->
-                    UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
-                | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
-                    // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
-                    match Unification.unify t1 t2 with
-                    | Error msg ->
-                        UnificationError(Origin msg), Unification.empty
-                    | Ok (tres,sres) ->
-                        Constrained tres, (sres + s1 + s2)
-                | _ ->
-                    // for now, let's better fail here so that we can detect valid error cases and match them
-                    failwith $"Invalid graph at node: {nodeData}", Unification.empty
-            
-            match cs with
-            | Constrained tau ->
-                let flattenedSubsts = substs |> Unification.flatten
+            match nodeData with
+            | Source tau ->
+                Constrained tau, Unification.empty
+            | Ast { exp = exp; inc = Cons(t,s) } ->
+                let flattenedSubsts = s |> Unification.flatten
                 match flattenedSubsts with
                 | Error msg ->
                     UnificationError(Origin msg), Unification.empty
                 | Ok substs ->
-                    let tau = Unification.subst substs tau
-                    Constrained tau, substs
-                    //let usedGenVars = tau |> Tau.getGenVars
-                    //let referencedSubsts =
-                    //    substs |> Set.filter (fun subst -> usedGenVars |> Set.contains subst.genTyVar)
-                    //Constrained tau, referencedSubsts
-            | _ as cs ->
-                cs,substs
+                    let t = Unification.subst substs t
+                    Constrained t, substs
+            | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
+                Constrained(TFun (t1, t2)), s1 + s2
+            | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
+                let res =
+                    recordFields
+                    |> Seq.tryFind (fun (n,_) -> n = field)
+                    |> Option.map snd
+                    |> Option.map Constrained
+                    // TODO: this is not a unification error!
+                    |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
+                res, s
+            | MakeTuple { incs = AllConstrained (taus,substs) } ->
+                Constrained(TTuple taus), substs
+            | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
+                let fields = List.zip fields taus
+                Constrained(TRecord (set fields)), substs
+            | Arg { argOp = In; inc = Cons(TFun(t1,_), s) } ->
+                Constrained t1, s
+            | Arg { argOp = Out; inc = Cons(TFun(_,t2), s) } ->
+                Constrained t2, s
+            | Arg { argOp = argOp; inc = Cons (t,s) } ->
+                UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
+            | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
+                // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
+                match Unification.unify t1 t2 with
+                | Error msg ->
+                    UnificationError(Origin msg), Unification.empty
+                | Ok (tres,sres) ->
+                    Constrained tres, (sres + s1 + s2)
+            | Inst { inc = Cons(t, s) } ->
+                let ftv =
+                    let tgenvars = Tau.getGenVars t
+                    let substsGenVars = s |> Set.map (fun x -> x.genTyVar)
+                    tgenvars - substsGenVars
+                let instances = ftv |> Set.map (fun x -> 
+                    { Subst.genTyVar = x; Subst.substitute = TGenVar (annoRes.newGenVar.next()) })
+                let replacedTau = Unification.subst instances t
+                Constrained replacedTau, s + instances
+            | _ ->
+                // for now, let's better fail here so that we can detect valid error cases and match them
+                failwith $"Invalid graph at node: {nodeData}", Unification.empty
 
         let rec constrainNodes
                 (unfinished: ResizeArray<Node>) 

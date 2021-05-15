@@ -184,7 +184,7 @@ let tests = testList "Main Tests" [
             (Abs "f" (App (Var "f") (Num 42.0)))
         )
 
-        |> inferType [] ((numberTyp ^-> %1) ^-> %1)
+        |> inferType [] ((numberTyp ^-> %2) ^-> %2)
     }
 ]
 

@@ -7,10 +7,6 @@ open TypeFighter
 open Visu
 
 module Format =
-    let getUnionCaseName x =
-        match Reflection.FSharpValue.GetUnionFields(x, x.GetType()) with
-        | c, _ -> c.Name
-
     let tyvar (ident: string) (x: string) =
         $"'{ident}' : {x}"
 
@@ -97,9 +93,9 @@ let writeAnnotatedAst
         | App (e1, e2) ->
             Tree.var "App" details [ createNodes e1; createNodes e2 ]
         | Abs (ident, body) ->
-            Tree.var $"Fun ({ident.exp})" details [ createNodes body ]
+            Tree.var $"Fun ({ident.exp}) ->" details [ createNodes body ]
         | Let (ident, e, body) ->
-            Tree.var $"Let {ident}" details [ createNodes e; createNodes body ]
+            Tree.var $"Let {ident.exp} = ..." details [ createNodes e; createNodes body ]
         | Prop (ident, e) ->
             Tree.var $"Prop {ident}" details [ createNodes e ]
         | Tuple es ->
@@ -140,6 +136,7 @@ let writeConstraintGraph
                 | ConstraintGraph.Arg x -> $"Arg {x.argOp}", NodeTypes.op
                 | ConstraintGraph.GetProp x -> $"GetProp ({x.field})", NodeTypes.op
                 | ConstraintGraph.MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
+                | ConstraintGraph.Inst x -> $"Inst ({x.scope})", NodeTypes.op
                 | _ -> Format.getUnionCaseName n.data, NodeTypes.op
             { key = i
               name = name
