@@ -70,13 +70,14 @@ let writeAnnotatedAst
         ]
     let rec createNodes (exp: TExp) =
         let details =
-            let constr,substs = exprConstraintStates |> Map.find exp
             [
+                let constrSubsts = lazy (exprConstraintStates |> Map.find exp)
+
                 if showVar then yield $"var = {exp.meta.tyvar}"
                 if showConstraint then
-                    yield $"type = {Format.constraintState (Some constr)}"
+                    yield $"type = {Format.constraintState (Some (fst constrSubsts.Value))}"
                 if showSubsts then
-                    yield $"substs = {Format.substs substs}"
+                    yield $"substs = {Format.substs (snd constrSubsts.Value)}"
                 if showEnv then yield $"env = {Format.env exp.meta envConstraintStates}"
             ]
             |> String.concat "\n"
@@ -154,18 +155,18 @@ let writeConstraintGraph
     Graph.write jsNodes jsLinks
     
 let private showAst env showVar showEnv showConstraint showSubsts exp exprCs envCs =
-    let annoRes = AnnotatedAst.create env exp
+    let annoRes = AnnotatedAst.create (Map.ofList env) exp
     do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
     exp
 
-let showLightAst env exp = showAst env false false false false exp Map.empty
-let showAnnotatedAst env exp = showAst env true true false false exp Map.empty
+let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
+let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
 let showConstraintGraph env exp =
-    let annoRes = AnnotatedAst.create env exp
+    let annoRes = AnnotatedAst.create (Map.ofList env) exp
     do annoRes |> ConstraintGraph.create |> writeConstraintGraph annoRes.allExpressions
     exp
 let solve env exp =
-    let annoRes = AnnotatedAst.create env exp
+    let annoRes = AnnotatedAst.create (Map.ofList env) exp
     let nodes = annoRes |> ConstraintGraph.create
     ConstraintGraph.solve annoRes nodes
 let showSolvedGraph env exp =

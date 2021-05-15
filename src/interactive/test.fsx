@@ -14,26 +14,12 @@ open TypeFighter.Tests.Expect
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-//// TODO: Generic records / instanciation of generic records
-//let env8 = env [ ]
-//(Let "id" (Abs "x" (Record [ "whatever", Var "x" ] ))
-//(Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ])
-//)
-////|> showSolvedAst env8
-//|> Test.inferType "Generic records / instanciation of generic records" (env8) (stringTyp * numberTyp)
-
-
+(*
+    fun f -> f 42.0
+*)
+       
+(
+    (Abs "f" (App (Var "f") (Num 42.0)))
+)
+|> showAnnotatedAst []
 

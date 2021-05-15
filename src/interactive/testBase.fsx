@@ -1,4 +1,5 @@
 
+#r "nuget: Newtonsoft.Json"
 #r "nuget: Expecto"
 
 #load "../TypeFighter/Core.fs"
