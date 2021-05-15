@@ -38,7 +38,7 @@ module Format =
         let fmt s = $"{Format.genVar s.genTyVar} = {Format.tau s.substitute}"
         items (substs |> Set.toList) fmt
 
-    let env exp (envCs: Map<TyVar, ConstraintState>) =
+    let env exp (envCs: Map<IExp, ConstraintState * Set<Subst>>) =
         let fmt (ident,item) =
             match item with
             | Extern t ->
@@ -47,7 +47,9 @@ module Format =
                 let tvstring = $"(tv={tv})"
                 let csstring =
                     envCs
-                    |> Map.tryFind tv
+                    |> Seq.tryFind (fun x -> x.Key.meta.tyvar = tv)
+                    |> Option.map (fun x -> x.Value)
+                    |> Option.map fst
                     |> constraintState
                 let content = $"{tvstring} {csstring}"
                 $"{tyvar ident content}"
@@ -60,7 +62,7 @@ let writeAnnotatedAst
         (showSubsts: bool)
         (res: AnnotatedAst.AnnotationResult)
         (exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>)
-        (envConstraintStates: Map<TyVar, ConstraintState>)
+        (envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>)
         =
     let rec flatten (node: Tree.Node) =
         [
@@ -126,12 +128,13 @@ let writeConstraintGraph
             let name,layout =
                 match n.data with
                 | ConstraintGraph.Source _ -> "SOURCE", NodeTypes.op
-                | ConstraintGraph.Ast x ->
-                    let expName =
-                        match allAnnoExp |> List.tryFind (fun a -> a.meta.tyvar = x.tyvar) with
-                        | None -> "Env"
-                        | Some exp -> Format.getUnionCaseName exp.exp
-                    let name = $"{x.tyvar} ({expName})"
+                | ConstraintGraph.Ast { exp = ConstraintGraph.TExp exp } ->
+                    let expName = Format.getUnionCaseName exp.exp
+                    let name = $"{exp.meta.tyvar} ({expName})"
+                    name,NodeTypes.var
+                | ConstraintGraph.Ast { exp = ConstraintGraph.IExp exp } ->
+                    let expName = $"Env ({exp.exp})"
+                    let name = $"{exp.meta.tyvar} ({expName})"
                     name,NodeTypes.var
                 | ConstraintGraph.MakeFun _ -> "MakeFun", NodeTypes.op
                 | ConstraintGraph.Arg x -> $"Arg {x.argOp}", NodeTypes.op

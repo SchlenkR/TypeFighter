@@ -276,9 +276,8 @@ module ConstraintGraph =
           errorNodes: List<Node>
           unfinishedNodes: List<Node>
           allNodes: List<Node>
-          allConstraintStates: Map<TyVar, ConstraintState * Set<Subst>>
           exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>
-          envConstraintStates: Map<TyVar, ConstraintState>
+          envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>
           annotationResult: AnnotatedAst.AnnotationResult
           success: bool }
 
@@ -612,7 +611,6 @@ module ConstraintGraph =
                     yield! constrained
                     yield! unfinished
                     yield! errors ]
-                  allConstraintStates = Map.empty
                   exprConstraintStates = Map.empty
                   envConstraintStates = Map.empty
                   annotationResult = annoRes
@@ -621,46 +619,31 @@ module ConstraintGraph =
                 constrainNodes unfinished constrained errors
         
         let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
-
-        // TODO: Den ganzen TyVar-Kram braucht man ggf. nicht mehr, da wir nun im AST mehr Infos haben
-        let allConstraintStates =
-            // why value? -> we have to model that after the solve phase, a node
-            // is definitely solved by something.
-            let nodes = res.allNodes |> List.map (fun n -> n.data, n.constr.Value)
-            [ for data,constr in nodes do
-                match data with
-                | Ast ast ->
-                    match ast.exp with
-                    | TExp exp -> Some (exp.meta.tyvar, constr)
-                    | IExp exp -> Some (exp.meta.tyvar, constr)
-                | _ -> ()
-            ]
-            |> List.choose id
         
-        let envConstraintStates =
-            [ for tyvar,(cs,_) in allConstraintStates do
-                // TODO: substs for env items are always empty - can we be sure of that?
-                res.annotationResult.allEnvVars
-                |> Map.tryFind tyvar
-                |> Option.map (fun _ -> tyvar,cs)
+        let allAsts =
+            [ for n in nodes do
+                match n.data with
+                | Ast ast -> Some (ast, n.constr)
+                | _ -> None
             ]
             |> List.choose id
+
+        let doIt f =
+            [ for ast,constr in allAsts do
+                let x = f ast.exp
+                match x with
+                | Some x -> Some (x, constr.Value)
+                | _ -> None
+            ]
+            |> List.choose id 
             |> Map.ofListUnique
 
+        let envConstraintStates =
+            doIt (function | IExp exp -> Some exp | _ -> None)
+
         let exprConstraintStates =
-            let resWithAllSubsts =
-                [ for tyvar,(cs,substs) in allConstraintStates do
-                    let texp = 
-                        res.annotationResult.allExpressions 
-                        |> List.tryFind (fun x -> x.meta.tyvar = tyvar)
-                    match texp with
-                    | Some texp -> Some (texp,(cs, substs))
-                    | _ -> None
-                ]
-                |> List.choose id
-            resWithAllSubsts
+            doIt (function | TExp exp -> Some exp | _ -> None)
 
         { res with
-            allConstraintStates = Map.ofListUnique allConstraintStates
-            exprConstraintStates = Map.ofListUnique exprConstraintStates
+            exprConstraintStates = exprConstraintStates
             envConstraintStates = envConstraintStates }
