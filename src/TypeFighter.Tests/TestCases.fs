@@ -72,7 +72,7 @@ let tests = testList "Main Tests" [
             App (Var(fst mapp)) (Abs "x" (App (Var "tostring") (Var "x")))
         )
 
-        |> inferType [ tostring; mapp ] (seqOf %3 ^-> seqOf stringTyp)
+        |> inferType [ tostring; mapp ] (seqOf %1 ^-> seqOf stringTyp)
     }
 
     test "Lambda string" {
@@ -84,7 +84,7 @@ let tests = testList "Main Tests" [
             (Abs "x" (App (Var "tostring") (Var "x")))
         )
 
-        |> inferType [ tostring ] (%2 ^-> stringTyp)
+        |> inferType [ tostring ] (%1 ^-> stringTyp)
     }
 
     test "Polymorphic let" {
@@ -184,7 +184,7 @@ let tests = testList "Main Tests" [
             (Abs "f" (App (Var "f") (Num 42.0)))
         )
 
-        |> inferType [] ((numberTyp ^-> %2) ^-> %2)
+        |> inferType [] ((numberTyp ^-> %1) ^-> %1)
     }
 ]
 
