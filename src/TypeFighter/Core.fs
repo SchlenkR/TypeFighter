@@ -458,7 +458,8 @@ module ConstraintGraph =
                                 | _ ->
                                     false)
                         | Extern c -> source c
-                    (nsource, inc) ==> nthis
+                    let nsourceInst = nsource |> inst (Format.getUnionCaseName exp.exp)
+                    (nsourceInst, inc) ==> nthis
                 | App (e1, e2) ->
                     (*
                     e1 e2
@@ -494,7 +495,7 @@ module ConstraintGraph =
                     let es = fields |> List.map snd |> List.map (fun e -> generateGraph e None)
                     let nrecord = (fieldnames, es) ||> makeRecord
                     (nrecord, inc) ==> nthis
-            res |> inst (Format.getUnionCaseName exp.exp)
+            res
 
         do generateGraph (annoRes.root) None |> ignore
         nodes |> Seq.toList
