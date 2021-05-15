@@ -36,7 +36,7 @@ type Exp<'meta> =
     | Var of Ident
     | App of MetaExp<'meta> * MetaExp<'meta>
     | Abs of MetaIdent<'meta> * MetaExp<'meta>
-    | Let of Ident * MetaExp<'meta> * MetaExp<'meta>
+    | Let of MetaIdent<'meta> * MetaExp<'meta> * MetaExp<'meta>
     | Prop of Ident * MetaExp<'meta>
     | Tuple of MetaExp<'meta> list
     | Record of (Ident * MetaExp<'meta>) list
@@ -49,8 +49,8 @@ type Anno =
       env: Env
       initialConstr: Tau option }
 type UExp = Meta<Exp<unit>, unit>
-type TExp = Meta<Exp<Anno>, Anno>
-type IExp = Meta<Exp<Anno>, Anno>
+type TExp = MetaExp<Anno>
+type IExp = MetaIdent<Anno>
 
 
 
@@ -189,8 +189,16 @@ module AnnotatedAst =
                               exp = ident.exp }
                         Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
-                        let newEnv = env |> Env.bind ident (newTyVar.next())
-                        Let (ident, annotate env e, annotate newEnv body)
+                        // TODO: ident: redundant mit Abs
+                        let tyvarIdent = newTyVar.next()
+                        let newEnv = env |> Env.bind ident.exp tyvarIdent
+                        let annotatedIdent =
+                            { meta =
+                                { tyvar = tyvarIdent
+                                  env = env
+                                  initialConstr = None }
+                              exp = ident.exp }
+                        Let (annotatedIdent, annotate env e, annotate newEnv body)
                     | Prop (ident, e) -> 
                         Prop (ident, annotate env e)
                     | Tuple es -> 
@@ -236,7 +244,10 @@ module Format =
 
 module ConstraintGraph =
 
-    type Ast = { tyvar: TyVar; inc: Node }
+    type Ast = { exp: AstExp; inc: Node }
+    and AstExp =
+        | TExp of TExp
+        | IExp of IExp
     and MakeFun = { inc1: Node; inc2: Node }
     and ArgOp = In | Out
     and Arg = { argOp: ArgOp; inc: Node }
@@ -392,12 +403,6 @@ module ConstraintGraph =
         | Arg x -> [ x.inc ]
         | Unify x -> [ x.inc1; x.inc2 ]
         
-    let findVarNode (tyvar: TyVar) (nodes: Node seq) =
-        nodes |> Seq.find (fun n ->
-            match n.data with
-            | Ast v when v.tyvar = tyvar -> true
-            | _ -> false)
-
     // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
     let create (annoRes: AnnotatedAst.AnnotationResult) =
         let nodes = ResizeArray()
@@ -408,7 +413,7 @@ module ConstraintGraph =
             node
         let source tau = addNode (Source tau) (Some (Constrained tau, Unification.empty))
         let newGenVarSource() = source (TGenVar (annoRes.newGenVar.next()))
-        let ast tyvar constr inc = addNode (Ast { tyvar = tyvar; inc = inc }) constr
+        let ast exp constr inc = addNode (Ast { exp = exp; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
         let makeTuple incs = addNode (MakeTuple { incs = incs }) None
@@ -426,7 +431,7 @@ module ConstraintGraph =
             
             let nthis parent =
                 let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Unification.empty)
-                ast exp.meta.tyvar constr parent
+                ast (TExp exp) constr parent
             match exp.exp with
             | Lit x ->
                 let nsource = source (TApp(Lit.getTypeName x, []))
@@ -434,7 +439,15 @@ module ConstraintGraph =
             | Var ident ->
                 let nsource =
                     match Env.resolve ident exp.meta.env with
-                    | Intern tyvarIdent -> findVarNode tyvarIdent nodes
+                    | Intern tyvarIdent ->
+                        nodes |> Seq.find (fun n ->
+                            match n.data with
+                            | Ast { exp = TExp { meta = meta } }
+                            | Ast { exp = IExp { meta = meta } }
+                              when meta.tyvar = tyvarIdent ->
+                                true
+                            | _ ->
+                                false)
                     | Extern c -> source c
                 (nsource, inc) ==> nthis
             | App (e1, e2) ->
@@ -452,18 +465,13 @@ module ConstraintGraph =
                 let uniAndArgOut = unify ne1 nfunc |> argOut
                 (uniAndArgOut, inc) ==> nthis
             | Abs (ident, body) ->
-                let nident = ast ident.meta.tyvar None (newGenVarSource())
+                let nident = ast (IExp ident) None (newGenVarSource())
                 let nbody = generateGraph body None
                 let nfunc = makeFunc nident nbody
                 (nfunc, inc) ==> nthis
             | Let (ident, e, body) ->
                 do
-                    // TODO: why do we have this exception? Can we express that let bound idents are always intern?
-                    match Env.resolve ident body.meta.env with
-                    | Intern tyvarIdent ->
-                        (generateGraph e None, None) ==> ast tyvarIdent None
-                    | Extern _ ->
-                        failwith "Invalid graph: let bound identifiers must be intern in env."
+                    (generateGraph e None, None) ==> ast (IExp ident) None
                     |> ignore
                 (generateGraph body None, inc) ==> nthis
             | Prop (ident, e) -> 
@@ -505,7 +513,7 @@ module ConstraintGraph =
                 match nodeData with
                 | Source tau ->
                     Constrained tau, Unification.empty
-                | Ast { tyvar = _; inc = Cons(t,s) } ->
+                | Ast { inc = Cons(t,s) } ->
                     Constrained t, s
                 | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
                     Constrained(TFun (t1, t2)), s1 + s2
@@ -577,9 +585,13 @@ module ConstraintGraph =
                             incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
                         match allIncomingsAreOperations,node.data with
                         | true, _ -> err
-                        | false, Ast x ->
-                            let isEnvVar = annoRes.allEnvVars |> Map.containsKey x.tyvar
-                            if isEnvVar then err else inh
+                        | false, Ast ast ->
+                            match ast.exp with
+                            | TExp _ -> inh
+                            | IExp _ -> err
+                            // TODO??
+                            //let isEnvVar = annoRes.allEnvVars |> Map.containsKey x.tyvar
+                            //if isEnvVar then err else inh
                         | false, _ -> inh
 
                 node.constr <- constrainRes
@@ -610,13 +622,17 @@ module ConstraintGraph =
         
         let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
 
+        // TODO: Den ganzen TyVar-Kram braucht man ggf. nicht mehr, da wir nun im AST mehr Infos haben
         let allConstraintStates =
             // why value? -> we have to model that after the solve phase, a node
             // is definitely solved by something.
             let nodes = res.allNodes |> List.map (fun n -> n.data, n.constr.Value)
             [ for data,constr in nodes do
                 match data with
-                | Ast ast -> Some (ast.tyvar, constr)
+                | Ast ast ->
+                    match ast.exp with
+                    | TExp exp -> Some (exp.meta.tyvar, constr)
+                    | IExp exp -> Some (exp.meta.tyvar, constr)
                 | _ -> ()
             ]
             |> List.choose id
