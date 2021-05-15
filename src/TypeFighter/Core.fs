@@ -165,6 +165,17 @@ module AnnotatedAst =
         let mutable allExp = []
         let mutable allEnvVars = Map.empty
         let rec annotate (env: Env) (exp: UExp) =
+            let newIdent ident env =
+                let tyvarIdent = newTyVar.next()
+                let newEnv = env |> Env.bind ident.exp tyvarIdent
+                (
+                    { meta =
+                        { tyvar = tyvarIdent
+                          env = env
+                          initialConstr = None }
+                      exp = ident.exp },
+                    newEnv
+                )
             let texp =
                 { meta =
                     { tyvar = newTyVar.next()
@@ -179,25 +190,10 @@ module AnnotatedAst =
                     | App (e1, e2) -> 
                         App (annotate env e1, annotate env e2)
                     | Abs (ident, body) ->
-                        let tyvarIdent = newTyVar.next()
-                        let newEnv = env |> Env.bind ident.exp tyvarIdent
-                        let annotatedIdent =
-                            { meta =
-                                { tyvar = tyvarIdent
-                                  env = env
-                                  initialConstr = None }
-                              exp = ident.exp }
+                        let annotatedIdent,newEnv = newIdent ident env
                         Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
-                        // TODO: ident: redundant mit Abs
-                        let tyvarIdent = newTyVar.next()
-                        let newEnv = env |> Env.bind ident.exp tyvarIdent
-                        let annotatedIdent =
-                            { meta =
-                                { tyvar = tyvarIdent
-                                  env = env
-                                  initialConstr = None }
-                              exp = ident.exp }
+                        let annotatedIdent,newEnv = newIdent ident env
                         Let (annotatedIdent, annotate env e, annotate newEnv body)
                     | Prop (ident, e) -> 
                         Prop (ident, annotate env e)
@@ -253,8 +249,7 @@ module ConstraintGraph =
         | TExp of TExp
         | IExp of IExp
     and MakeFun = { inc1: Node; inc2: Node }
-    and ArgOp = In | Out // TODO: In braucht man nicht mehr
-    and Arg = { argOp: ArgOp; inc: Node }
+    and ArgOut = { inc: Node }
     and Unify = { inc1: Node; inc2: Node }
     and GetProp = { field: string; inc: Node }
     and MakeTuple = { incs: Node list }
@@ -268,7 +263,7 @@ module ConstraintGraph =
         | GetProp of GetProp
         | MakeTuple of MakeTuple
         | MakeRecord of MakeRecord
-        | Arg of Arg
+        | ArgOut of ArgOut
         | Unify of Unify
         | Inst of Inst
     
@@ -405,7 +400,7 @@ module ConstraintGraph =
         | GetProp x -> [ x.inc ]
         | MakeTuple x -> x.incs
         | MakeRecord x -> x.incs
-        | Arg x -> [ x.inc ]
+        | ArgOut x -> [ x.inc ]
         | Unify x -> [ x.inc1; x.inc2 ]
         | Inst x -> [ x.inc ]
         
@@ -424,9 +419,7 @@ module ConstraintGraph =
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
         let makeTuple incs = addNode (MakeTuple { incs = incs }) None
         let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) None
-        let arg op inc = addNode (Arg { argOp = op; inc = inc }) None
-        let argIn = arg In
-        let argOut = arg Out
+        let argOut inc = addNode (ArgOut { inc = inc }) None
         let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None
         let inst scope inc = addNode (Inst { scope = scope; inc = inc }) None
 
@@ -547,12 +540,10 @@ module ConstraintGraph =
             | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
                 let fields = List.zip fields taus
                 Constrained(TRecord (set fields)), substs
-            | Arg { argOp = In; inc = Cons(TFun(t1,_), s) } ->
-                Constrained t1, s
-            | Arg { argOp = Out; inc = Cons(TFun(_,t2), s) } ->
+            | ArgOut { inc = Cons(TFun(_,t2), s) } ->
                 Constrained t2, s
-            | Arg { argOp = argOp; inc = Cons (t,s) } ->
-                UnificationError(Origin $"Function type expected ({argOp}), but was: {Format.tau t}"), s
+            | ArgOut { inc = Cons (t,s) } ->
+                UnificationError(Origin $"Function type expected, but was: {Format.tau t}"), s
             | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
                 // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
                 match Unification.unify t1 t2 with

@@ -23,8 +23,8 @@ open TypeFighter.Tests.Expect
     (Let "id" (Abs "x" (Var "x"))
     (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
 )
-|> showSolvedGraph []
 |> showSolvedAst []
+|> showSolvedGraph []
 
 
 

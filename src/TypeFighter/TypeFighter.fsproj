@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Core.fs" />
     <Compile Include="Runtime.fs" />
+    <Compile Include="DotNetCodeGen.fs" />
   </ItemGroup>
 
   <ItemGroup>

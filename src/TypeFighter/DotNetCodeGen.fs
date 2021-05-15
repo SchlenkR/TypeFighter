@@ -110,7 +110,7 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
     let newClassName = newName (sprintf "DisplayClass_%d")
     let newLocVarName = newName (sprintf "loc_%d")
     let emitter = Emitter()
-    let rec walk indentation exp =
+    let rec walk indentation (exp: TExp) =
         let walkNext = walk (indentation + 1)
         match exp.exp with
         | Lit x ->
