@@ -462,11 +462,10 @@ module ConstraintGraph =
                     (nsourceInst, inc) ==> nthis
                 | App (e1, e2) ->
                     (*
-                    e1 e2
-                        - t(e1): t1 -> t2
-                        - t(e2) = t1
-                        - t(app): t2
-
+                        e1 e2
+                            - t(e1): t1 -> t2
+                            - t(e2) = t1
+                            - t(app): t2
                     *)
                     let ne2 = None |> generateGraph e2
                     let nto = newGenVarSource()

@@ -15,9 +15,27 @@ let private infer env exp =
     let res = annoRes |> ConstraintGraph.create |> ConstraintGraph.solve annoRes
     res.exprConstraintStates |> Map.find res.annotationResult.root
 
-let inferType env typ exp =
+let inferType env expected exp =
     match infer (Map.ofList env) exp with
-    | Constrained c,_ -> if c <> typ then error typ c
+    | Constrained actual,_ ->
+        let error() = error expected actual
+        
+        let varsInActual = Tau.getGenVars actual
+        let varsInExpected = Tau.getGenVars expected
+
+        if varsInActual.Count <> varsInExpected.Count then 
+            error()
+
+        let expected =
+            let mappedVars = 
+                (varsInActual, varsInExpected)
+                ||> Seq.zip
+                |> Seq.map (fun (a,e) -> { genTyVar = e; substitute = TGenVar a})
+                |> Set.ofSeq
+            ConstraintGraph.Unification.subst mappedVars expected
+
+        if actual <> expected then
+            error()
     | UnificationError e,_ -> fail $"ERROR ({e})"
 
 let inferError env exp =
