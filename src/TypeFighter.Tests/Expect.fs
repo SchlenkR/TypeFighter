@@ -11,7 +11,7 @@ let private error expected actual =
     fail msg
 
 let private infer env exp =
-    let annoRes = AnnotatedAst.create env exp
+    let annoRes = Annotation.create env exp
     let res = annoRes |> ConstraintGraph.create |> ConstraintGraph.solve annoRes
     res.exprConstraintStates |> Map.find res.annotationResult.root
 
@@ -32,7 +32,7 @@ let inferType env expected exp =
                 ||> Seq.zip
                 |> Seq.map (fun (a,e) -> { genTyVar = e; substitute = TGenVar a})
                 |> Set.ofSeq
-            ConstraintGraph.Unification.subst mappedVars expected
+            ConstraintGraph.Subst.subst mappedVars expected
 
         if actual <> expected then
             error()

@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <StartupObject>CSharpPlayground.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>

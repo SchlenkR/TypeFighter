@@ -87,14 +87,23 @@ module Format =
 
 open ConstraintGraph
 
-module SolveResult =
-    let findTauAndSubsts (exp: TExp) sr =
+module Helper =
+    let findTauAndSubsts (exp: TExp) (sr: SolveResult) =
         sr.exprConstraintStates
         |> Map.find exp
         |> fun (cs,substs) ->
             let tau = Tau.tau cs
             tau,substs
-    let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
+    let findTau (exp: TExp) (sr: SolveResult) = 
+        findTauAndSubsts exp sr |> fst
+    let findParent (exp: AstExp) f (sr: SolveResult) =
+        let rec find exp =
+            let parentVar = sr.annotationResult.child2parent |> Map.find exp
+            let parent = sr.annotationResult.allExpressions |> Map.find parentVar
+            match f with
+            | true -> parent
+            | false -> find parent
+        find exp
 
 type Emitter() =
     let allSbs = ResizeArray<StringBuilder>()
@@ -121,8 +130,9 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
     //    fun () -> f (counter.next())
     //let newLocVarName = newName (sprintf "loc_%d")
     let emitter = Emitter()
-    let rec walk indentation (exp: TExp) =
-        let walkNext = walk (indentation + 1)
+    let rec walk indentation (scopeDescr: string) (exp: TExp) =
+        let walkNext (nextScopeDescr: string) =
+            walk (indentation + 1) $"{scopeDescr}.{nextScopeDescr}"
         match exp.exp with
         | Lit x ->
             let code =
@@ -135,57 +145,59 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
         | Var ident ->
             Inline ident
         | App (e1, e2) ->
-            let t1 = SolveResult.findTau e1 solveRes
-            let t2 = SolveResult.findTau e2 solveRes
-            walkNext e1 |> ignore
-            walkNext e2 |> ignore
+            let t1 = Helper.findTau e1 solveRes
+            let t2 = Helper.findTau e2 solveRes
+            walkNext "" e1 |> ignore
+            walkNext "" e2 |> ignore
             Inline ""
         | Abs (ident, body) ->
-            let tau = SolveResult.findTau exp solveRes
+            let tau = Helper.findTau exp solveRes
+            // TODO: am Anfang mal eine Liste machen, so dass ConstrState zu Tau wird
             let (TFun (t1,t2)) = tau
             let inType = Format.renderTypeDeclaration cachedRecords t1
             let retType = Format.renderTypeDeclaration cachedRecords t2
-            let fields =
+            let capturedFields =
                 exp.meta.env
                 |> Env.getInterns
                 |> Map.toSeq
-                |> Seq.map (fun (ident,(tyvar,parentTyvar)) ->
+                |> Seq.map (fun (ident,tyvar) ->
                     let tau = 
                         solveRes.envConstraintStates 
-                        |> Seq.filter (fun x -> x.Key.meta.tyvar = tyvar)
+                        |> Seq.filter (fun y -> y.Key.meta.tyvar = tyvar)
                         |> Seq.exactlyOne
                         |> fun x -> x.Value
                         |> fst
                         |> Tau.tau
-                    ident,tau,parentTyvar)
+                    ident,tau,tyvar)
                 |> Seq.toList
+            let fieldDeclarationStrings =
+                capturedFields
+                |> List.map (fun (ident,tau,tyvar) ->
+                    let typeDef = Format.renderTypeDeclaration cachedRecords tau
+                        //match tau with
+                        //| TFun (_,_) -> getClassName tyvar
+                        //| tau -> tau |> Format.renderTypeDeclaration cachedRecords
+                    $"public {typeDef} {ident};")
             let classGenArgs = 
-                fields
+                capturedFields
                 |> List.map (fun (_,tau,_) -> tau)
                 |> Tau.getGenVarsMany
-            let invokeGenArgs = (Tau.getGenVars tau) - classGenArgs
-            let fieldsString =
-                fields
-                |> List.map (fun (ident,tau,parentTyvar) ->
-                    let typeDef =
-                        match tau with
-                        | TFun (_,_) -> getClassName parentTyvar
-                        | tau -> tau |> Format.renderTypeDeclaration cachedRecords
-                    $"public {typeDef} {ident};")
             let classGenArgsString = classGenArgs |> Format.genArgListVars
+            let invokeGenArgs = (Tau.getGenVars tau) - classGenArgs
             let invokeGenArgsString = invokeGenArgs |> Format.genArgListVars
 
             do emitter.beginScope()
+            $"// {scopeDescr}  ({ident.exp})" |> emitter.emit 0
             $"class {getClassName exp.meta.tyvar}%s{classGenArgsString}" |> emitter.emit 0
             "{" |> emitter.emit 0
             
-            for x in fieldsString do
+            for x in fieldDeclarationStrings do
                 x |> emitter.emit 1
             emitter.newLine()
 
             $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp})" |> emitter.emit 1
             "{" |> emitter.emit 1
-            walkNext body |> ignore
+            walkNext ident.exp body |> ignore
             "}" |> emitter.emit 1
             
             "}" |> emitter.emit 0
@@ -193,19 +205,19 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
             
             Inline ""
         | Let (ident, e, body) ->
-            walkNext e |> ignore
-            walkNext body |> ignore
+            walkNext ident.exp e |> ignore
+            walkNext ident.exp body |> ignore
             Inline ""
         | Prop (ident, e) ->
-            walkNext e |> ignore
+            walkNext ident e |> ignore
             Inline ""
         | Tuple es ->
-            for e in es do walkNext e |> ignore
+            for i,e in es |> List.indexed do walkNext $"Item{i}" e |> ignore
             Inline ""
         | Record fields ->
-            for _,e in fields do walkNext e |> ignore
+            for name,e in fields do walkNext name e |> ignore
             Inline ""
-    do walk 0 solveRes.annotationResult.root |> ignore
+    do walk 0 "[ROOT]" solveRes.annotationResult.root |> ignore
     emitter.renderString()
     
 let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =

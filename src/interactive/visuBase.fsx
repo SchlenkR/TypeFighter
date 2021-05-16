@@ -40,8 +40,8 @@ module Format =
             match item with
             | Extern t ->
                 $"{tyvar ident (Format.tau t)}"
-            | Intern (tv,parentTv) ->
-                let tvstring = $"(var={tv};parent={parentTv})"
+            | Intern tv ->
+                let tvstring = $"(tyvar={tv})"
                 let csstring =
                     envCs
                     |> Seq.tryFind (fun x -> x.Key.meta.tyvar = tv)
@@ -62,7 +62,7 @@ module Show =
             (showEnv: bool) 
             (showConstraint: bool)
             (showSubsts: bool)
-            (res: AnnotatedAst.AnnotationResult)
+            (res: Annotation.AnnotationResult)
             (exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>)
             (envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>)
             =
@@ -127,11 +127,11 @@ module Show =
                 let name,layout =
                     match n.data with
                     | Source _ -> "SOURCE", NodeTypes.op
-                    | Ast { exp = TExp exp } ->
+                    | Ast { exp = AstExp exp } ->
                         let expName = Format.getUnionCaseName exp.exp
                         let name = $"{exp.meta.tyvar} ({expName})"
                         name,NodeTypes.var
-                    | Ast { exp = IExp exp } ->
+                    | Ast { exp = EnvExp exp } ->
                         let expName = $"Env ({exp.exp})"
                         let name = $"{exp.meta.tyvar} ({expName})"
                         name,NodeTypes.var
@@ -157,18 +157,18 @@ module Show =
         Graph.write jsNodes jsLinks
     
     let private showAst env showVar showEnv showConstraint showSubsts exp exprCs envCs =
-        let annoRes = AnnotatedAst.create (Map.ofList env) exp
+        let annoRes = Annotation.create (Map.ofList env) exp
         do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
         annoRes
 
     let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
     let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
     let showConstraintGraph env exp =
-        let annoRes = AnnotatedAst.create (Map.ofList env) exp
+        let annoRes = Annotation.create (Map.ofList env) exp
         do annoRes |> ConstraintGraph.create |> writeConstraintGraph
         annoRes
     let solve env exp =
-        let annoRes = AnnotatedAst.create (Map.ofList env) exp
+        let annoRes = Annotation.create (Map.ofList env) exp
         let nodes = annoRes |> ConstraintGraph.create
         ConstraintGraph.solve annoRes nodes
     let showSolvedGraph env exp =

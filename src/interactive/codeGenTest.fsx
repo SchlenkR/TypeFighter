@@ -71,8 +71,6 @@ open VisuBase
 )
 |> renderDisplayClasses [ ]
 
-|> showSolvedAstWEnv []
-
 
 
 (*
@@ -90,7 +88,9 @@ open VisuBase
 
 
 
-
+(*
+    fun f -> f 42.0
+*)
 (Abs "f" (App (Var "f") (Num 42.0)))
 |> renderDisplayClasses [ ]
 
