@@ -74,6 +74,22 @@ open VisuBase
 
 
 (*
+    let myValue = "yyyy"
+    let id = fun x -> x
+    let res = id 23.9
+    res
+*)
+(
+    (Let "myValue" (Str "yyyy")
+    (Let "id" (Abs "x" (Var "x"))
+    (Let "res" (App (Var "id") (Num 23.9))
+    (Var "res"))))
+)
+|> renderDisplayClasses []
+
+
+
+(*
     let add = fun a -> { field1 = a }
     let print = fun f -> f 42.0
     print add

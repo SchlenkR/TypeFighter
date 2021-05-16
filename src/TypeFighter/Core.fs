@@ -53,9 +53,8 @@ type TExp = MetaExp<Anno>
 type IExp = MetaIdent<Anno>
 
 type AstExp =
-    | AstExp of TExp
+    | SynExp of TExp
     | EnvExp of IExp
-
 
 [<AutoOpen>]
 module Helper =
@@ -154,6 +153,8 @@ module Annotation =
         { newGenVar: Counter
           root: TExp
           allExpressions: Map<TyVar, AstExp>
+          envExpressions: Map<TyVar, IExp>
+          synExpressions: Map<TyVar, TExp>
           child2parent: Map<AstExp, TyVar> }
 
     let private globalizeGenVars (env: Env) : Counter * Env =
@@ -178,6 +179,8 @@ module Annotation =
         let newGenVar,env = globalizeGenVars env
         let newTyVar = Counter(0)
         let mutable allExpressions = Map.empty<TyVar, AstExp>
+        let mutable envExpressions = Map.empty<TyVar, IExp>
+        let mutable synExpressions = Map.empty<TyVar, TExp>
         let mutable child2parent = Map.empty<AstExp, TyVar>
         let addExp tyvar exp parent =
             allExpressions <- allExpressions |> Map.add tyvar exp
@@ -193,7 +196,9 @@ module Annotation =
                           env = env
                           initialConstr = None }
                       exp = ident.exp }
-                do addExp tyvarIdent (EnvExp exp) parent
+                do 
+                    addExp tyvarIdent (EnvExp exp) parent
+                    envExpressions <- envExpressions |> Map.add tyvarIdent exp
                 exp, newEnv
             let texp =
                 { meta =
@@ -221,7 +226,9 @@ module Annotation =
                     | Record fields -> 
                         Record [ for ident,e in fields do ident, annotate env (Some thisTyvar) e ]
                 }
-            do addExp thisTyvar (AstExp texp) parent
+            do 
+                addExp thisTyvar (SynExp texp) parent
+                synExpressions <- synExpressions |> Map.add thisTyvar texp
             texp
         
         let res = annotate env None exp
@@ -229,6 +236,8 @@ module Annotation =
         { newGenVar = newGenVar
           root = res
           allExpressions = allExpressions
+          envExpressions = envExpressions
+          synExpressions = synExpressions
           child2parent = child2parent }
 
 module Format =
@@ -429,7 +438,7 @@ module ConstraintGraph =
             
             let nthis parent =
                 let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Subst.empty)
-                ast (AstExp exp) constr parent
+                ast (SynExp exp) constr parent
             
             let res =
                 match exp.exp with
@@ -442,7 +451,7 @@ module ConstraintGraph =
                         | Intern tyvar ->
                             nodes |> Seq.find (fun n ->
                                 match n.data with
-                                | Ast { exp = AstExp { meta = meta } }
+                                | Ast { exp = SynExp { meta = meta } }
                                 | Ast { exp = EnvExp { meta = meta } }
                                   when meta.tyvar = tyvar ->
                                     true
@@ -587,7 +596,7 @@ module ConstraintGraph =
                         | true, _ -> err
                         | false, Ast ast ->
                             match ast.exp with
-                            | AstExp _ -> inh
+                            | SynExp _ -> inh
                             | EnvExp _ -> err
                         | false, _ -> inh
 
@@ -640,7 +649,7 @@ module ConstraintGraph =
             doIt (function | EnvExp exp -> Some exp | _ -> None)
 
         let exprConstraintStates =
-            doIt (function | AstExp exp -> Some exp | _ -> None)
+            doIt (function | SynExp exp -> Some exp | _ -> None)
 
         { res with
             exprConstraintStates = exprConstraintStates

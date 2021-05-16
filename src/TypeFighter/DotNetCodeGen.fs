@@ -85,26 +85,6 @@ module Format =
                 $"%s{typeName}%s{recordArgs}"
         renderTypeDeclaration t
 
-open ConstraintGraph
-
-module Helper =
-    let findTauAndSubsts (exp: TExp) (sr: SolveResult) =
-        sr.exprConstraintStates
-        |> Map.find exp
-        |> fun (cs,substs) ->
-            let tau = Tau.tau cs
-            tau,substs
-    let findTau (exp: TExp) (sr: SolveResult) = 
-        findTauAndSubsts exp sr |> fst
-    let findParent (exp: AstExp) f (sr: SolveResult) =
-        let rec find exp =
-            let parentVar = sr.annotationResult.child2parent |> Map.find exp
-            let parent = sr.annotationResult.allExpressions |> Map.find parentVar
-            match f with
-            | true -> parent
-            | false -> find parent
-        find exp
-
 type Emitter() =
     let allSbs = ResizeArray<StringBuilder>()
     let stack = Stack<StringBuilder>()
@@ -122,6 +102,31 @@ type Emitter() =
         currentSb.AppendLine "" |> ignore
     member this.renderString() =
         [ for s in allSbs do s.ToString() ] |> String.concat "\n\n"
+
+open ConstraintGraph
+
+module Helper =
+    let findTauAndSubsts (exp: TExp) (sr: SolveResult) =
+        sr.exprConstraintStates
+        |> Map.find exp
+        |> fun (cs,substs) ->
+            let tau = Tau.tau cs
+            tau,substs
+    let findTau (exp: TExp) (sr: SolveResult) = 
+        findTauAndSubsts exp sr |> fst
+    let tryFindParent f (exp: AstExp) (sr: SolveResult) =
+        let rec tryFind exp =
+            sr.annotationResult.child2parent 
+            |> Map.tryFind exp
+            |> Option.bind (fun parentVar ->
+                sr.annotationResult.allExpressions |> Map.tryFind parentVar
+                |> Option.bind (fun parent ->
+                    match f parent with
+                    | Some _ as x -> x
+                    | _ -> tryFind parent
+                )
+            )
+        tryFind exp
 
 let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =   
     let getClassName tyvar = $"DisplayClass_%d{tyvar}"
@@ -161,22 +166,24 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 |> Env.getInterns
                 |> Map.toSeq
                 |> Seq.map (fun (ident,tyvar) ->
-                    let tau = 
-                        solveRes.envConstraintStates 
-                        |> Seq.filter (fun y -> y.Key.meta.tyvar = tyvar)
-                        |> Seq.exactlyOne
-                        |> fun x -> x.Value
-                        |> fst
-                        |> Tau.tau
-                    ident,tau,tyvar)
+                    let exp = solveRes.annotationResult.envExpressions |> Map.find tyvar
+                    let tau = solveRes.envConstraintStates |> Map.find exp |> fst |> Tau.tau
+                    ident,tau,exp)
                 |> Seq.toList
             let fieldDeclarationStrings =
                 capturedFields
-                |> List.map (fun (ident,tau,tyvar) ->
-                    let typeDef = Format.renderTypeDeclaration cachedRecords tau
-                        //match tau with
-                        //| TFun (_,_) -> getClassName tyvar
-                        //| tau -> tau |> Format.renderTypeDeclaration cachedRecords
+                |> List.map (fun (ident,tau,exp) ->
+                    let absParent =
+                        (EnvExp exp, solveRes) 
+                        ||> Helper.tryFindParent (
+                            function 
+                            | SynExp { exp = Abs (ident,e) } -> Some (ident, e)
+                            | SynExp { exp = Let (ident,e,body) } -> Some (ident, e)
+                            | _ -> None)
+                    let typeDef =
+                        match absParent with
+                        | None -> Format.renderTypeDeclaration cachedRecords tau
+                        | Some (ident, exp) -> getClassName exp.meta.tyvar
                     $"public {typeDef} {ident};")
             let classGenArgs = 
                 capturedFields

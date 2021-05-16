@@ -127,7 +127,7 @@ module Show =
                 let name,layout =
                     match n.data with
                     | Source _ -> "SOURCE", NodeTypes.op
-                    | Ast { exp = AstExp exp } ->
+                    | Ast { exp = SynExp exp } ->
                         let expName = Format.getUnionCaseName exp.exp
                         let name = $"{exp.meta.tyvar} ({expName})"
                         name,NodeTypes.var
