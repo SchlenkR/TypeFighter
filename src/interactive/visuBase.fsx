@@ -40,11 +40,11 @@ module Format =
             match item with
             | Extern t ->
                 $"{tyvar ident (Format.tau t)}"
-            | Intern tv ->
-                let tvstring = $"(tyvar={tv})"
+            | Intern exp ->
+                let tvstring = $"(tyvar={exp.meta.tyvar})"
                 let csstring =
                     envCs
-                    |> Seq.tryFind (fun x -> x.Key.meta.tyvar = tv)
+                    |> Seq.tryFind (fun x -> x.Key = exp)
                     |> Option.map (fun x -> x.Value)
                     |> Option.map fst
                     |> constraintState

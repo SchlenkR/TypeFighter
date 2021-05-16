@@ -106,27 +106,14 @@ type Emitter() =
 open ConstraintGraph
 
 module Helper =
-    let findTauAndSubsts (exp: TExp) (sr: SolveResult) =
+    let getTauAndSubsts (sr: SolveResult) (exp: TExp) =
         sr.exprConstraintStates
         |> Map.find exp
         |> fun (cs,substs) ->
             let tau = Tau.tau cs
             tau,substs
-    let findTau (exp: TExp) (sr: SolveResult) = 
-        findTauAndSubsts exp sr |> fst
-    let tryFindParent f (exp: AstExp) (sr: SolveResult) =
-        let rec tryFind exp =
-            sr.annotationResult.child2parent 
-            |> Map.tryFind exp
-            |> Option.bind (fun parentVar ->
-                sr.annotationResult.allExpressions |> Map.tryFind parentVar
-                |> Option.bind (fun parent ->
-                    match f parent with
-                    | Some _ as x -> x
-                    | _ -> tryFind parent
-                )
-            )
-        tryFind exp
+    let getTau (sr: SolveResult) (exp: TExp) = 
+        getTauAndSubsts sr exp |> fst
 
 let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =   
     let getClassName tyvar = $"DisplayClass_%d{tyvar}"
@@ -150,13 +137,13 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
         | Var ident ->
             Inline ident
         | App (e1, e2) ->
-            let t1 = Helper.findTau e1 solveRes
-            let t2 = Helper.findTau e2 solveRes
+            let t1 = Helper.getTau solveRes e1
+            let t2 = Helper.getTau solveRes e2
             walkNext "" e1 |> ignore
             walkNext "" e2 |> ignore
             Inline ""
         | Abs (ident, body) ->
-            let tau = Helper.findTau exp solveRes
+            let tau = Helper.getTau solveRes exp
             // TODO: am Anfang mal eine Liste machen, so dass ConstrState zu Tau wird
             let (TFun (t1,t2)) = tau
             let inType = Format.renderTypeDeclaration cachedRecords t1
@@ -165,25 +152,20 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 exp.meta.env
                 |> Env.getInterns
                 |> Map.toSeq
-                |> Seq.map (fun (ident,tyvar) ->
-                    let exp = solveRes.annotationResult.envExpressions |> Map.find tyvar
+                |> Seq.map (fun (ident,exp) ->
                     let tau = solveRes.envConstraintStates |> Map.find exp |> fst |> Tau.tau
                     ident,tau,exp)
                 |> Seq.toList
             let fieldDeclarationStrings =
                 capturedFields
                 |> List.map (fun (ident,tau,exp) ->
-                    let absParent =
-                        (EnvExp exp, solveRes) 
-                        ||> Helper.tryFindParent (
-                            function 
-                            | SynExp { exp = Abs (ident,e) } -> Some (ident, e)
-                            | SynExp { exp = Let (ident,e,body) } -> Some (ident, e)
-                            | _ -> None)
                     let typeDef =
-                        match absParent with
-                        | None -> Format.renderTypeDeclaration cachedRecords tau
-                        | Some (ident, exp) -> getClassName exp.meta.tyvar
+                        match tau with
+                        | TFun _ ->
+                            let boundBalue = solveRes.annotationResult.envBoundValues |> Map.find exp
+                            getClassName boundBalue.meta.tyvar
+                        | _ as tau ->
+                            Format.renderTypeDeclaration cachedRecords tau
                     $"public {typeDef} {ident};")
             let classGenArgs = 
                 capturedFields

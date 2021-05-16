@@ -61,7 +61,9 @@ open VisuBase
 
 (*
     let id = fun x -> x
-    let add = fun a -> fun b -> { a = a; b = b }
+    let add =
+        fun a ->
+            fun b -> { a = a; b = b }
     add "Hello" (id 42.0)
 *)
 (

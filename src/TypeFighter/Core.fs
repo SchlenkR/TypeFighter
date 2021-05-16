@@ -19,19 +19,12 @@ type Subst = { genTyVar: GenTyVar; substitute: Tau }
 
 // TODO: in type inference, respect the fact that annos can be initially constrained
 
-type TyVar = int
-type Ident = string
-type EnvItem =
-    | Extern of Tau
-    | Intern of TyVar
-type Env = Map<Ident, EnvItem>
-
 type Lit =
     | LString of string
     | LNumber of float
     | LBool of bool
     | LUnit
-type Exp<'meta> =
+and Exp<'meta> =
     | Lit of Lit
     | Var of Ident
     | App of MetaExp<'meta> * MetaExp<'meta>
@@ -40,17 +33,25 @@ type Exp<'meta> =
     | Prop of Ident * MetaExp<'meta>
     | Tuple of MetaExp<'meta> list
     | Record of (Ident * MetaExp<'meta>) list
+
 and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
 and MetaExp<'meta> = Meta<Exp<'meta>, 'meta>
 and MetaIdent<'meta> = Meta<Ident, 'meta>
 
-type Anno =
+and TyVar = int
+and Ident = string
+and EnvItem =
+    | Extern of Tau
+    | Intern of IExp
+and Env = Map<Ident, EnvItem>
+
+and Anno =
     { tyvar: TyVar
       env: Env
       initialConstr: Tau option }
-type UExp = Meta<Exp<unit>, unit>
-type TExp = MetaExp<Anno>
-type IExp = MetaIdent<Anno>
+and UExp = Meta<Exp<unit>, unit>
+and TExp = MetaExp<Anno>
+and IExp = MetaIdent<Anno>
 
 type AstExp =
     | SynExp of TExp
@@ -100,8 +101,8 @@ module Lit =
 [<RequireQualifiedAccess>]
 module Env =
     let empty : Env = Map.empty
-    let bind ident (tyvar: TyVar) (env: Env) : Env =
-        env |> Map.change ident (fun _ -> Some(Intern tyvar))
+    let bind (exp: IExp) (env: Env) : Env =
+        env |> Map.change exp.exp (fun _ -> Some(Intern exp))
     let resolve varName (env: Env) =
         match env |> Map.tryFind varName with
         | None -> failwith $"Variable '{varName}' is unbound. Env: {env}"
@@ -152,10 +153,10 @@ module Annotation =
     type AnnotationResult =
         { newGenVar: Counter
           root: TExp
-          allExpressions: Map<TyVar, AstExp>
-          envExpressions: Map<TyVar, IExp>
-          synExpressions: Map<TyVar, TExp>
-          child2parent: Map<AstExp, TyVar> }
+          allExpressions: List<AstExp>
+          envExpressions: List<IExp>
+          synExpressions: List<TExp>
+          envBoundValues: Map<IExp, TExp> }
 
     let private globalizeGenVars (env: Env) : Counter * Env =
         let newGenVar = Counter(0)
@@ -178,27 +179,26 @@ module Annotation =
     let create (env: Env) (exp: UExp) =
         let newGenVar,env = globalizeGenVars env
         let newTyVar = Counter(0)
-        let mutable allExpressions = Map.empty<TyVar, AstExp>
-        let mutable envExpressions = Map.empty<TyVar, IExp>
-        let mutable synExpressions = Map.empty<TyVar, TExp>
-        let mutable child2parent = Map.empty<AstExp, TyVar>
-        let addExp tyvar exp parent =
-            allExpressions <- allExpressions |> Map.add tyvar exp
-            parent |> Option.iter (fun parent -> child2parent <- child2parent |> Map.add exp parent)
-        let rec annotate (env: Env) (parent: TyVar option) (exp: UExp) =
+        let mutable allExpressions = List.empty<AstExp>
+        let mutable envExpressions = List.empty<IExp>
+        let mutable synExpressions = List.empty<TExp>
+        let addExp exp =
+            allExpressions <- exp :: allExpressions
+            match exp with
+            | SynExp exp -> synExpressions <- exp :: synExpressions
+            | EnvExp exp -> envExpressions <- exp :: envExpressions
+        let rec annotate (env: Env) (exp: UExp) =
             let thisTyvar = newTyVar.next()
             let newIdent ident env =
                 let tyvarIdent = newTyVar.next()
-                let newEnv = env |> Env.bind ident.exp tyvarIdent
                 let exp =
                     { meta =
                         { tyvar = tyvarIdent
                           env = env
                           initialConstr = None }
                       exp = ident.exp }
-                do 
-                    addExp tyvarIdent (EnvExp exp) parent
-                    envExpressions <- envExpressions |> Map.add tyvarIdent exp
+                do addExp (EnvExp exp)
+                let newEnv = env |> Env.bind exp
                 exp, newEnv
             let texp =
                 { meta =
@@ -212,33 +212,59 @@ module Annotation =
                     | Var ident -> 
                         Var ident
                     | App (e1, e2) -> 
-                        App (annotate env (Some thisTyvar) e1, annotate env (Some thisTyvar) e2)
+                        App (annotate env e1, annotate env e2)
                     | Abs (ident, body) ->
                         let annotatedIdent,newEnv = newIdent ident env
-                        Abs (annotatedIdent, annotate newEnv (Some thisTyvar) body)
+                        Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
                         let annotatedIdent,newEnv = newIdent ident env
-                        Let (annotatedIdent, annotate env (Some thisTyvar) e, annotate newEnv (Some thisTyvar) body)
+                        Let (annotatedIdent, annotate env e, annotate newEnv body)
                     | Prop (ident, e) -> 
-                        Prop (ident, annotate env (Some thisTyvar) e)
+                        Prop (ident, annotate env e)
                     | Tuple es -> 
-                        Tuple (es |> List.map (annotate env (Some thisTyvar)))
+                        Tuple (es |> List.map (annotate env))
                     | Record fields -> 
-                        Record [ for ident,e in fields do ident, annotate env (Some thisTyvar) e ]
+                        Record [ for ident,e in fields do ident, annotate env e ]
                 }
-            do 
-                addExp thisTyvar (SynExp texp) parent
-                synExpressions <- synExpressions |> Map.add thisTyvar texp
+            do addExp (SynExp texp)
             texp
         
-        let res = annotate env None exp
+        let res = annotate env exp
+
+        let envBoundValues =
+            let mutable boundValues = Map.empty<IExp, TExp>
+            let rec walk (exp: TExp) currentTarget : unit =
+                let add x e = e |> Option.iter (fun e -> boundValues <- boundValues |> Map.add x e)
+                // TODO: we need a "map" function for TExp
+                match exp.exp with
+                | Lit _
+                | Var _ -> 
+                    ()
+                | App (e1, e2) ->
+                    walk e2 None
+                    walk e1 (Some e2)
+                | Abs (ident, body) ->
+                    do add ident currentTarget
+                    walk body None
+                | Let (ident, e, body) ->
+                    do add ident (Some e)
+                    walk e None
+                    walk body None
+                | Prop (ident, e) -> 
+                    walk e None
+                | Tuple es -> 
+                    es |> List.iter (fun e -> walk e None)
+                | Record fields ->
+                    fields |> List.map snd |> List.iter (fun e -> walk e None)
+            do walk res None
+            boundValues
 
         { newGenVar = newGenVar
           root = res
           allExpressions = allExpressions
           envExpressions = envExpressions
           synExpressions = synExpressions
-          child2parent = child2parent }
+          envBoundValues = envBoundValues }
 
 module Format =
     let getUnionCaseName x =
@@ -448,12 +474,11 @@ module ConstraintGraph =
                 | Var ident ->
                     let nsource =
                         match Env.resolve ident exp.meta.env with
-                        | Intern tyvar ->
+                        | Intern exp ->
                             nodes |> Seq.find (fun n ->
                                 match n.data with
-                                | Ast { exp = SynExp { meta = meta } }
-                                | Ast { exp = EnvExp { meta = meta } }
-                                  when meta.tyvar = tyvar ->
+                                | Ast { exp = EnvExp envExp }
+                                  when envExp = exp ->
                                     true
                                 | _ ->
                                     false)
