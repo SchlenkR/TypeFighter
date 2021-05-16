@@ -1,5 +1,6 @@
 ﻿using System;
 
+
 class DisplayClass_1
 {
     public T1 Invoke<T1>(T1 x)

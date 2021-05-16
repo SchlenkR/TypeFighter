@@ -23,7 +23,7 @@ type TyVar = int
 type Ident = string
 type EnvItem =
     | Extern of Tau
-    | Intern of TyVar
+    | Intern of thisVar: TyVar * parentVar: TyVar
 type Env = Map<Ident, EnvItem>
 
 type Lit =
@@ -92,8 +92,8 @@ module Lit =
 
 module Env =
     let empty : Env = Map.empty
-    let bind ident (tyvar: TyVar) (env: Env) : Env =
-        env |> Map.change ident (fun _ -> Some(Intern tyvar))
+    let bind ident (tyvar: TyVar) (parentTyvar: TyVar) (env: Env) : Env =
+        env |> Map.change ident (fun _ -> Some(Intern (tyvar,parentTyvar)))
     let resolve varName (env: Env) =
         match env |> Map.tryFind varName with
         | None -> failwith $"Variable '{varName}' is unbound. Env: {env}"
@@ -101,7 +101,10 @@ module Env =
     let getInterns (env: Env) =
         env 
         |> Map.toList
-        |> List.map (fun (ident,v) -> match v with | Intern tyvar -> Some (ident,tyvar) | _ -> None)
+        |> List.map (fun (ident,v) ->
+            match v with 
+            | Intern (tyvar,parentTyvar) -> Some (ident,(tyvar,parentTyvar))
+            | _ -> None)
         |> List.choose id
         |> Map.ofListUnique
 
@@ -138,8 +141,7 @@ module AnnotatedAst =
     type AnnotationResult =
         { newGenVar: Counter
           root : TExp
-          allExpressions: List<TExp>
-          allEnvVars: Map<TyVar, Ident * TExp> }
+          allExpressions: List<TExp> }
 
     let private remapGenVars (env: Env) : Counter * Env =
         let newGenVar = Counter(0)
@@ -163,22 +165,21 @@ module AnnotatedAst =
         let newGenVar,env = remapGenVars env
         let newTyVar = Counter(0)
         let mutable allExp = []
-        let mutable allEnvVars = Map.empty
         let rec annotate (env: Env) (exp: UExp) =
-            let newIdent ident env =
+            let newIdent ident parentTyvar env =
                 let tyvarIdent = newTyVar.next()
-                let newEnv = env |> Env.bind ident.exp tyvarIdent
-                (
+                let newEnv = env |> Env.bind ident.exp tyvarIdent parentTyvar
+                let exp =
                     { meta =
                         { tyvar = tyvarIdent
                           env = env
                           initialConstr = None }
-                      exp = ident.exp },
-                    newEnv
-                )
+                      exp = ident.exp }
+                exp, newEnv
             let texp =
+                let thisTyvar = newTyVar.next()
                 { meta =
-                    { tyvar = newTyVar.next()
+                    { tyvar = thisTyvar
                       env = env
                       initialConstr = None }
                   exp =
@@ -190,11 +191,12 @@ module AnnotatedAst =
                     | App (e1, e2) -> 
                         App (annotate env e1, annotate env e2)
                     | Abs (ident, body) ->
-                        let annotatedIdent,newEnv = newIdent ident env
+                        let annotatedIdent,newEnv = newIdent ident thisTyvar env
                         Abs (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
-                        let annotatedIdent,newEnv = newIdent ident env
-                        Let (annotatedIdent, annotate env e, annotate newEnv body)
+                        let eexp = annotate env e
+                        let annotatedIdent,newEnv = newIdent ident eexp.meta.tyvar env
+                        Let (annotatedIdent, eexp, annotate newEnv body)
                     | Prop (ident, e) -> 
                         Prop (ident, annotate env e)
                     | Tuple es -> 
@@ -203,19 +205,11 @@ module AnnotatedAst =
                         Record [ for ident,e in fields do ident, annotate env e ]
                 }
             do allExp <- texp :: allExp
-            do
-                let newStuff = 
-                    Env.getInterns env
-                    |> Map.toSeq
-                    |> Seq.filter (fun (ident,tyvar) -> not (allEnvVars |> Map.containsKey tyvar))
-                for ident,tyvar in newStuff do
-                    allEnvVars <- allEnvVars |> Map.add tyvar (ident, texp)
             texp
         let res = annotate env exp
         { newGenVar = newGenVar
           root = res
-          allExpressions = allExp |> Seq.toList
-          allEnvVars = allEnvVars }
+          allExpressions = allExp |> Seq.toList }
 
 module Format =
     let getUnionCaseName x =
@@ -282,15 +276,6 @@ module ConstraintGraph =
           annotationResult: AnnotatedAst.AnnotationResult
           success: bool }
 
-    module SolveResult =
-        let findTauAndSubsts (exp: TExp) sr =
-            sr.exprConstraintStates
-            |> Map.find exp
-            |> fun (cs,substs) ->
-                let tau = Tau.tau cs
-                tau,substs
-        let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
-
     module Unification =
         let empty : Set<Subst> = Set.empty
 
@@ -311,12 +296,8 @@ module ConstraintGraph =
                     substRec (set substs) taus
             substRec substs tau
 
+        // TODO: Does this terminate?
         let rec flatten (substs: Set<Subst>) =
-
-            //Ok substs
-
-            // TODO: Does this terminate?
-
             let varGroups = substs |> Set.toList |> List.groupBy (fun x -> x.genTyVar)
             
             // For each genvar, we have a group of n constraints (=substs =taus), where n>0.
@@ -441,7 +422,7 @@ module ConstraintGraph =
                 | Var ident ->
                     let nsource =
                         match Env.resolve ident exp.meta.env with
-                        | Intern tyvarIdent ->
+                        | Intern (tyvarIdent,parentTyvar) ->
                             nodes |> Seq.find (fun n ->
                                 match n.data with
                                 | Ast { exp = TExp { meta = meta } }
@@ -589,9 +570,6 @@ module ConstraintGraph =
                             match ast.exp with
                             | TExp _ -> inh
                             | IExp _ -> err
-                            // TODO??
-                            //let isEnvVar = annoRes.allEnvVars |> Map.containsKey x.tyvar
-                            //if isEnvVar then err else inh
                         | false, _ -> inh
 
                 node.constr <- constrainRes

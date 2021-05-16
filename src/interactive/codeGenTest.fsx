@@ -1,25 +1,47 @@
 
 #load "visuBase.fsx"
+
 open TypeFighter
+open TypeFighter.Api
+open TypeFighter.Api.Dsl
+open TypeFighter.Api.ImportedFunctionNames
+open TypeFighter.Api.Types
 open TypeFighter.DotNetCodeGen
+open TypeFighter.Tests
+open TypeFighter.Tests.Expect
 open TestBase
 open VisuBase
 
 
-
-let env1 = env [ map; add; numbers ]
-
 (*
-let x = 10.0
-map Numbers (number ->
-    add number x)
+    let id = fun x -> x
+    (id "Hello World", id 42.0)
 *)
 
-(Let "x" (Num 10.0)
-(MapX (Var "Numbers") (Abs "number"
-    (Appn (Var "add") [ Var "number"; Var "x" ] ))))
-|> renderDisplayClasses env1
-//|> render env1
+(
+    (Let "id" (Abs "x" (Var "x"))
+    (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
+)
+|> renderDisplayClasses []
+
+
+
+
+
+
+
+(*
+    let x = 10.0
+    map Numbers (number ->
+        add number x)
+*)
+
+(
+    (Let "x" (Num 10.0)
+    (MapX (Var "Numbers") (Abs "number"
+        (Appn (Var "add") [ Var "number"; Var "x" ] ))))
+)
+|> renderDisplayClasses [ map; add; numbers ]
 
 
 
@@ -29,12 +51,11 @@ map Numbers (number ->
     let id = fun x -> { whatever = 23.0 }
     { myString = id "Hello World"; myNumber = id 42.0 }
 *)
-let env2 = env [ ]
-
-(Let "id" (Abs "x" (Record [ "whatever", Num 23.0 ] ))
-(Record [ "myString", App (Var "id") (Str "Hello World"); "myNumber", App (Var "id") (Num 42.0) ])
+(
+    (Let "id" (Abs "x" (Record [ "whatever", Num 23.0 ] ))
+    (Record [ "myString", App (Var "id") (Str "Hello World"); "myNumber", App (Var "id") (Num 42.0) ]))
 )
-|> renderDisplayClasses env2
+|> renderDisplayClasses []
 
 
 
@@ -43,16 +64,14 @@ let env2 = env [ ]
     let add = fun a -> fun b -> { a = a; b = b }
     add "Hello" (id 42.0)
 *)
-let env3 = env [ ]
+(
+    (Let "id" (Abs "x" (Var "x"))
+    (Let "add" (Abs "a" (Abs "b" (Record [ "field1", Var "a"; "field2", Var "b" ])))
+    (App (App (Var "add") (Str "Hello")) (App (Var "id") (Num 42.0)))))
+)
+|> renderDisplayClasses [ ]
 
-(Let "id" (Abs "x" (Var "x"))
-(Let "add" (Abs "a" (Abs "b" (Record [ "field1", Var "a"; "field2", Var "b" ])))
-(App (App (Var "add") (Str "Hello")) (App (Var "id") (Num 42.0)))
-))
-|> renderDisplayClasses env3
-
-//|> solve env3 |> fun res -> res.substs
-//|> showSolvedAst env3
+|> showSolvedAstWEnv []
 
 
 
@@ -61,20 +80,18 @@ let env3 = env [ ]
     let print = fun f -> f 42.0
     print add
 *)
-let env4 = env [ ]
 
-(Let "add" (Abs "a" (Record [ "field1", Var "a" ]))
-(Let "print" (Abs "f" (App (Var "f") (Num 42.0)))
-(App (Var "print") (Var "add"))
-))
-|> showSolvedAst env4
-|> renderDisplayClasses env4
+(
+    (Let "add" (Abs "a" (Record [ "field1", Var "a" ]))
+    (Let "print" (Abs "f" (App (Var "f") (Num 42.0)))
+    (App (Var "print") (Var "add"))))
+)
+|> renderDisplayClasses [ ]
+
+
+
 
 (Abs "f" (App (Var "f") (Num 42.0)))
-|> showSolvedAst env4
-|> renderDisplayClasses env4
-
-//|> solve env3 |> fun res -> res.substs
-//|> showSolvedAst env3
+|> renderDisplayClasses [ ]
 
 

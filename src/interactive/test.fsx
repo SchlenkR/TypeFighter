@@ -1,8 +1,6 @@
 
 #load "visuBase.fsx"
 
-open TestBase
-open VisuBase
 open TypeFighter
 open TypeFighter.Api
 open TypeFighter.Api.Dsl
@@ -10,6 +8,8 @@ open TypeFighter.Api.ImportedFunctionNames
 open TypeFighter.Api.Types
 open TypeFighter.Tests
 open TypeFighter.Tests.Expect
+open TestBase
+open VisuBase
 
 
 
@@ -24,7 +24,6 @@ open TypeFighter.Tests.Expect
     (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
 )
 |> showSolvedAst []
-|> showSolvedGraph []
 
 
 
@@ -36,11 +35,10 @@ open TypeFighter.Tests.Expect
         (Abs "x" (Var "x")))
 )
 |> showSolvedGraph []
-|> showSolvedAst []
 
 
 
 (
     (Abs "f" (App (Var "f") (Num 42.0)))
 )
-|> showSolvedGraph []
+|> showSolvedAstWEnv []

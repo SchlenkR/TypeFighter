@@ -87,28 +87,39 @@ module Format =
 
 open ConstraintGraph
 
+module SolveResult =
+    let findTauAndSubsts (exp: TExp) sr =
+        sr.exprConstraintStates
+        |> Map.find exp
+        |> fun (cs,substs) ->
+            let tau = Tau.tau cs
+            tau,substs
+    let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
+
 type Emitter() =
     let allSbs = ResizeArray<StringBuilder>()
     let stack = Stack<StringBuilder>()
     let mutable currentSb = StringBuilder()
-    member this.push() =
+    member this.beginScope() =
         do stack.Push currentSb
         let newSb = StringBuilder()
         do allSbs.Add(newSb)
         do currentSb <- newSb
-    member this.pop() =
+    member this.endScope() =
         currentSb <- stack.Pop()
     member this.emit indentation s =
         currentSb.AppendLine (indentLine indentation s) |> ignore
+    member this.newLine() =
+        currentSb.AppendLine "" |> ignore
     member this.renderString() =
         [ for s in allSbs do s.ToString() ] |> String.concat "\n\n"
 
 let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveResult) =   
-    let newName f =
-        let counter = Counter(0)
-        fun () -> f (counter.next())
-    let newClassName = newName (sprintf "DisplayClass_%d")
-    let newLocVarName = newName (sprintf "loc_%d")
+    let getClassName tyvar = $"DisplayClass_%d{tyvar}"
+    //let newName f =
+    //    let counter = Counter(0)
+    //    fun () -> f (counter.next())
+    //let newLocVarName = newName (sprintf "loc_%d")
     let emitter = Emitter()
     let rec walk indentation (exp: TExp) =
         let walkNext = walk (indentation + 1)
@@ -128,7 +139,6 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
             let t2 = SolveResult.findTau e2 solveRes
             walkNext e1 |> ignore
             walkNext e2 |> ignore
-            emitter.emit 0 $"t1: {Format.tau t1}   t2: {Format.tau t1}"
             Inline ""
         | Abs (ident, body) ->
             let tau = SolveResult.findTau exp solveRes
@@ -139,39 +149,48 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 exp.meta.env
                 |> Env.getInterns
                 |> Map.toSeq
-                |> Seq.map (fun (ident,tyvar) ->
-                    let tau = solveRes.envConstraintStates |> Map.find tyvar
-                    ident,tau)
+                |> Seq.map (fun (ident,(tyvar,parentTyvar)) ->
+                    let tau = 
+                        solveRes.envConstraintStates 
+                        |> Seq.filter (fun x -> x.Key.meta.tyvar = tyvar)
+                        |> Seq.exactlyOne
+                        |> fun x -> x.Value
+                        |> fst
+                        |> Tau.tau
+                    ident,tau,parentTyvar)
                 |> Seq.toList
             let classGenArgs = 
                 fields
-                |> List.map snd
-                |> List.map Tau.tau
+                |> List.map (fun (_,tau,_) -> tau)
                 |> Tau.getGenVarsMany
             let invokeGenArgs = (Tau.getGenVars tau) - classGenArgs
-                    
             let fieldsString =
                 fields
-                |> List.map (fun (ident,tau) ->
+                |> List.map (fun (ident,tau,parentTyvar) ->
                     let typeDef =
-                        // TODO: am Anfang mal eine Liste machen, so dass ConstrState zu Tau wird
-                        match Tau.tau tau with
-                        | TFun (t1,t2) -> $"DISPLAY_CLASS_<{Format.tau t1}|{Format.tau t2}>"
+                        match tau with
+                        | TFun (_,_) -> getClassName parentTyvar
                         | tau -> tau |> Format.renderTypeDeclaration cachedRecords
                     $"public {typeDef} {ident};")
             let classGenArgsString = classGenArgs |> Format.genArgListVars
             let invokeGenArgsString = invokeGenArgs |> Format.genArgListVars
 
-            do emitter.push()
-            $"class {newClassName()}%s{classGenArgsString}" |> emitter.emit 0
+            do emitter.beginScope()
+            $"class {getClassName exp.meta.tyvar}%s{classGenArgsString}" |> emitter.emit 0
             "{" |> emitter.emit 0
-            for x in fieldsString do x |> emitter.emit 1
+            
+            for x in fieldsString do
+                x |> emitter.emit 1
+            emitter.newLine()
+
             $"public {retType} Invoke{invokeGenArgsString}({inType} {ident.exp})" |> emitter.emit 1
             "{" |> emitter.emit 1
             walkNext body |> ignore
             "}" |> emitter.emit 1
+            
             "}" |> emitter.emit 0
-            do emitter.pop()
+            do emitter.endScope()
+            
             Inline ""
         | Let (ident, e, body) ->
             walkNext e |> ignore
