@@ -1,64 +1,82 @@
 
-window.layout = "tree";
+window.layout = "graph";
 window.nodeDataArray = [
   {
     "key": 0,
-    "name": "Let myValue = ...",
-    "desc": "var = 1\ntype = Number\nsubsts = \n-  'a = 'c\n-  'b = Number\n-  'c = 'd\n-  'd = Number\nenv = [ ]",
-    "fig": "Rectangle"
+    "name": "SOURCE",
+    "desc": "Number\nsubsts = [ ]",
+    "fig": "Ellipse"
   },
   {
     "key": 1,
-    "name": "Lit (yyyy)",
-    "desc": "var = 3\ntype = String\nsubsts = [ ]\nenv = [ ]",
+    "name": "5 (Lit)",
+    "desc": "Number\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
-    "name": "Let id = ...",
-    "desc": "var = 4\ntype = Number\nsubsts = \n-  'a = 'c\n-  'b = Number\n-  'c = 'd\n-  'd = Number\nenv = [ 'myValue' : (tyvar=2) String ]",
-    "fig": "Rectangle"
+    "name": "SOURCE",
+    "desc": "'a\nsubsts = [ ]",
+    "fig": "Ellipse"
   },
   {
     "key": 3,
-    "name": "Fun (x) ->",
-    "desc": "var = 6\ntype = ('c -> 'c)\nsubsts = [ 'a = 'c ]\nenv = [ 'myValue' : (tyvar=2) String ]",
-    "fig": "Rectangle"
+    "name": "MakeFun",
+    "desc": "(Number -> 'a)\nsubsts = [ ]",
+    "fig": "Ellipse"
   },
   {
     "key": 4,
-    "name": "Var (x)",
-    "desc": "var = 8\ntype = 'c\nsubsts = [ 'a = 'c ]\nenv = \n-  'myValue' : (tyvar=2) String\n-  'x' : (tyvar=7) 'a",
-    "fig": "Rectangle"
+    "name": "SOURCE",
+    "desc": "'b\nsubsts = [ ]",
+    "fig": "Ellipse"
   },
   {
     "key": 5,
-    "name": "Let res = ...",
-    "desc": "var = 9\ntype = Number\nsubsts = \n-  'a = 'c\n-  'b = Number\n-  'c = 'd\n-  'd = Number\nenv = \n-  'id' : (tyvar=5) ('c -> 'c)\n-  'myValue' : (tyvar=2) String",
+    "name": "3 (Env (x))",
+    "desc": "'b\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 6,
-    "name": "App",
-    "desc": "var = 11\ntype = Number\nsubsts = \n-  'a = 'c\n-  'b = Number\n-  'c = 'd\n-  'd = Number\nenv = \n-  'id' : (tyvar=5) ('c -> 'c)\n-  'myValue' : (tyvar=2) String",
-    "fig": "Rectangle"
+    "name": "Inst (Var)",
+    "desc": "'c\nsubsts = [ ]",
+    "fig": "Ellipse"
   },
   {
     "key": 7,
-    "name": "Var (id)",
-    "desc": "var = 12\ntype = ('d -> 'd)\nsubsts = \n-  'a = 'c\n-  'c = 'd\nenv = \n-  'id' : (tyvar=5) ('c -> 'c)\n-  'myValue' : (tyvar=2) String",
+    "name": "4 (Var)",
+    "desc": "'c\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 8,
-    "name": "Lit (23,9)",
-    "desc": "var = 13\ntype = Number\nsubsts = [ ]\nenv = \n-  'id' : (tyvar=5) ('c -> 'c)\n-  'myValue' : (tyvar=2) String",
-    "fig": "Rectangle"
+    "name": "MakeFun",
+    "desc": "('b -> 'c)\nsubsts = [ ]",
+    "fig": "Ellipse"
   },
   {
     "key": 9,
-    "name": "Var (res)",
-    "desc": "var = 14\ntype = Number\nsubsts = \n-  'a = 'c\n-  'b = Number\n-  'c = 'd\n-  'd = Number\nenv = \n-  'id' : (tyvar=5) ('c -> 'c)\n-  'myValue' : (tyvar=2) String\n-  'res' : (tyvar=10) Number",
+    "name": "2 (Abs)",
+    "desc": "('b -> 'c)\nsubsts = [ ]",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 10,
+    "name": "Unify",
+    "desc": "(Number -> 'a)\nsubsts = \n-  'b = Number\n-  'c = 'a",
+    "fig": "Ellipse"
+  },
+  {
+    "key": 11,
+    "name": "ArgOut",
+    "desc": "'a\nsubsts = \n-  'b = Number\n-  'c = 'a",
+    "fig": "Ellipse"
+  },
+  {
+    "key": 12,
+    "name": "1 (App)",
+    "desc": "'a\nsubsts = \n-  'b = Number\n-  'c = 'a",
     "fig": "Rectangle"
   }
 ];
@@ -68,36 +86,52 @@ window.linkDataArray = [
     "to": 1
   },
   {
-    "from": 0,
-    "to": 2
+    "from": 1,
+    "to": 3
   },
   {
     "from": 2,
     "to": 3
   },
   {
-    "from": 2,
+    "from": 4,
     "to": 5
-  },
-  {
-    "from": 3,
-    "to": 4
   },
   {
     "from": 5,
     "to": 6
   },
   {
-    "from": 5,
-    "to": 9
-  },
-  {
     "from": 6,
     "to": 7
   },
   {
-    "from": 6,
+    "from": 5,
     "to": 8
+  },
+  {
+    "from": 7,
+    "to": 8
+  },
+  {
+    "from": 8,
+    "to": 9
+  },
+  {
+    "from": 9,
+    "to": 10
+  },
+  {
+    "from": 3,
+    "to": 10
+  },
+  {
+    "from": 10,
+    "to": 11
+  },
+  {
+    "from": 11,
+    "to": 12
   }
 ];
     

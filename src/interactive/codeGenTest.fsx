@@ -87,6 +87,7 @@ open VisuBase
     (Let "res" (App (Var "id") (Num 23.9))
     (Var "res"))))
 )
+|> showSolvedGraph []
 |> renderDisplayClasses []
 
 

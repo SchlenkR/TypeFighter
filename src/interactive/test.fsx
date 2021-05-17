@@ -42,3 +42,13 @@ open VisuBase
     (Abs "f" (App (Var "f") (Num 42.0)))
 )
 |> showSolvedAstWEnv []
+
+
+(*
+    (fun x -> x) 0.0
+*)
+       
+(
+    App (Abs "x" (Var "x")) (Num 0.0)
+)
+|> showSolvedGraph []
