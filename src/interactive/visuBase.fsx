@@ -35,7 +35,11 @@ module Format =
         let fmt s = $"{Format.genVar s.genTyVar} = {Format.tau s.substitute}"
         items (substs |> Set.toList) fmt
 
-    let env exp (envCs: Map<IExp, ConstraintState * Set<Subst>>) =
+    let insts (insts: Set<Instanciation>) =
+        let fmt i = $"{Format.genVar i.oldVar} = {Format.genVar i.newVar}"
+        items (insts |> Set.toList) fmt
+
+    let env exp (envCs: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>) =
         let fmt (ident,item) =
             match item with
             | Extern t ->
@@ -46,7 +50,7 @@ module Format =
                     envCs
                     |> Seq.tryFind (fun x -> x.Key = exp)
                     |> Option.map (fun x -> x.Value)
-                    |> Option.map fst
+                    |> Option.map (fun (x,_,_) -> x)
                     |> constraintState
                 let content = $"{tvstring} {csstring}"
                 $"{tyvar ident content}"
@@ -63,8 +67,8 @@ module Show =
             (showConstraint: bool)
             (showSubsts: bool)
             (res: Annotation.AnnotationResult)
-            (exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>)
-            (envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>)
+            (exprConstraintStates: Map<TExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
+            (envConstraintStates: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
             =
         let rec flatten (node: Tree.Node) =
             [
@@ -79,9 +83,10 @@ module Show =
 
                     if showVar then yield $"var = {exp.meta.tyvar}"
                     if showConstraint then
-                        yield $"type = {Format.constraintState (Some (fst constrSubsts.Value))}"
+                        yield $"type = {Format.constraintState (Some (constrSubsts.Value |> fun (x,_,_) -> x))}"
                     if showSubsts then
-                        yield $"substs = {Format.substs (snd constrSubsts.Value)}"
+                        yield $"insts = {Format.insts (constrSubsts.Value |> fun (_,x,_) -> x)}"
+                        yield $"substs = {Format.substs (constrSubsts.Value |> fun (_,_,x) -> x)}"
                     if showEnv then yield $"env = {Format.env exp.meta envConstraintStates}"
                 ]
                 |> String.concat "\n"
@@ -144,12 +149,13 @@ module Show =
                   name = name
                   desc = 
                     [
-                        yield Format.constraintState (n.constr |> Option.map fst)
-                        yield 
-                            n.constr 
-                            |> Option.map snd 
-                            |> Option.map (fun substs -> $"substs = {Format.substs substs}")
-                            |> Option.defaultValue ""
+                        yield Format.constraintState (n.constr |> Option.map (fun (x,_,_) -> x))
+                        match n.constr with
+                        | None -> ()
+                        | Some constr ->
+                            let _,insts,substs = constr
+                            yield $"insts = {Format.insts insts}"
+                            yield $"substs = {Format.substs substs}"
                     ]
                     |> String.concat "\n"
                   layout = layout }
@@ -184,31 +190,31 @@ module Show =
         do writeAnnotatedAst true true true true res.annotationResult res.exprConstraintStates res.envConstraintStates
         res
 
-[<AutoOpen>]
-module CodeGen =
-    open DotNetCodeGen
+//[<AutoOpen>]
+//module CodeGen =
+//    open DotNetCodeGen
 
-    let renderDisplayClasses env exp =
-        //let exp = App (Abs "__" exp) (Num 0.0)
-        exp
-        |> solve env 
-        |> fun res -> renderDisplayClasses (RecordCache()) res
-        |> fun res ->
-            printfn ""
-            printfn ""
-            printfn "%s" res
-            printfn ""
-            printfn ""
+//    let renderDisplayClasses env exp =
+//        //let exp = App (Abs "__" exp) (Num 0.0)
+//        exp
+//        |> solve env 
+//        |> fun res -> renderDisplayClasses (RecordCache()) res
+//        |> fun res ->
+//            printfn ""
+//            printfn ""
+//            printfn "%s" res
+//            printfn ""
+//            printfn ""
 
-    let render env exp =
-        exp
-        |> solve env 
-        |> fun res -> render res
-        |> fun res ->
-            printfn "------------------"
-            printfn ""
-            printfn "%s" res.records
-            printfn ""
-            printfn "%s" res.body
-            printfn ""
-            printfn "------------------"
+//    let render env exp =
+//        exp
+//        |> solve env 
+//        |> fun res -> render res
+//        |> fun res ->
+//            printfn "------------------"
+//            printfn ""
+//            printfn "%s" res.records
+//            printfn ""
+//            printfn "%s" res.body
+//            printfn ""
+//            printfn "------------------"

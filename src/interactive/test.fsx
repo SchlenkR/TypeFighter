@@ -23,12 +23,15 @@ open VisuBase
     (Let "id" (Abs "x" (Var "x"))
     (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
 )
+|> showSolvedGraph []
 |> showSolvedAst []
 
 
 
 
-
+(*
+    (fun id -> id "Hello World", id 42.0)(fun x -> x)
+*)
 (
     (App
         (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]) )
@@ -51,4 +54,5 @@ open VisuBase
 (
     App (Abs "x" (Var "x")) (Num 0.0)
 )
+|> showSolvedAst []
 |> showSolvedGraph []

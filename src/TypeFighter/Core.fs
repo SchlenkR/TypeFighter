@@ -16,6 +16,7 @@ type ConstraintState =
     | Constrained of Tau
     | UnificationError of UnificationError
 type Subst = { genTyVar: GenTyVar; substitute: Tau }
+type Instanciation = { oldVar: GenTyVar; newVar: GenTyVar }
 
 // TODO: in type inference, respect the fact that annos can be initially constrained
 
@@ -314,7 +315,7 @@ module ConstraintGraph =
         | Inst of Inst
     
     // TODO: maybe get rid of this and make everything immutable
-    and Node (data: NodeData, constr: (ConstraintState * Set<Subst>) option) =
+    and Node (data: NodeData, constr: (ConstraintState * Set<Instanciation> * Set<Subst>) option) =
         member this.data = data
         member val constr = constr with get, set
 
@@ -323,13 +324,24 @@ module ConstraintGraph =
           errorNodes: List<Node>
           unfinishedNodes: List<Node>
           allNodes: List<Node>
-          exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>
-          envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>
+          exprConstraintStates: Map<TExp, ConstraintState * Set<Instanciation> * Set<Subst>>
+          envConstraintStates: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>
           annotationResult: Annotation.AnnotationResult
           success: bool }
 
+    module Instanciation =
+        let empty = Set.empty<Instanciation>
+
     module Subst =
         let empty : Set<Subst> = Set.empty
+
+        let instanciate (insts: Set<Instanciation>) (t: Tau) =
+            (t, insts) ||> Set.fold (fun t inst ->
+                let rec instanciate (t: Tau) =
+                    t |> Tau.mapTree instanciate (fun var ->
+                        let res = if var = inst.oldVar then inst.newVar else var
+                        TGenVar res)
+                instanciate t)
 
         let subst (substs: Set<Subst>) tau =
             let rec substRec (substs: Set<Subst>) tau =
@@ -445,7 +457,7 @@ module ConstraintGraph =
             let node = Node(n, constr)
             do nodes.Add node
             node
-        let source tau = addNode (Source tau) (Some (Constrained tau, Subst.empty))
+        let source tau = addNode (Source tau) (Some (Constrained tau, Instanciation.empty, Subst.empty))
         let newGenVarSource() = source (TGenVar (annoRes.newGenVar.next()))
         let ast exp constr inc = addNode (Ast { exp = exp; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
@@ -463,7 +475,9 @@ module ConstraintGraph =
                 | Some n2 -> unify n1 n2 |> f
             
             let nthis parent =
-                let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Subst.empty)
+                let constr = 
+                    exp.meta.initialConstr 
+                    |> Option.map (fun t -> Constrained t, Instanciation.empty, Subst.empty)
                 ast (SynExp exp) constr parent
             
             let res =
@@ -529,8 +543,8 @@ module ConstraintGraph =
         // TODO: Hier ggf. was machen
         let (|Cons|Err|Init|) (node: Node) =
             match node.constr with
-            | Some (Constrained tau, substs) -> Cons (tau,substs)
-            | Some (UnificationError e, substs) -> Err e
+            | Some (Constrained tau, insts, substs) -> Cons (tau,insts,substs)
+            | Some (UnificationError e, insts, substs) -> Err e
             | None -> Init
 
         let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
@@ -541,25 +555,27 @@ module ConstraintGraph =
             | _,es::_,_ -> AnyError es
             | _,_,ns::_ -> AnyInitial ns
             | cs,[],[] ->
-                let taus = cs |> List.map fst
-                let substs = cs |> List.map snd |> List.fold (+) Set.empty
-                AllConstrained (taus,substs)
+                let taus = cs |> List.map (fun (x,_,_) -> x)
+                let insts = cs |> List.map (fun (_,x,_) -> x) |> List.fold (+) Set.empty
+                let substs = cs |> List.map (fun (_,_,x) -> x) |> List.fold (+) Set.empty
+                AllConstrained (taus,insts,substs)
                 
         let constrainNodeData nodeData =
             match nodeData with
             | Source tau ->
-                Constrained tau, Subst.empty
-            | Ast { inc = Cons(t,s) } ->
+                Constrained tau, Instanciation.empty, Subst.empty
+            | Ast { inc = Cons(t,i,s) } ->
                 let flattenedSubsts = s |> Subst.flatten
                 match flattenedSubsts with
                 | Error msg ->
-                    UnificationError(Origin msg), Subst.empty
+                    UnificationError(Origin msg), Instanciation.empty, Subst.empty
                 | Ok substs ->
+                    let t = Subst.instanciate i t
                     let t = Subst.subst substs t
-                    Constrained t, substs
-            | MakeFun { inc1 = Cons(t1,s1); inc2 = Cons(t2,s2) } ->
-                Constrained(TFun (t1, t2)), s1 + s2
-            | GetProp { field = field; inc = Cons(TRecord recordFields, s) } ->
+                    Constrained t, i, substs
+            | MakeFun { inc1 = Cons(t1,i1,s1); inc2 = Cons(t2,i2,s2) } ->
+                Constrained(TFun (t1, t2)), i1 + i2, s1 + s2
+            | GetProp { field = field; inc = Cons(TRecord recordFields, i, s) } ->
                 let res =
                     recordFields
                     |> Seq.tryFind (fun (n,_) -> n = field)
@@ -567,35 +583,38 @@ module ConstraintGraph =
                     |> Option.map Constrained
                     // TODO: this is not a unification error!
                     |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
-                res, s
-            | MakeTuple { incs = AllConstrained (taus,substs) } ->
-                Constrained(TTuple taus), substs
-            | MakeRecord { fields = fields; incs = AllConstrained (taus,substs) } ->
+                res,i,s
+            | MakeTuple { incs = AllConstrained (taus,insts,substs) } ->
+                Constrained(TTuple taus), insts, substs
+            | MakeRecord { fields = fields; incs = AllConstrained (taus,insts,substs) } ->
                 let fields = List.zip fields taus
-                Constrained(TRecord (set fields)), substs
-            | ArgOut { inc = Cons(TFun(_,t2), s) } ->
-                Constrained t2, s
-            | ArgOut { inc = Cons (t,s) } ->
-                UnificationError(Origin $"Function type expected, but was: {Format.tau t}"), s
-            | Unify { inc1 = Cons (t1,s1); inc2 = Cons (t2,s2) } ->
+                Constrained(TRecord (set fields)), insts, substs
+            | ArgOut { inc = Cons(TFun(_,t2), i, s) } ->
+                Constrained t2, i, s
+            | ArgOut { inc = Cons (t,i,s) } ->
+                UnificationError(Origin $"Function type expected, but was: {Format.tau t}"), i, s
+            | Unify { inc1 = Cons (t1,i1,s1); inc2 = Cons (t2,i2,s2) } ->
                 // TODO: unify2Types is not distributiv (macht aber auch nichts, oder?)
                 match Subst.unify t1 t2 with
                 | Error msg ->
-                    UnificationError(Origin msg), Subst.empty
+                    UnificationError(Origin msg), Instanciation.empty, Subst.empty
                 | Ok (tres,sres) ->
-                    Constrained tres, (sres + s1 + s2)
-            | Inst { inc = Cons(t, s) } ->
+                    Constrained tres, (i1 + i2), (sres + s1 + s2)
+            | Inst { inc = Cons(t,i,s) } ->
                 let ftv =
                     let tgenvars = Tau.getGenVars t
                     let substsGenVars = s |> Set.map (fun x -> x.genTyVar)
                     tgenvars - substsGenVars
                 let instances = ftv |> Set.map (fun x -> 
-                    { Subst.genTyVar = x; Subst.substitute = TGenVar (annoRes.newGenVar.next()) })
-                let replacedTau = Subst.subst instances t
-                Constrained replacedTau, s + instances
+                    { oldVar = x
+                      newVar = annoRes.newGenVar.next() })
+                // TODO: Braucht man replacedTau wirklich?
+                let t = Subst.instanciate instances t
+                let t = Subst.subst s t
+                Constrained t, i + instances, s
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them
-                failwith $"Invalid graph at node: {nodeData}", Subst.empty
+                failwith $"Invalid graph at node: {nodeData}", Instanciation.empty, Subst.empty
 
         let rec constrainNodes
             (unfinished: ResizeArray<Node>) 
@@ -612,8 +631,8 @@ module ConstraintGraph =
                     | AllConstrained _ ->
                         Some(constrainNodeData node.data)
                     | AnyError err ->
-                        let inh = Some(UnificationError Inherit, Subst.empty)
-                        let err = Some(UnificationError err, Subst.empty)
+                        let inh = Some(UnificationError Inherit, Instanciation.empty, Subst.empty)
+                        let err = Some(UnificationError err, Instanciation.empty, Subst.empty)
                         let allIncomingsAreOperations = 
                             let isOp = function | Source _ | Ast _ -> false | _ -> true
                             incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
@@ -631,8 +650,8 @@ module ConstraintGraph =
                     unfinished.Remove(node) |> ignore
                     goOn <- true
                     match x with
-                    | Constrained _, _ -> constrained.Add(node)
-                    | UnificationError _, _ -> errors.Add(node)
+                    | Constrained _, _, _ -> constrained.Add(node)
+                    | UnificationError _, _, _ -> errors.Add(node)
                 | _ -> ()
 
             if not goOn then

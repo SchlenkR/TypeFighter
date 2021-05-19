@@ -17,7 +17,7 @@ let private infer env exp =
 
 let inferType env expected exp =
     match infer (Map.ofList env) exp with
-    | Constrained actual,_ ->
+    | Constrained actual,_,_ ->
         let error() = error expected actual
         
         let varsInActual = Tau.getGenVars actual
@@ -36,9 +36,9 @@ let inferType env expected exp =
 
         if actual <> expected then
             error()
-    | UnificationError e,_ -> fail $"ERROR ({e})"
+    | UnificationError e, _, _ -> fail $"ERROR ({e})"
 
 let inferError env exp =
     match infer (Map.ofList env) exp with
-    | Constrained c,_ -> fail $"Expected: ERROR, but was: {(Format.tau c)}"
+    | Constrained c, _, _ -> fail $"Expected: ERROR, but was: {(Format.tau c)}"
     | _ -> ()
