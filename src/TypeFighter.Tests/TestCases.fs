@@ -14,13 +14,11 @@ let tests = testList "Main Tests" [
             map Numbers (number ->
                 add number x)
         *)
-
         (
             (Let "x" (Num 10.0)
             (MapX (Var "Numbers") (Abs "number"
                 (Appn (Var "add") [ Var "number"; Var "x" ] ))))
         )
-
         |> inferType [ map; add; numbers ] (seqOf numberTyp)
     }
     
@@ -29,12 +27,10 @@ let tests = testList "Main Tests" [
             let x = { a = 5.0; b = "hello" }
             x.b
         *)
-
         (
             (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
             (Prop "b" (Var "x")))
         )
-
         |> inferType [] stringTyp
     }
     
@@ -42,11 +38,9 @@ let tests = testList "Main Tests" [
         (*
             [ 1.0; 2.0; 3.0 ]
         *)
-
         (
             NewList [ Num 1.0; Num 2.0; ]
         )
-
         |> inferType [ cons; emptyList ] (seqOf numberTyp)
     }
 
@@ -54,11 +48,9 @@ let tests = testList "Main Tests" [
         (*
             [ 1.0; 2.0; "xxx" ]
         *)
-
         (
             NewList [ Num 1.0; Num 2.0; Str "xxx" ]
         )
-
         |> inferError [ cons; emptyList ]
     }
 
@@ -67,11 +59,9 @@ let tests = testList "Main Tests" [
         (*
             map (fun x -> tostring x)
         *)
-
         (
             App (Var(fst mapp)) (Abs "x" (App (Var "tostring") (Var "x")))
         )
-
         |> inferType [ tostring; mapp ] (seqOf %1 ^-> seqOf stringTyp)
     }
 
@@ -79,11 +69,9 @@ let tests = testList "Main Tests" [
         (*
             fun x -> tostring x
         *)
-
         (
             (Abs "x" (App (Var "tostring") (Var "x")))
         )
-
         |> inferType [ tostring ] (%1 ^-> stringTyp)
     }
 
@@ -92,12 +80,10 @@ let tests = testList "Main Tests" [
             let id = fun x -> x
             (id "Hello World", id 42.0)
         *)
-
         (
             (Let "id" (Abs "x" (Var "x"))
             (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
         )
-
         |> inferType [] (stringTyp * numberTyp)
     }
 
@@ -110,22 +96,32 @@ let tests = testList "Main Tests" [
                 (Abs "id" (App (Var "id") (Str "Hello World")))
                 (Abs "x" (Var "x")))
         )
-
         |> inferType [] (stringTyp)
     }
 
-    test "No polymorphic abs" {
+    test "Polymorphic abs" {
         (*
             (fun id -> id "Hello World", id 42.0)(fun x -> x)
         *)
-
         (
             (App
                 (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]) )
                 (Abs "x" (Var "x")))
         )
+        |> inferType [] (stringTyp * numberTyp)
+    }
 
-        |> inferError []
+
+    test "No polymorphic abs" {
+        (*
+            (fun id -> id "Hello World", id 42.0)(fun x -> add x x)
+        *)
+        (
+            (App
+                (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]) )
+                (Abs "x" (Appn (Var "add") [ Var "x"; Var "x" ] )))
+        )
+        |> inferError [ add ]
     }
 
     test "Currying" {
@@ -136,14 +132,12 @@ let tests = testList "Main Tests" [
         (*
             tostr (mul 2.0 (add 3.0 10.0))
         *)
-       
         (
             (App tostr
             (App mul2
             (App add3
             (Num 10.0))))
         )
-
         |> inferType [ add; mul; sub; div; tostring ] stringTyp
     }
 
@@ -153,13 +147,11 @@ let tests = testList "Main Tests" [
             let x = "Hello"
             x
         *)
-       
         (
             (Let "x" (Num 7.0)
             (Let "x" (Str "Hello")
             (Var "x")))
         )
-
         |> inferType [] stringTyp
     }
 
@@ -167,11 +159,9 @@ let tests = testList "Main Tests" [
         (*
             (fun x -> x) 0.0
         *)
-       
         (
             App (Abs "x" (Var "x")) (Num 0.0)
         )
-
         |> inferType [] numberTyp
     }
 
@@ -179,11 +169,9 @@ let tests = testList "Main Tests" [
         (*
             fun f -> f 42.0
         *)
-       
         (
             (Abs "f" (App (Var "f") (Num 42.0)))
         )
-
         |> inferType [] ((numberTyp ^-> %1) ^-> %1)
     }
 ]
