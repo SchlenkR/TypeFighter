@@ -290,19 +290,24 @@ module Annotation =
 module ConstraintGraph =
 
     open Annotation
+    type NodeId =
+        | TyVarId of TyVar
+        | FreeId of int
     
-    type Ast = { exp: AstExp; inc: Node }
-    and MakeFun = { inc1: Node; inc2: Node }
-    and ArgOut = { inc: Node }
-    and Unify = { inc1: Node; inc2: Node }
-    and GetProp = { field: string; inc: Node }
-    and MakeTuple = { incs: Node list }
-    and MakeRecord = { fields: string list; incs: Node list }
-    and Inst = { scope: string; inc: Node }
+    type TAst = { exp: TExp; inc: NodeId }
+    type IAst = { exp: IExp; inc: NodeId }
+    type MakeFun = { inc1: NodeId; inc2: NodeId }
+    type ArgOut = { inc: NodeId }
+    type Unify = { inc1: NodeId; inc2: NodeId }
+    type GetProp = { field: string; inc: NodeId }
+    type MakeTuple = { incs: NodeId list }
+    type MakeRecord = { fields: string list; incs: NodeId list }
+    type Inst = { scope: string; inc: NodeId }
 
-    and NodeData =
+    type NodeData =
         | Source of Tau
-        | Ast of Ast
+        | TAst of TAst
+        | IAst of IAst
         | MakeFun of MakeFun
         | GetProp of GetProp
         | MakeTuple of MakeTuple
@@ -312,9 +317,14 @@ module ConstraintGraph =
         | Inst of Inst
     
     // TODO: maybe get rid of this and make everything immutable
-    and Node (data: NodeData, constr: (ConstraintState * Set<Instanciation> * Set<Subst>) option) =
+    and Node (id: NodeId, data: NodeData, constr: (ConstraintState * Set<Instanciation> * Set<Subst>) option) =
+        member this.id = id
         member this.data = data
         member val constr = constr with get, set
+
+    type Graph =
+        { nodes: Map<NodeId, Node>
+          tyvar2NodeId: Map<TyVar, NodeId> }
 
     type SolveResult =
         { constrainedNodes: List<Node>
@@ -433,49 +443,44 @@ module ConstraintGraph =
             
             // TODO: consistency check of unifiers? (!IMPORTANT)
             unify1 a b
-
-    let getIncomingNodes (node: Node) =
-        match node.data with
-        | Source _ -> []
-        | Ast x -> [ x.inc ]
-        | MakeFun x -> [ x.inc1; x.inc2 ]
-        | GetProp x -> [ x.inc ]
-        | MakeTuple x -> x.incs
-        | MakeRecord x -> x.incs
-        | ArgOut x -> [ x.inc ]
-        | Unify x -> [ x.inc1; x.inc2 ]
-        | Inst x -> [ x.inc ]
         
     // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
-    let create (annoRes: AnnotationResult) =
-        let nodes = ResizeArray()
+    let create (annoRes: AnnotationResult) : Graph =
+        let mutable nodes = Map.empty<NodeId, Node>
+        let mutable tyvar2NodeId = Map.empty<TyVar, NodeId>
 
-        let addNode n constr =
-            let node = Node(n, constr)
-            do nodes.Add node
-            node
-        let source tau = addNode (Source tau) (Some (Constrained tau, Instanciation.empty, Subst.empty))
+        let addNode =
+            let nextNodeId = newCounter(0)
+            fun n constr tyvar ->
+                let nodeId = tyvar |> Option.map TyVarId |> Option.defaultValue (nextNodeId() |> FreeId)
+                let node = Node(nodeId, n, constr)
+                do
+                    nodes <- nodes |> Map.add node.id node
+                    tyvar |> Option.iter (fun tyvar -> tyvar2NodeId <- tyvar2NodeId |> Map.add tyvar nodeId)
+                node.id
+        let source tau = addNode (Source tau) (Some (Constrained tau, Instanciation.empty, Subst.empty)) None
         let newGenVarSource() = source (TGenVar (annoRes.newGenVar()))
-        let ast exp constr inc = addNode (Ast { exp = exp; inc = inc }) constr
-        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
-        let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
-        let makeTuple incs = addNode (MakeTuple { incs = incs }) None
-        let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) None
-        let argOut inc = addNode (ArgOut { inc = inc }) None
-        let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None
-        let inst scope inc = addNode (Inst { scope = scope; inc = inc }) None
+        let tast exp constr inc = addNode (TAst { exp = exp; inc = inc }) constr (Some exp.meta.tyvar)
+        let iast exp inc = addNode (IAst { exp = exp; inc = inc }) None (Some exp.meta.tyvar)
+        let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None None
+        let getProp field inc = addNode (GetProp { field = field; inc = inc }) None None
+        let makeTuple incs = addNode (MakeTuple { incs = incs }) None None
+        let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) None None
+        let argOut inc = addNode (ArgOut { inc = inc }) None None
+        let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None None
+        let inst scope inc = addNode (Inst { scope = scope; inc = inc }) None None
 
-        let rec generateGraph (exp: TExp) (inc: Node option) =
-            let ( ==> ) (n1, maybeN2) f =
-                match maybeN2 with
-                | None -> f n1
-                | Some n2 -> unify n1 n2 |> f
-            
+        let ( ==> ) (n1, maybeN2) f =
+            match maybeN2 with
+            | None -> f n1
+            | Some n2 -> unify n1 n2 |> f
+        
+        let rec generateGraph (exp: TExp) (inc: NodeId option) =
             let nthis parent =
                 let constr = 
                     exp.meta.initialConstr 
                     |> Option.map (fun t -> Constrained t, Instanciation.empty, Subst.empty)
-                ast (SynExp exp) constr parent
+                tast exp constr parent
             
             let res =
                 match exp.exp with
@@ -486,13 +491,14 @@ module ConstraintGraph =
                     let nsource =
                         match Env.resolve ident exp.meta.env with
                         | Intern exp ->
-                            nodes |> Seq.find (fun n ->
-                                match n.data with
-                                | Ast { exp = EnvExp envExp }
-                                  when envExp = exp ->
-                                    true
-                                | _ ->
-                                    false)
+                            // TODO: Hier kann ein Fehler auftreten, wenn ident nicht gebunden ist
+                            nodes
+                            |> Seq.find (fun x ->
+                                match x.Value.data with
+                                | IAst { exp = envExp }
+                                  when envExp = exp -> true
+                                | _ -> false)
+                            |> fun n -> n.Key
                         | Extern c -> source c
                     let nsourceInst = nsource |> inst (Format.getUnionCaseName exp.exp)
                     (nsourceInst, inc) ==> nthis
@@ -510,13 +516,18 @@ module ConstraintGraph =
                     let uniAndArgOut = unify ne1 nfunc |> argOut
                     (uniAndArgOut, inc) ==> nthis
                 | Abs (ident, body) ->
-                    let nident = ast (EnvExp ident) None (newGenVarSource())
+                    // TODO: anstatt (newGenVarSource()) muss nun der andere Weretswertwertfg
+                    let nsource =
+                        match annoRes.identLinks |> Map.find ident with
+                        | Some identRef -> identRef.meta.tyvar |> TyVarId
+                        | None -> newGenVarSource()
+                    let nident = iast ident nsource
                     let nbody = generateGraph body None
                     let nfunc = makeFunc nident nbody
                     (nfunc, inc) ==> nthis
                 | Let (ident, e, body) ->
                     do
-                        (generateGraph e None, None) ==> ast (EnvExp ident) None
+                        (generateGraph e None, None) ==> iast ident
                         |> ignore
                     (generateGraph body None, inc) ==> nthis
                 | Prop (ident, e) -> 
@@ -533,18 +544,35 @@ module ConstraintGraph =
             res
 
         do generateGraph (annoRes.root) None |> ignore
-        nodes |> Seq.toList
+        
+        { nodes = nodes; tyvar2NodeId = tyvar2NodeId }
     
-    let solve (annoRes: AnnotationResult) (nodes: Node list) =
+    let solve (annoRes: AnnotationResult) (graph: Graph) =
+
+        let getIncomingNodeIds (node: Node) =
+            match node.data with
+            | Source _ -> []
+            | TAst x -> [ x.inc ]
+            | IAst x -> [ x.inc ]
+            | MakeFun x -> [ x.inc1; x.inc2 ]
+            | GetProp x -> [ x.inc ]
+            | MakeTuple x -> x.incs
+            | MakeRecord x -> x.incs
+            | ArgOut x -> [ x.inc ]
+            | Unify x -> [ x.inc1; x.inc2 ]
+            | Inst x -> [ x.inc ]
 
         // TODO: Hier ggf. was machen
-        let (|Cons|Err|Init|) (node: Node) =
-            match node.constr with
-            | Some (Constrained tau, insts, substs) -> Cons (tau,insts,substs)
-            | Some (UnificationError e, insts, substs) -> Err e
-            | None -> Init
+        let (|Cons|Err|Init|) (nodeId: NodeId) =
+            match graph.nodes |> Map.tryFind nodeId with
+            | Some node ->
+                match node.constr with
+                | Some (Constrained tau, insts, substs) -> Cons (tau,insts,substs)
+                | Some (UnificationError e, insts, substs) -> Err e
+                | None -> Init
+            | None -> Err (Origin "TODO: Inconsistent graph")
 
-        let (|AnyError|AnyInitial|AllConstrained|) (nodes: Node list) =
+        let (|AnyError|AnyInitial|AllConstrained|) (nodes: NodeId list) =
             let cs = nodes |> List.choose (function | Cons x -> Some x | _ -> None)
             let es = nodes |> List.choose (function | Err x -> Some x | _ -> None)
             let ns = nodes |> List.choose (function | Init x -> Some x | _ -> None)
@@ -561,7 +589,8 @@ module ConstraintGraph =
             match nodeData with
             | Source tau ->
                 Constrained tau, Instanciation.empty, Subst.empty
-            | Ast { inc = Cons(t,i,s) } ->
+            | TAst { inc = Cons(t,i,s) }
+            | IAst { inc = Cons(t,i,s) } ->
                 let flattenedSubsts = s |> Subst.flatten
                 match flattenedSubsts with
                 | Error msg ->
@@ -614,14 +643,13 @@ module ConstraintGraph =
                 failwith $"Invalid graph at node: {nodeData}", Instanciation.empty, Subst.empty
 
         let rec constrainNodes
-            (unfinished: ResizeArray<Node>) 
-            (constrained: ResizeArray<Node>) 
-            (errors: ResizeArray<Node>)
-            =
+                (unfinished: ResizeArray<Node>) 
+                (constrained: ResizeArray<Node>) 
+                (errors: ResizeArray<Node>) =
             let mutable goOn = false
             for node in unfinished |> Seq.toArray do
                 let constrainRes = 
-                    let incomingNodes = getIncomingNodes node
+                    let incomingNodes = getIncomingNodeIds node
                     match incomingNodes with
                     | AnyInitial _ -> 
                         None
@@ -631,15 +659,20 @@ module ConstraintGraph =
                         let inh = Some(UnificationError Inherit, Instanciation.empty, Subst.empty)
                         let err = Some(UnificationError err, Instanciation.empty, Subst.empty)
                         let allIncomingsAreOperations = 
-                            let isOp = function | Source _ | Ast _ -> false | _ -> true
-                            incomingNodes |> List.map (fun n -> isOp n.data)|> List.contains false |> not
-                        match allIncomingsAreOperations,node.data with
-                        | true, _ -> err
-                        | false, Ast ast ->
-                            match ast.exp with
-                            | SynExp _ -> inh
-                            | EnvExp _ -> err
-                        | false, _ -> inh
+                            let isOp =
+                                function
+                                | Source _ 
+                                | TAst _ | IAst _ -> false 
+                                | _ -> true
+                            incomingNodes
+                            |> List.map (fun nodeId -> graph.nodes |> Map.find nodeId)
+                            |> List.map (fun n -> isOp n.data)
+                            |> List.contains false 
+                            |> not
+                        match allIncomingsAreOperations, node.data with
+                        | true, _
+                        | false, IAst _ -> err
+                        | _ -> inh
 
                 node.constr <- constrainRes
                 match constrainRes with
@@ -666,31 +699,23 @@ module ConstraintGraph =
             else
                 constrainNodes unfinished constrained errors
         
-        let res = constrainNodes (ResizeArray nodes) (ResizeArray()) (ResizeArray())
-        
-        let allAsts =
-            [ for n in nodes do
-                match n.data with
-                | Ast ast -> Some (ast, n.constr)
-                | _ -> None
-            ]
-            |> List.choose id
+        let res = constrainNodes (ResizeArray (graph.nodes |> Map.values)) (ResizeArray()) (ResizeArray())
 
-        let doIt f =
-            [ for ast,constr in allAsts do
-                let x = f ast.exp
+        let filterNodes f =
+            [ for node in graph.nodes |> Map.values do
+                let x = f node.data
                 match x with
-                | Some x -> Some (x, constr.Value)
+                | Some x -> Some (x, node.constr.Value)
                 | _ -> None
             ]
             |> List.choose id 
             |> Map.ofListUnique
 
         let envConstraintStates =
-            doIt (function | EnvExp exp -> Some exp | _ -> None)
+            filterNodes (function | IAst ast -> Some ast.exp | _ -> None)
 
         let exprConstraintStates =
-            doIt (function | SynExp exp -> Some exp | _ -> None)
+            filterNodes (function | TAst ast -> Some ast.exp | _ -> None)
 
         { res with
             exprConstraintStates = exprConstraintStates
