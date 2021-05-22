@@ -58,11 +58,13 @@ type AstExp =
     | SynExp of TExp
     | EnvExp of IExp
 
+type Counter = unit -> int
+
 [<AutoOpen>]
 module Helper =
-    type Counter(exclSeed) =
+    let newCounter(exclSeed) =
         let mutable varCounter = exclSeed
-        member this.next() = varCounter <- varCounter + 1; varCounter
+        fun () -> varCounter <- varCounter + 1; varCounter
     
     module Map =
         let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
@@ -79,8 +81,6 @@ module Helper =
                     build xs map
             build l Map.empty
 
-
-[<RequireQualifiedAccess>]
 module TypeNames =
     let [<Literal>] string = "String"
     let [<Literal>] number = "Number"
@@ -88,8 +88,6 @@ module TypeNames =
     let [<Literal>] unit = "Unit"
     let [<Literal>] seq = "Seq"
 
-
-[<RequireQualifiedAccess>]
 module Lit =
     let getTypeName (l: Lit) =
         match l with
@@ -98,8 +96,6 @@ module Lit =
         | LBool _ -> TypeNames.bool
         | LUnit _ -> TypeNames.unit
 
-
-[<RequireQualifiedAccess>]
 module Env =
     let empty : Env = Map.empty
     let bind (exp: IExp) (env: Env) : Env =
@@ -118,8 +114,6 @@ module Env =
         |> List.choose id
         |> Map.ofListUnique
 
-
-[<RequireQualifiedAccess>]
 module Tau =
     let map (proj: Tau -> 'a list) (projGenVar: GenTyVar -> 'a list) (tau: Tau) =
         match tau with
@@ -147,126 +141,6 @@ module Tau =
     let getGenVarsMany (taus: Tau list) =
         taus |> List.map getGenVars |> List.fold (+) Set.empty
 
-
-[<RequireQualifiedAccess>]
-module Annotation =
-
-    type AnnotationResult =
-        { newGenVar: Counter
-          root: TExp
-          allExpressions: List<AstExp>
-          envExpressions: List<IExp>
-          synExpressions: List<TExp>
-          envBoundValues: Map<IExp, TExp> }
-
-    let private globalizeGenVars (env: Env) : Counter * Env =
-        let newGenVar = Counter(0)
-        let mutable varMap = Map.empty<GenTyVar, GenTyVar>
-        newGenVar, env |> Map.map (fun _ v ->
-            match v with
-            | Intern _ -> v
-            | Extern tau ->
-                let rec remap tau =
-                    tau |> Tau.mapTree remap (fun var -> 
-                        varMap
-                        |> Map.tryFind var
-                        |> Option.defaultWith (fun () ->
-                            let newVar = newGenVar.next()
-                            varMap <- varMap |> Map.add var newVar
-                            newVar)
-                        |> TGenVar)
-                Extern (remap tau))
-
-    let create (env: Env) (exp: UExp) =
-        let newGenVar,env = globalizeGenVars env
-        let newTyVar = Counter(0)
-        let mutable allExpressions = List.empty<AstExp>
-        let mutable envExpressions = List.empty<IExp>
-        let mutable synExpressions = List.empty<TExp>
-        let addExp exp =
-            allExpressions <- exp :: allExpressions
-            match exp with
-            | SynExp exp -> synExpressions <- exp :: synExpressions
-            | EnvExp exp -> envExpressions <- exp :: envExpressions
-        let rec annotate (env: Env) (exp: UExp) =
-            let thisTyvar = newTyVar.next()
-            let newIdent ident env =
-                let tyvarIdent = newTyVar.next()
-                let exp =
-                    { meta =
-                        { tyvar = tyvarIdent
-                          env = env
-                          initialConstr = None }
-                      exp = ident.exp }
-                do addExp (EnvExp exp)
-                let newEnv = env |> Env.bind exp
-                exp, newEnv
-            let texp =
-                { meta =
-                    { tyvar = thisTyvar
-                      env = env
-                      initialConstr = None }
-                  exp =
-                    match exp.exp with
-                    | Lit x ->
-                        Lit x
-                    | Var ident -> 
-                        Var ident
-                    | App (e1, e2) -> 
-                        App (annotate env e1, annotate env e2)
-                    | Abs (ident, body) ->
-                        let annotatedIdent,newEnv = newIdent ident env
-                        Abs (annotatedIdent, annotate newEnv body)
-                    | Let (ident, e, body) ->
-                        let annotatedIdent,newEnv = newIdent ident env
-                        Let (annotatedIdent, annotate env e, annotate newEnv body)
-                    | Prop (ident, e) -> 
-                        Prop (ident, annotate env e)
-                    | Tuple es -> 
-                        Tuple (es |> List.map (annotate env))
-                    | Record fields -> 
-                        Record [ for ident,e in fields do ident, annotate env e ]
-                }
-            do addExp (SynExp texp)
-            texp
-        
-        let res = annotate env exp
-
-        let envBoundValues =
-            let mutable boundValues = Map.empty<IExp, TExp>
-            let rec walk (exp: TExp) currentTarget : unit =
-                let add x e = e |> Option.iter (fun e -> boundValues <- boundValues |> Map.add x e)
-                // TODO: we need a "map" function for TExp
-                match exp.exp with
-                | Lit _
-                | Var _ -> 
-                    ()
-                | App (e1, e2) ->
-                    walk e2 None
-                    walk e1 (Some e2)
-                | Abs (ident, body) ->
-                    do add ident currentTarget
-                    walk body None
-                | Let (ident, e, body) ->
-                    do add ident (Some e)
-                    walk e None
-                    walk body None
-                | Prop (ident, e) -> 
-                    walk e None
-                | Tuple es -> 
-                    es |> List.iter (fun e -> walk e None)
-                | Record fields ->
-                    fields |> List.map snd |> List.iter (fun e -> walk e None)
-            do walk res None
-            boundValues
-
-        { newGenVar = newGenVar
-          root = res
-          allExpressions = allExpressions
-          envExpressions = envExpressions
-          synExpressions = synExpressions
-          envBoundValues = envBoundValues }
-
 module Format =
     let getUnionCaseName x =
         match Reflection.FSharpValue.GetUnionFields(x, x.GetType()) with
@@ -292,8 +166,131 @@ module Format =
         | TRecord fields ->
             [ for n,t in fields do $"{n}: {tau t}" ] |> String.concat "; " |> sprintf "{ %s }"
 
+module Annotation =
+          
+    type AnnotationResult =
+        { newGenVar: Counter
+          root: TExp
+          allExpressions: List<AstExp>
+          envExpressions: List<IExp>
+          synExpressions: List<TExp>
+          identLinks: Map<IExp, TExp option> }
+    
+    // TODO: Brauchen wir das wirklich?
+    let private globalizeGenVars (env: Env) : Counter * Env =
+        let newGenVar = newCounter(0)
+        let mutable varMap = Map.empty<GenTyVar, GenTyVar>
+        newGenVar, env |> Map.map (fun _ v ->
+            match v with
+            | Intern _ -> v
+            | Extern tau ->
+                let rec remap tau =
+                    tau |> Tau.mapTree remap (fun var -> 
+                        varMap
+                        |> Map.tryFind var
+                        |> Option.defaultWith (fun () ->
+                            let newVar = newGenVar()
+                            varMap <- varMap |> Map.add var newVar
+                            newVar)
+                        |> TGenVar)
+                Extern (remap tau))
+
+    let create (env: Env) (exp: UExp) =
+        let newGenVar,env = globalizeGenVars env
+        let newTyVar = newCounter(0)
+        let mutable allExpressions = List.empty<AstExp>
+        let mutable envExpressions = List.empty<IExp>
+        let mutable synExpressions = List.empty<TExp>
+        let addExp exp =
+            allExpressions <- exp :: allExpressions
+            match exp with
+            | SynExp exp -> synExpressions <- exp :: synExpressions
+            | EnvExp exp -> envExpressions <- exp :: envExpressions
+        let rec annotate (env: Env) (exp: UExp) =
+            let thisTyvar = newTyVar()
+            let newIdent ident env =
+                let tyvarIdent = newTyVar()
+                let exp =
+                    { meta =
+                        { tyvar = tyvarIdent
+                          env = env
+                          initialConstr = None }
+                      exp = ident.exp }
+                do addExp (EnvExp exp)
+                let newEnv = env |> Env.bind exp
+                exp, newEnv
+            let resExp =
+                match exp.exp with
+                | Lit x ->
+                    Lit x
+                | Var ident -> 
+                    Var ident
+                | App (e1, e2) -> 
+                    App (annotate env e1, annotate env e2)
+                | Abs (ident, body) ->
+                    let annotatedIdent,newEnv = newIdent ident env
+                    Abs (annotatedIdent, annotate newEnv body)
+                | Let (ident, e, body) ->
+                    let annotatedIdent,newEnv = newIdent ident env
+                    Let (annotatedIdent, annotate env e, annotate newEnv body)
+                | Prop (ident, e) -> 
+                    Prop (ident, annotate env e)
+                | Tuple es -> 
+                    Tuple (es |> List.map (annotate env))
+                | Record fields -> 
+                    Record [ for ident,e in fields do ident, annotate env e ]
+            let texp =
+                { meta =
+                    { tyvar = thisTyvar
+                      env = env
+                      initialConstr = None }
+                  exp = resExp }
+            do addExp (SynExp texp)
+            texp
+        
+        let res = annotate env exp
+
+        let identLinks =
+            let mutable boundValues = Map.empty<IExp, TExp option>
+            let rec walk (exp: TExp) currentTarget : unit =
+                let add x e =
+                    boundValues <- boundValues |> Map.add x e
+                // TODO: we need a "map" function for TExp
+                match exp.exp with
+                | Lit _
+                | Var _ -> 
+                    ()
+                | App (e1, e2) ->
+                    walk e2 None
+                    walk e1 (Some e2)
+                | Abs (ident, body) ->
+                    do add ident currentTarget
+                    walk body None
+                | Let (ident, e, body) ->
+                    do add ident (Some e)
+                    walk e None
+                    walk body None
+                | Prop (ident, e) ->
+                    // TODO: ist das korrekt - dass ident nicht genutzt wird?
+                    walk e None
+                | Tuple es -> 
+                    es |> List.iter (fun e -> walk e None)
+                | Record fields ->
+                    fields |> List.map snd |> List.iter (fun e -> walk e None)
+            do walk res None
+            boundValues
+
+        { newGenVar = newGenVar
+          root = res
+          allExpressions = allExpressions
+          envExpressions = envExpressions
+          synExpressions = synExpressions
+          identLinks = identLinks }
+
 module ConstraintGraph =
 
+    open Annotation
+    
     type Ast = { exp: AstExp; inc: Node }
     and MakeFun = { inc1: Node; inc2: Node }
     and ArgOut = { inc: Node }
@@ -326,7 +323,7 @@ module ConstraintGraph =
           allNodes: List<Node>
           exprConstraintStates: Map<TExp, ConstraintState * Set<Instanciation> * Set<Subst>>
           envConstraintStates: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>
-          annotationResult: Annotation.AnnotationResult
+          annotationResult: AnnotationResult
           success: bool }
 
     module Instanciation =
@@ -450,7 +447,7 @@ module ConstraintGraph =
         | Inst x -> [ x.inc ]
         
     // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
-    let create (annoRes: Annotation.AnnotationResult) =
+    let create (annoRes: AnnotationResult) =
         let nodes = ResizeArray()
 
         let addNode n constr =
@@ -458,7 +455,7 @@ module ConstraintGraph =
             do nodes.Add node
             node
         let source tau = addNode (Source tau) (Some (Constrained tau, Instanciation.empty, Subst.empty))
-        let newGenVarSource() = source (TGenVar (annoRes.newGenVar.next()))
+        let newGenVarSource() = source (TGenVar (annoRes.newGenVar()))
         let ast exp constr inc = addNode (Ast { exp = exp; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
@@ -538,7 +535,7 @@ module ConstraintGraph =
         do generateGraph (annoRes.root) None |> ignore
         nodes |> Seq.toList
     
-    let solve (annoRes: Annotation.AnnotationResult) (nodes: Node list) =
+    let solve (annoRes: AnnotationResult) (nodes: Node list) =
 
         // TODO: Hier ggf. was machen
         let (|Cons|Err|Init|) (node: Node) =
@@ -607,7 +604,7 @@ module ConstraintGraph =
                     tgenvars - substsGenVars
                 let instances = ftv |> Set.map (fun x -> 
                     { oldVar = x
-                      newVar = annoRes.newGenVar.next() })
+                      newVar = annoRes.newGenVar() })
                 // TODO: Braucht man replacedTau wirklich?
                 let t = Subst.instanciate instances t
                 let t = Subst.subst s t

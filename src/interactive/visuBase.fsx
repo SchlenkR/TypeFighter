@@ -39,21 +39,27 @@ module Format =
         let fmt i = $"{Format.genVar i.oldVar} = {Format.genVar i.newVar}"
         items (insts |> Set.toList) fmt
 
-    let env exp (envCs: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>) =
+    let env exp (envBoundValues: Map<IExp, TExp option>) (envCs: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>) =
         let fmt (ident,item) =
             match item with
             | Extern t ->
-                $"{tyvar ident (Format.tau t)}"
+                tyvar ident (Format.tau t)
             | Intern exp ->
-                let tvstring = $"(tyvar={exp.meta.tyvar})"
+                let tvstring = $"tv={exp.meta.tyvar}"
                 let csstring =
                     envCs
                     |> Seq.tryFind (fun x -> x.Key = exp)
                     |> Option.map (fun x -> x.Value)
                     |> Option.map (fun (x,_,_) -> x)
                     |> constraintState
-                let content = $"{tvstring} {csstring}"
-                $"{tyvar ident content}"
+                let boundValue =
+                    envBoundValues
+                    |> Map.find exp
+                    |> Option.map (fun x -> string x.meta.tyvar)
+                    |> Option.defaultValue "-"
+                    |> sprintf "ref=%s"
+                let content = $"{csstring} | {tvstring} {boundValue}"
+                tyvar ident content
         items (exp.env |> Map.toList) fmt
 
 
@@ -66,7 +72,7 @@ module Show =
             (showEnv: bool) 
             (showConstraint: bool)
             (showSubsts: bool)
-            (res: Annotation.AnnotationResult)
+            (res: AnnotationResult)
             (exprConstraintStates: Map<TExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
             (envConstraintStates: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
             =
@@ -87,7 +93,7 @@ module Show =
                     if showSubsts then
                         yield $"insts = {Format.insts (constrSubsts.Value |> fun (_,x,_) -> x)}"
                         yield $"substs = {Format.substs (constrSubsts.Value |> fun (_,_,x) -> x)}"
-                    if showEnv then yield $"env = {Format.env exp.meta envConstraintStates}"
+                    if showEnv then yield $"env = {Format.env exp.meta res.identLinks envConstraintStates}"
                 ]
                 |> String.concat "\n"
             match exp.exp with
