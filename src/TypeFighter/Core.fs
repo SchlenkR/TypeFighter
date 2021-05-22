@@ -387,7 +387,7 @@ module ConstraintGraph =
                                 Ok (utau, us1 + us2))))
                     |> Result.map (fun (utau,us) ->
                         [
-                            { Subst.genTyVar = var; Subst.substitute = utau }
+                            { genTyVar = var; substitute = utau }
                             yield! us
                         ] |> set)
             ]
@@ -632,9 +632,6 @@ module ConstraintGraph =
                 let instances = ftv |> Set.map (fun x -> 
                     { oldVar = x
                       newVar = annoRes.newGenVar() })
-                // TODO: Braucht man replacedTau wirklich?
-                let t = Subst.instanciate instances t
-                let t = Subst.subst s t
                 Constrained t, i + instances, s
             | _ ->
                 // for now, let's better fail here so that we can detect valid error cases and match them

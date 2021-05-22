@@ -24,8 +24,8 @@ module ImportantInference =
         (Let "id" (Abs "x" (Var "x"))
         (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
     )
+    |> showSolvedAstWEnv []
     |> showSolvedGraph []
-    |> showSolvedAst []
 
 
 
@@ -48,7 +48,18 @@ module ImportantInference =
     (
         App (Abs "x" (Var "x")) (Num 42.0)
     )
+    |> showSolvedGraph []
     |> showSolvedAst []
+
+
+    (*
+        fun f -> f 42.0
+    *)
+    (
+        (Abs "f" (App (Var "f") (Num 42.0)))
+    )
+    |> showSolvedAst []
+
     |> showSolvedGraph []
 
 
