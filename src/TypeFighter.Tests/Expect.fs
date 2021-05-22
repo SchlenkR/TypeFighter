@@ -11,8 +11,8 @@ let private error expected actual =
     fail msg
 
 let private infer env exp =
-    let annoRes = Annotation.create env exp
-    let res = annoRes |> ConstraintGraph.create |> ConstraintGraph.solve annoRes
+    let annoRes = Annotation.annotate env exp
+    let res = annoRes |> ConstraintGraph.createGraph |> ConstraintGraph.solve annoRes
     res.exprConstraintStates |> Map.find res.annotationResult.root
 
 let inferType env expected exp =

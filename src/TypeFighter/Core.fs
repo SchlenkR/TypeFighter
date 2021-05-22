@@ -62,9 +62,11 @@ type Counter = unit -> int
 
 [<AutoOpen>]
 module Helper =
-    let newCounter(exclSeed) =
+    let newCounter f exclSeed =
         let mutable varCounter = exclSeed
-        fun () -> varCounter <- varCounter + 1; varCounter
+        fun () -> varCounter <- f varCounter 1; varCounter
+    let newUpCounter = newCounter (+)
+    let newDownCounter = newCounter (-)
     
     module Map =
         let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
@@ -178,7 +180,7 @@ module Annotation =
     
     // TODO: Brauchen wir das wirklich?
     let private globalizeGenVars (env: Env) : Counter * Env =
-        let newGenVar = newCounter(0)
+        let newGenVar = newUpCounter(0)
         let mutable varMap = Map.empty<GenTyVar, GenTyVar>
         newGenVar, env |> Map.map (fun _ v ->
             match v with
@@ -195,9 +197,9 @@ module Annotation =
                         |> TGenVar)
                 Extern (remap tau))
 
-    let create (env: Env) (exp: UExp) =
+    let annotate (env: Env) (exp: UExp) =
         let newGenVar,env = globalizeGenVars env
-        let newTyVar = newCounter(0)
+        let newTyVar = newUpCounter(0)
         let mutable allExpressions = List.empty<AstExp>
         let mutable envExpressions = List.empty<IExp>
         let mutable synExpressions = List.empty<TExp>
@@ -290,9 +292,7 @@ module Annotation =
 module ConstraintGraph =
 
     open Annotation
-    type NodeId =
-        | TyVarId of TyVar
-        | FreeId of int
+    type NodeId = int
     
     type TAst = { exp: TExp; inc: NodeId }
     type IAst = { exp: IExp; inc: NodeId }
@@ -323,11 +323,11 @@ module ConstraintGraph =
         member val constr = constr with get, set
 
     type Graph =
-        { nodes: Map<NodeId, Node>
-          tyvar2NodeId: Map<TyVar, NodeId> }
+        { nodes: Map<NodeId, Node> }
 
     type SolveResult =
-        { constrainedNodes: List<Node>
+        { graph: Graph
+          constrainedNodes: List<Node>
           errorNodes: List<Node>
           unfinishedNodes: List<Node>
           allNodes: List<Node>
@@ -444,19 +444,30 @@ module ConstraintGraph =
             // TODO: consistency check of unifiers? (!IMPORTANT)
             unify1 a b
         
+    let getIncomingNodeIds (node: Node) =
+        match node.data with
+        | Source _ -> []
+        | TAst x -> [ x.inc ]
+        | IAst x -> [ x.inc ]
+        | MakeFun x -> [ x.inc1; x.inc2 ]
+        | GetProp x -> [ x.inc ]
+        | MakeTuple x -> x.incs
+        | MakeRecord x -> x.incs
+        | ArgOut x -> [ x.inc ]
+        | Unify x -> [ x.inc1; x.inc2 ]
+        | Inst x -> [ x.inc ]
+
     // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
-    let create (annoRes: AnnotationResult) : Graph =
+    let createGraph (annoRes: AnnotationResult) : Graph =
         let mutable nodes = Map.empty<NodeId, Node>
-        let mutable tyvar2NodeId = Map.empty<TyVar, NodeId>
 
         let addNode =
-            let nextNodeId = newCounter(0)
+            // TODO: das ist ein bisschen wackelig
+            let nextNodeId = newDownCounter(0)
             fun n constr tyvar ->
-                let nodeId = tyvar |> Option.map TyVarId |> Option.defaultValue (nextNodeId() |> FreeId)
+                let nodeId = tyvar |> Option.defaultValue (nextNodeId())
                 let node = Node(nodeId, n, constr)
-                do
-                    nodes <- nodes |> Map.add node.id node
-                    tyvar |> Option.iter (fun tyvar -> tyvar2NodeId <- tyvar2NodeId |> Map.add tyvar nodeId)
+                do nodes <- nodes |> Map.add node.id node
                 node.id
         let source tau = addNode (Source tau) (Some (Constrained tau, Instanciation.empty, Subst.empty)) None
         let newGenVarSource() = source (TGenVar (annoRes.newGenVar()))
@@ -519,7 +530,7 @@ module ConstraintGraph =
                     // TODO: anstatt (newGenVarSource()) muss nun der andere Weretswertwertfg
                     let nsource =
                         match annoRes.identLinks |> Map.find ident with
-                        | Some identRef -> identRef.meta.tyvar |> TyVarId
+                        | Some identRef -> identRef.meta.tyvar
                         | None -> newGenVarSource()
                     let nident = iast ident nsource
                     let nbody = generateGraph body None
@@ -545,22 +556,9 @@ module ConstraintGraph =
 
         do generateGraph (annoRes.root) None |> ignore
         
-        { nodes = nodes; tyvar2NodeId = tyvar2NodeId }
+        { nodes = nodes }
     
     let solve (annoRes: AnnotationResult) (graph: Graph) =
-
-        let getIncomingNodeIds (node: Node) =
-            match node.data with
-            | Source _ -> []
-            | TAst x -> [ x.inc ]
-            | IAst x -> [ x.inc ]
-            | MakeFun x -> [ x.inc1; x.inc2 ]
-            | GetProp x -> [ x.inc ]
-            | MakeTuple x -> x.incs
-            | MakeRecord x -> x.incs
-            | ArgOut x -> [ x.inc ]
-            | Unify x -> [ x.inc1; x.inc2 ]
-            | Inst x -> [ x.inc ]
 
         // TODO: Hier ggf. was machen
         let (|Cons|Err|Init|) (nodeId: NodeId) =
@@ -685,7 +683,8 @@ module ConstraintGraph =
                 | _ -> ()
 
             if not goOn then
-                { constrainedNodes = constrained |> List.ofSeq
+                { graph = graph
+                  constrainedNodes = constrained |> List.ofSeq
                   errorNodes = errors |> List.ofSeq
                   unfinishedNodes = unfinished |> List.ofSeq
                   allNodes = [

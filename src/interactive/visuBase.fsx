@@ -65,6 +65,7 @@ module Format =
 
 [<AutoOpen>]
 module Show =
+    open Annotation
     open ConstraintGraph
 
     let writeAnnotatedAst 
@@ -72,7 +73,7 @@ module Show =
             (showEnv: bool) 
             (showConstraint: bool)
             (showSubsts: bool)
-            (res: AnnotationResult)
+            (res: AnnotationResult) 
             (exprConstraintStates: Map<TExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
             (envConstraintStates: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
             =
@@ -123,28 +124,28 @@ module Show =
                 Tree.var $"Record" details [ for _,e in fields do createNodes e ]
         createNodes res.root |> flatten |> Tree.write
 
-    let writeConstraintGraph (nodes: Node seq) =
-        let indexedNodes = nodes |> Seq.indexed |> Seq.toList
+    let writeConstraintGraph (graph: Graph) =
         let jsLinks =
             [ 
-                let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
-                for n in nodes do
-                    for i in getIncomingNodes n do
-                        { Visu.JsLink.fromNode = nodesLookup.[i]
-                          Visu.JsLink.toNode = nodesLookup.[n] }
+                for n in graph.nodes do
+                    for i in getIncomingNodeIds n.Value do
+                        { Visu.JsLink.fromNode = i
+                          Visu.JsLink.toNode = n.Key }
             ]
         let jsNodes =
-            [ for i,n in indexedNodes do
+            [ for kvp in graph.nodes do
+                let i = kvp.Key
+                let n = kvp.Value
                 let name,layout =
                     match n.data with
                     | Source _ -> "SOURCE", NodeTypes.op
-                    | Ast { exp = SynExp exp } ->
-                        let expName = Format.getUnionCaseName exp.exp
-                        let name = $"{exp.meta.tyvar} ({expName})"
+                    | TAst ast ->
+                        let expName = Format.getUnionCaseName ast.exp.exp
+                        let name = $"{ast.exp.meta.tyvar} ({expName})"
                         name,NodeTypes.var
-                    | Ast { exp = EnvExp exp } ->
-                        let expName = $"Env ({exp.exp})"
-                        let name = $"{exp.meta.tyvar} ({expName})"
+                    | IAst ast ->
+                        let expName = $"Env ({ast.exp.exp})"
+                        let name = $"{ast.exp.meta.tyvar} ({expName})"
                         name,NodeTypes.var
                     | MakeFun _ -> "MakeFun", NodeTypes.op
                     | GetProp x -> $"GetProp ({x.field})", NodeTypes.op
@@ -169,23 +170,23 @@ module Show =
         Graph.write jsNodes jsLinks
     
     let private showAst env showVar showEnv showConstraint showSubsts exp exprCs envCs =
-        let annoRes = Annotation.create (Map.ofList env) exp
+        let annoRes = annotate (Map.ofList env) exp
         do writeAnnotatedAst showVar showEnv showConstraint showSubsts annoRes exprCs envCs
         annoRes
 
     let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
     let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
     let showConstraintGraph env exp =
-        let annoRes = Annotation.create (Map.ofList env) exp
-        do annoRes |> ConstraintGraph.create |> writeConstraintGraph
+        let annoRes = annotate (Map.ofList env) exp
+        do annoRes |> createGraph |> writeConstraintGraph
         annoRes
     let solve env exp =
-        let annoRes = Annotation.create (Map.ofList env) exp
-        let nodes = annoRes |> ConstraintGraph.create
-        ConstraintGraph.solve annoRes nodes
+        let annoRes = annotate (Map.ofList env) exp
+        let nodes = annoRes |> createGraph
+        solve annoRes nodes
     let showSolvedGraph env exp =
         let res = solve env exp
-        do res.allNodes |> writeConstraintGraph
+        do res.graph |> writeConstraintGraph
         res
     let showSolvedAst env exp =
         let res = solve env exp
