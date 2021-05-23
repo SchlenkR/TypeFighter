@@ -99,7 +99,7 @@ let tests = testList "Main Tests" [
         |> inferType [] (stringTyp)
     }
 
-    test "Polymorphic abs" {
+    test "No Polymorphic abs (1)" {
         (*
             (fun id -> id "Hello World", id 42.0)(fun x -> x)
         *)
@@ -108,11 +108,11 @@ let tests = testList "Main Tests" [
                 (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]) )
                 (Abs "x" (Var "x")))
         )
-        |> inferType [] (stringTyp * numberTyp)
+        |> inferError []
     }
 
 
-    test "No polymorphic abs" {
+    test "No polymorphic abs (2)" {
         (*
             (fun id -> id "Hello World", id 42.0)(fun x -> add x x)
         *)
@@ -173,6 +173,16 @@ let tests = testList "Main Tests" [
             (Abs "f" (App (Var "f") (Num 42.0)))
         )
         |> inferType [] ((numberTyp ^-> %1) ^-> %1)
+    }
+
+    test "App Tuple(num and string) to lambda bound function" {
+        (*
+            fun f -> f 42.0, f "xxx"
+        *)
+        (
+            (Abs "f" (Tuple [ App (Var "f") (Num 42.0); App (Var "f") (Str "xxx") ]))
+        )
+        |> inferError []
     }
 ]
 

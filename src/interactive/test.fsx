@@ -59,7 +59,16 @@ module ImportantInference =
         (Abs "f" (App (Var "f") (Num 42.0)))
     )
     |> showSolvedAst []
+    |> showSolvedGraph []
 
+
+    (*
+        fun f -> f 42.0, f "xxx"
+    *)
+    (
+        (Abs "f" (Tuple [ App (Var "f") (Num 42.0); App (Var "f") (Str "xxx") ]))
+    )
+    |> showSolvedAst []
     |> showSolvedGraph []
 
 

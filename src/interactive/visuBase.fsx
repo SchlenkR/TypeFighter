@@ -35,7 +35,11 @@ module Format =
         let fmt s = $"{Format.genVar s.genTyVar} = {Format.tau s.substitute}"
         items (substs |> Set.toList) fmt
 
-    let env exp (envBoundValues: Map<IExp, TExp option>) (envCs: Map<IExp, ConstraintState * Set<Subst>>) =
+    let insts (insts: Set<Instanciation>) =
+        let fmt i = $"{Format.genVar i.oldVar} = {Format.genVar i.newVar}"
+        items (insts |> Set.toList) fmt
+
+    let env exp (envBoundValues: Map<IExp, TExp option>) (envCs: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>) =
         let fmt (ident,item) =
             match item with
             | Extern t ->
@@ -46,7 +50,7 @@ module Format =
                     envCs
                     |> Seq.tryFind (fun x -> x.Key = exp)
                     |> Option.map (fun x -> x.Value)
-                    |> Option.map fst
+                    |> Option.map (fun (x,_,_) -> x)
                     |> constraintState
                 let boundValue =
                     envBoundValues
@@ -70,8 +74,8 @@ module Show =
             (showConstraint: bool)
             (showSubsts: bool)
             (res: AnnotationResult) 
-            (exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>)
-            (envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>)
+            (exprConstraintStates: Map<TExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
+            (envConstraintStates: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>)
             =
         let rec flatten (node: Tree.Node) =
             [
@@ -86,9 +90,10 @@ module Show =
 
                     if showVar then yield $"var = {exp.meta.tyvar}"
                     if showConstraint then
-                        yield $"type = {Format.constraintState (Some (constrSubsts.Value |> fst))}"
+                        yield $"type = {Format.constraintState (Some (constrSubsts.Value |> fun (x,_,_) -> x))}"
                     if showSubsts then
-                        yield $"substs = {Format.substs (constrSubsts.Value |> snd)}"
+                        yield $"insts = {Format.insts (constrSubsts.Value |> fun (_,x,_) -> x)}"
+                        yield $"substs = {Format.substs (constrSubsts.Value |> fun (_,_,x) -> x)}"
                     if showEnv then yield $"env = {Format.env exp.meta res.identLinks envConstraintStates}"
                 ]
                 |> String.concat "\n"
@@ -145,16 +150,18 @@ module Show =
                     | MakeFun _ -> "MakeFun", NodeTypes.op
                     | GetProp x -> $"GetProp ({x.field})", NodeTypes.op
                     | MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
+                    | Inst x -> $"Inst ({x.scope})", NodeTypes.op
                     | _ -> Format.getUnionCaseName n.data, NodeTypes.op
                 { key = i
                   name = name
                   desc = 
                     [
-                        yield Format.constraintState (n.constr |> Option.map fst)
+                        yield Format.constraintState (n.constr |> Option.map (fun (x,_,_) -> x))
                         match n.constr with
                         | None -> ()
                         | Some constr ->
-                            let _,substs = constr
+                            let _,insts,substs = constr
+                            yield $"insts = {Format.insts insts}"
                             yield $"substs = {Format.substs substs}"
                     ]
                     |> String.concat "\n"
