@@ -211,12 +211,8 @@ module Annotation =
         let rec annotate (env: Env) (exp: UExp) =
             let thisTyvar = newTyVar()
             let newIdent ident env =
-                let tyvarIdent = newTyVar()
                 let exp =
-                    { meta =
-                        { tyvar = tyvarIdent
-                          env = env
-                          initialConstr = None }
+                    { meta = { tyvar = newTyVar(); env = env; initialConstr = None }
                       exp = ident.exp }
                 do addExp (EnvExp exp)
                 let newEnv = env |> Env.bind exp
@@ -242,10 +238,7 @@ module Annotation =
                 | Record fields -> 
                     Record [ for ident,e in fields do ident, annotate env e ]
             let texp =
-                { meta =
-                    { tyvar = thisTyvar
-                      env = env
-                      initialConstr = None }
+                { meta = { tyvar = thisTyvar; env = env; initialConstr = None }
                   exp = resExp }
             do addExp (SynExp texp)
             texp
@@ -288,6 +281,64 @@ module Annotation =
           envExpressions = envExpressions
           synExpressions = synExpressions
           identLinks = identLinks }
+
+module NewStuff =
+    open Annotation
+
+    type NodeId = int
+    
+    type TAst = { exp: TExp; inc: NodeId }
+    type IAst = { exp: IExp; inc: NodeId }
+    type MakeFun = { inc1: NodeId; inc2: NodeId }
+    type ArgOut = { inc: NodeId }
+    type Unify = { inc1: NodeId; inc2: NodeId }
+    type GetProp = { field: string; inc: NodeId }
+    type MakeTuple = { incs: NodeId list }
+    type MakeRecord = { fields: string list; incs: NodeId list }
+    type Inst = { scope: string; inc: NodeId }
+
+    type NodeData =
+        | Source of Tau
+        | TAst of TAst
+        | IAst of IAst
+        | MakeFun of MakeFun
+        | GetProp of GetProp
+        | MakeTuple of MakeTuple
+        | MakeRecord of MakeRecord
+        | ArgOut of ArgOut
+        | Unify of Unify
+        | Inst of Inst
+
+    let constrain (env: Env) exp =
+        let rec constrain (env: Env) exp = [
+            match exp.exp with
+            | Lit x ->
+                yield Subst.create($"Lit {x.typeName}", annoExp.tvar, MBase x.typeName)
+            | Var ident ->
+                let tyvar = Env.resolve ident env
+                yield Subst.create($"Var-Expr {ident}", annoExp.tvar, MVar tyvar)
+            | App (e1, e2) ->
+                yield Subst.create("App (e1 = e2)", e1.tvar, MFun(MVar e2.tvar, MVar annoExp.tvar))
+                yield! constrain env e2
+                yield! constrain env e1
+            | Abs (ident, body) ->
+                let newEnv = env |> Env.bind ident.annotated ident.tvar
+                yield Subst.create("Fun-Expr", annoExp.tvar, MFun(MVar ident.tvar, MVar body.tvar))
+                yield! constrain newEnv body
+            | Let (ident, e, body) ->
+                let newEnv = env |> Env.bind ident e.tvar
+                yield Subst.create($"Let-Expr {ident}", annoExp.tvar, MVar body.tvar)
+                yield! constrain env e
+                yield! constrain newEnv body
+            | Prop (ident, e) -> 
+                Prop (ident, annotate env e)
+            | Tuple es -> 
+                Tuple (es |> List.map (annotate env))
+            | Record fields -> 
+                Record [ for ident,e in fields do ident, annotate env e ]
+            ]
+        constrain env annoExp
+
 
 module ConstraintGraph =
 
@@ -527,7 +578,6 @@ module ConstraintGraph =
                     let uniAndArgOut = unify ne1 nfunc |> argOut
                     (uniAndArgOut, inc) ==> nthis
                 | Abs (ident, body) ->
-                    // TODO: anstatt (newGenVarSource()) muss nun der andere Weretswertwertfg
                     let nsource =
                         match annoRes.identLinks |> Map.find ident with
                         | Some identRef -> identRef.meta.tyvar
