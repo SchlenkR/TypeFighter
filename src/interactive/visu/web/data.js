@@ -1,43 +1,87 @@
 
-window.layout = "tree";
+window.layout = "graph";
 window.nodeDataArray = [
   {
-    "key": 0,
-    "name": "Fun (f) ->",
-    "desc": "var = 1\ntype = ('a -> 'b)\ninsts = [ 'c = 'd ]\nsubsts = [ 'd = (Number -> 'b) ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 1,
-    "name": "App",
-    "desc": "var = 3\ntype = 'b\ninsts = [ 'c = 'd ]\nsubsts = [ 'd = (Number -> 'b) ]",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 2,
-    "name": "Var (f)",
-    "desc": "var = 4\ntype = 'd\ninsts = [ 'c = 'd ]\nsubsts = [ ]",
+    "key": 4,
+    "name": "AST (tv=4)",
+    "desc": "",
     "fig": "Rectangle"
   },
   {
     "key": 3,
-    "name": "Lit (42)",
-    "desc": "var = 5\ntype = Number\ninsts = [ ]\nsubsts = [ ]",
+    "name": "AST (tv=3)",
+    "desc": "",
     "fig": "Rectangle"
+  },
+  {
+    "key": 2,
+    "name": "AST (tv=2)",
+    "desc": "",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 1,
+    "name": "AST (tv=1)",
+    "desc": "",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 0,
+    "name": "AST (tv=0)",
+    "desc": "",
+    "fig": "Rectangle"
+  },
+  {
+    "key": 5,
+    "name": "MakeFun",
+    "desc": "",
+    "fig": "Ellipse"
+  },
+  {
+    "key": 6,
+    "name": "SOURCE",
+    "desc": "",
+    "fig": "Ellipse"
+  },
+  {
+    "key": 7,
+    "name": "MakeFun",
+    "desc": "",
+    "fig": "Ellipse"
   }
 ];
 window.linkDataArray = [
+  {
+    "from": 6,
+    "to": 3
+  },
+  {
+    "from": 5,
+    "to": 2
+  },
+  {
+    "from": 7,
+    "to": 2
+  },
   {
     "from": 0,
     "to": 1
   },
   {
-    "from": 1,
-    "to": 2
+    "from": 3,
+    "to": 5
+  },
+  {
+    "from": 4,
+    "to": 5
+  },
+  {
+    "from": 0,
+    "to": 7
   },
   {
     "from": 1,
-    "to": 3
+    "to": 7
   }
 ];
     

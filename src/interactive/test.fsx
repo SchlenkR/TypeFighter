@@ -6,10 +6,22 @@ open TypeFighter.Api
 open TypeFighter.Api.Dsl
 open TypeFighter.Api.ImportedFunctionNames
 open TypeFighter.Api.Types
-open TypeFighter.Tests
-open TypeFighter.Tests.Expect
+//open TypeFighter.Tests
+//open TypeFighter.Tests.Expect
 open TestBase
 open VisuBase
+
+
+
+(*
+    (fun x -> x) 42.0
+*)
+(
+    App (Abs "x" (Var "x")) (Num 42.0)
+)
+|> showConstraints []
+|> showConstraintGraph []
+|> showAnnotatedAst []
 
 
 
@@ -24,8 +36,7 @@ module ImportantInference =
         (Let "id" (Abs "x" (Var "x"))
         (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
     )
-    |> showSolvedAstWEnv []
-    |> showSolvedGraph []
+    |> showAnnotatedAst []
 
 
 
@@ -38,7 +49,7 @@ module ImportantInference =
             (Abs "id" (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]) )
             (Abs "x" (Var "x")))
     )
-    |> showSolvedGraph []
+    |> showAnnotatedAst []
 
 
 
@@ -48,8 +59,7 @@ module ImportantInference =
     (
         App (Abs "x" (Var "x")) (Num 42.0)
     )
-    |> showSolvedAst []
-    |> showSolvedGraph []
+    |> showAnnotatedAst []
 
 
     (*
@@ -106,6 +116,20 @@ module EnvBoundValues =
     (
         App (Abs "x" (Var "x")) (Num 42.0)
     )
+    |> showConstraints []
+    |> showConstraintGraph []
+    |> showAnnotatedAst []
+
+
+
+
+    (*
+        (fun x -> x) 42.0
+    *)
+    (
+        Abs "x" (Var "x")
+    )
+    |> showConstraintGraph []
     |> showAnnotatedAst []
 
 

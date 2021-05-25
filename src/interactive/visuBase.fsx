@@ -1,7 +1,6 @@
 
 #load "testBase.fsx"
 open TypeFighter
-//open TypeFighter.DotNetCodeGen
 
 #load "visu/visu.fsx"
 open Visu
@@ -39,34 +38,29 @@ module Format =
         let fmt i = $"{Format.genVar i.oldVar} = {Format.genVar i.newVar}"
         items (insts |> Set.toList) fmt
 
-    let env exp (envBoundValues: Map<IExp, TExp option>) (envCs: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>) =
+    let env (exp: TExp) (envCs: Map<IExp, ConstraintState * Set<Instanciation> * Set<Subst>>) =
         let fmt (ident,item) =
             match item with
             | Extern t ->
                 tyvar ident (Format.tau t)
-            | Intern exp ->
-                let tvstring = $"tv={exp.meta.tyvar}"
-                let csstring =
-                    envCs
-                    |> Seq.tryFind (fun x -> x.Key = exp)
-                    |> Option.map (fun x -> x.Value)
-                    |> Option.map (fun (x,_,_) -> x)
-                    |> constraintState
-                let boundValue =
-                    envBoundValues
-                    |> Map.find exp
-                    |> Option.map (fun x -> string x.meta.tyvar)
-                    |> Option.defaultValue "-"
-                    |> sprintf "ref=%s"
-                let content = $"{csstring} | {tvstring} {boundValue}"
+            | Intern tv ->
+                let tvstring = $"tv={tv}"
+                //let csstring =
+                //    envCs
+                //    |> Seq.tryFind (fun x -> x.Key = exp)
+                //    |> Option.map (fun x -> x.Value)
+                //    |> Option.map (fun (x,_,_) -> x)
+                //    |> constraintState
+                //let content = $"{csstring} | {tvstring}"
+                let content = tvstring
                 tyvar ident content
-        items (exp.env |> Map.toList) fmt
+        items (exp.meta.env |> Map.toList) fmt
 
 
 [<AutoOpen>]
 module Show =
     open Annotation
-    open ConstraintGraph
+    open NewStuff
 
     let writeAnnotatedAst 
             (showVar: bool) 
@@ -94,7 +88,7 @@ module Show =
                     if showSubsts then
                         yield $"insts = {Format.insts (constrSubsts.Value |> fun (_,x,_) -> x)}"
                         yield $"substs = {Format.substs (constrSubsts.Value |> fun (_,_,x) -> x)}"
-                    if showEnv then yield $"env = {Format.env exp.meta res.identLinks envConstraintStates}"
+                    if showEnv then yield $"env = {Format.env exp envConstraintStates}"
                 ]
                 |> String.concat "\n"
             match exp.exp with
@@ -124,47 +118,35 @@ module Show =
                 Tree.var $"Record" details [ for _,e in fields do createNodes e ]
         createNodes res.root |> flatten |> Tree.write
 
-    let writeConstraintGraph (graph: Graph) =
+    let writeConstraintGraph (nodes: Node list) =
         let jsLinks =
             [ 
-                for n in graph.nodes do
-                    for i in getIncomingNodeIds n.Value do
+                for n in nodes do
+                    for i in getIncomingNodeIds n do
                         { Visu.JsLink.fromNode = i
-                          Visu.JsLink.toNode = n.Key }
+                          Visu.JsLink.toNode = n.id }
             ]
         let jsNodes =
-            [ for kvp in graph.nodes do
-                let i = kvp.Key
-                let n = kvp.Value
+            [ for n in nodes do
                 let name,layout =
                     match n.data with
                     | Source _ -> "SOURCE", NodeTypes.op
-                    | TAst ast ->
-                        let expName = Format.getUnionCaseName ast.exp.exp
-                        let name = $"{ast.exp.meta.tyvar} ({expName})"
-                        name,NodeTypes.var
-                    | IAst ast ->
-                        let expName = $"Env ({ast.exp.exp})"
-                        let name = $"{ast.exp.meta.tyvar} ({expName})"
-                        name,NodeTypes.var
+                    | Ast ast ->
+                        $"AST (tv={n.id})", NodeTypes.var
                     | MakeFun _ -> "MakeFun", NodeTypes.op
-                    | GetProp x -> $"GetProp ({x.field})", NodeTypes.op
-                    | MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
-                    | Inst x -> $"Inst ({x.scope})", NodeTypes.op
-                    | _ -> Format.getUnionCaseName n.data, NodeTypes.op
-                { key = i
+                { key = n.id
                   name = name
-                  desc = 
-                    [
-                        yield Format.constraintState (n.constr |> Option.map (fun (x,_,_) -> x))
-                        match n.constr with
-                        | None -> ()
-                        | Some constr ->
-                            let _,insts,substs = constr
-                            yield $"insts = {Format.insts insts}"
-                            yield $"substs = {Format.substs substs}"
-                    ]
-                    |> String.concat "\n"
+                  desc = ""
+                    //[
+                    //    yield Format.constraintState (n.constr |> Option.map (fun (x,_,_) -> x))
+                    //    match n.constr with
+                    //    | None -> ()
+                    //    | Some constr ->
+                    //        let _,insts,substs = constr
+                    //        yield $"insts = {Format.insts insts}"
+                    //        yield $"substs = {Format.substs substs}"
+                    //]
+                    //|> String.concat "\n"
                   layout = layout }
             ]
         Graph.write jsNodes jsLinks
@@ -176,26 +158,36 @@ module Show =
 
     let showLightAst env exp = showAst env false false false false exp Map.empty Map.empty
     let showAnnotatedAst env exp = showAst env true true false false exp Map.empty Map.empty
+    let showConstraints env exp =
+        let annoRes = annotate (Map.ofList env) exp
+        let constraints = annoRes |> createGraph
+        for n in constraints do
+            let right =
+                match n.data with
+                | Source s -> Format.tau s
+                | Ast ast -> ast.incs |> List.map string |> String.concat ","
+                | MakeFun f -> $"{f.inc1} -> {f.inc2}"
+            printfn $"{n.id} = {right}"
     let showConstraintGraph env exp =
         let annoRes = annotate (Map.ofList env) exp
         do annoRes |> createGraph |> writeConstraintGraph
         annoRes
-    let solve env exp =
-        let annoRes = annotate (Map.ofList env) exp
-        let nodes = annoRes |> createGraph
-        solve annoRes nodes
-    let showSolvedGraph env exp =
-        let res = solve env exp
-        do res.graph |> writeConstraintGraph
-        res
-    let showSolvedAst env exp =
-        let res = solve env exp
-        do writeAnnotatedAst true false true true res.annotationResult res.exprConstraintStates res.envConstraintStates
-        res
-    let showSolvedAstWEnv env exp =
-        let res = solve env exp
-        do writeAnnotatedAst true true true true res.annotationResult res.exprConstraintStates res.envConstraintStates
-        res
+    //let solve env exp =
+    //    let annoRes = annotate (Map.ofList env) exp
+    //    let nodes = annoRes |> createGraph
+    //    solve annoRes nodes
+    //let showSolvedGraph env exp =
+    //    let res = solve env exp
+    //    do res.graph |> writeConstraintGraph
+    //    res
+    //let showSolvedAst env exp =
+    //    let res = solve env exp
+    //    do writeAnnotatedAst true false true true res.annotationResult res.exprConstraintStates res.envConstraintStates
+    //    res
+    //let showSolvedAstWEnv env exp =
+    //    let res = solve env exp
+    //    do writeAnnotatedAst true true true true res.annotationResult res.exprConstraintStates res.envConstraintStates
+    //    res
 
 //[<AutoOpen>]
 //module CodeGen =
