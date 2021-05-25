@@ -19,8 +19,8 @@ open VisuBase
 (
     App (Abs "x" (Var "x")) (Num 42.0)
 )
-|> showConstraints []
 |> showConstraintGraph []
+|> showConstraints []
 |> showAnnotatedAst []
 
 

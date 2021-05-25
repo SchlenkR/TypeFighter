@@ -136,7 +136,7 @@ module Show =
                     | MakeFun _ -> "MakeFun", NodeTypes.op
                 { key = n.id
                   name = name
-                  desc = ""
+                  desc = n.desc
                     //[
                     //    yield Format.constraintState (n.constr |> Option.map (fun (x,_,_) -> x))
                     //    match n.constr with

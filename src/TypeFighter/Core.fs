@@ -18,8 +18,6 @@ type ConstraintState =
 type Subst = { genTyVar: GenTyVar; substitute: Tau }
 type Instanciation = { oldVar: GenTyVar; newVar: GenTyVar }
 
-// TODO: in type inference, respect the fact that annos can be initially constrained
-
 type Lit =
     | LString of string
     | LNumber of float
@@ -91,8 +89,8 @@ module TypeNames =
     let [<Literal>] seq = "Seq"
 
 module Lit =
-    let getTypeName (l: Lit) =
-        match l with
+    let getTypeName =
+        function
         | LString _ -> TypeNames.string
         | LNumber _ -> TypeNames.number
         | LBool _ -> TypeNames.bool
@@ -232,7 +230,9 @@ module NewStuff =
         | MakeFun x -> [ x.inc1; x.inc2 ]
     
     let createGraph (annoRes: AnnotationResult) =
-        let newNode desc data = { id = annoRes.newTyVar(); data = data; desc = desc }
+        let newGenVar = newUpCounter(0)
+        let newTyVar = annoRes.newTyVar
+        let newNode desc data = { id = newTyVar(); data = data; desc = desc }
         let edge desc source target = Some (desc, (source, target)), []
         let node newNode = None, [ newNode ]
         let rec constrain (texp: TExp) =
@@ -290,11 +290,15 @@ module NewStuff =
                 let incs = sources2Targets |> Map.tryFind tyvar
                 match incs with
                 | Some incs ->
-                    let desc = incs |> List.map fst |> String.concat "/"
+                    //let desc = incs |> List.map fst |> String.concat "/"
                     let incs = incs |> List.map (snd >> fst)
-                    { id = tyvar; data = Ast { incs = incs }; desc = desc }
+                    yield { id = tyvar; data = Ast { incs = incs }; desc = "" }
                 | None ->
-                    { id = tyvar; data = Ast { incs = [] }; desc = "-" }
+                    let forallNode =
+                        let var = newGenVar()
+                        newNode $"Forall {Format.genVar var}" (Source (TGenVar var))
+                    yield forallNode
+                    yield { id = tyvar; data = Ast { incs = [ forallNode.id ] }; desc = "" }
             ]
         astNodes @ nonAstNodes
 
