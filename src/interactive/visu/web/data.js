@@ -4,43 +4,43 @@ window.nodeDataArray = [
   {
     "key": 8,
     "name": "SOURCE",
-    "desc": "Forall",
+    "desc": "Forall 'a",
     "fig": "Ellipse"
   },
   {
     "key": 4,
     "name": "AST (tv=4)",
-    "desc": "-",
+    "desc": "",
     "fig": "Rectangle"
   },
   {
     "key": 3,
     "name": "AST (tv=3)",
-    "desc": "Lit(Number)",
+    "desc": "",
     "fig": "Rectangle"
   },
   {
     "key": 2,
     "name": "AST (tv=2)",
-    "desc": "App (e1 = e2)/Abs (x)",
+    "desc": "",
     "fig": "Rectangle"
   },
   {
     "key": 1,
     "name": "AST (tv=1)",
-    "desc": "Var (x)",
+    "desc": "",
     "fig": "Rectangle"
   },
   {
     "key": 9,
     "name": "SOURCE",
-    "desc": "Forall",
+    "desc": "Forall 'b",
     "fig": "Ellipse"
   },
   {
     "key": 0,
     "name": "AST (tv=0)",
-    "desc": "-",
+    "desc": "",
     "fig": "Rectangle"
   },
   {

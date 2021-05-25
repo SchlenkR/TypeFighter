@@ -70,16 +70,6 @@ module Helper =
         let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
         let keys (m: Map<_,_>) = xtract (fun kvp -> kvp.Key) m
         let values (m: Map<_,_>) = xtract (fun kvp -> kvp.Value) m
-        let ofListUnique l =
-            let rec build l map =
-                match l with
-                | [] -> map
-                | (k,v) :: xs ->
-                    if map |> Map.containsKey k then
-                        failwith $"Key already in map: {k}"
-                    let map = map |> Map.add k v
-                    build xs map
-            build l Map.empty
 
 module TypeNames =
     let [<Literal>] string = "String"
@@ -282,6 +272,7 @@ module NewStuff =
         let astNodes =
             let edges = constraintRes |> List.choose fst
             let sources2Targets = edges |> List.groupBy (snd >> snd) |> Map.ofList
+
             [ for x in annoRes.allExpressions do
                 let tyvar =
                     match x with
