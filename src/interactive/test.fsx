@@ -17,6 +17,20 @@ module ImportantInference =
 
     (*
         let id = fun x -> x
+        id 1.0
+    *)
+
+    (
+        (Let "id" (Abs "x" (Var "x"))
+        (App (Var "id") (Num 1.0)))
+    )
+    |> showSolvedGraph []
+    |> showSolvedAstWEnv []
+
+
+
+    (*
+        let id = fun x -> x
         (id "Hello World", id 42.0)
     *)
 
@@ -124,3 +138,5 @@ module EnvBoundValues =
     )
     |> showAnnotatedAst []
 
+
+//let y = fun f -> (fun x -> f (x x)) (fun x -> f (x x))

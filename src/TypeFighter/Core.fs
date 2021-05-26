@@ -31,9 +31,7 @@ and Exp<'meta> =
     | App of MetaExp<'meta> * MetaExp<'meta>
     | Abs of MetaIdent<'meta> * MetaExp<'meta>
     | Let of MetaIdent<'meta> * MetaExp<'meta> * MetaExp<'meta>
-    | Prop of Ident * MetaExp<'meta>
     | Tuple of MetaExp<'meta> list
-    | Record of (Ident * MetaExp<'meta>) list
 
 and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
 and MetaExp<'meta> = Meta<Exp<'meta>, 'meta>
@@ -213,10 +211,7 @@ module Annotation =
             let newIdent ident env =
                 let tyvarIdent = newTyVar()
                 let exp =
-                    { meta =
-                        { tyvar = tyvarIdent
-                          env = env
-                          initialConstr = None }
+                    { meta = { tyvar = tyvarIdent; env = env; initialConstr = None }
                       exp = ident.exp }
                 do addExp (EnvExp exp)
                 let newEnv = env |> Env.bind exp
@@ -235,17 +230,10 @@ module Annotation =
                 | Let (ident, e, body) ->
                     let annotatedIdent,newEnv = newIdent ident env
                     Let (annotatedIdent, annotate env e, annotate newEnv body)
-                | Prop (ident, e) -> 
-                    Prop (ident, annotate env e)
                 | Tuple es -> 
                     Tuple (es |> List.map (annotate env))
-                | Record fields -> 
-                    Record [ for ident,e in fields do ident, annotate env e ]
             let texp =
-                { meta =
-                    { tyvar = thisTyvar
-                      env = env
-                      initialConstr = None }
+                { meta = { tyvar = thisTyvar; env = env; initialConstr = None }
                   exp = resExp }
             do addExp (SynExp texp)
             texp
@@ -272,13 +260,8 @@ module Annotation =
                     do add ident (Some e)
                     walk e None
                     walk body None
-                | Prop (ident, e) ->
-                    // TODO: ist das korrekt - dass ident nicht genutzt wird?
-                    walk e None
                 | Tuple es -> 
                     es |> List.iter (fun e -> walk e None)
-                | Record fields ->
-                    fields |> List.map snd |> List.iter (fun e -> walk e None)
             do walk res None
             boundValues
 
@@ -299,7 +282,6 @@ module ConstraintGraph =
     type MakeFun = { inc1: NodeId; inc2: NodeId }
     type ArgOut = { inc: NodeId }
     type Unify = { inc1: NodeId; inc2: NodeId }
-    type GetProp = { field: string; inc: NodeId }
     type MakeTuple = { incs: NodeId list }
     type MakeRecord = { fields: string list; incs: NodeId list }
     type Inst = { scope: string; inc: NodeId }
@@ -309,9 +291,7 @@ module ConstraintGraph =
         | TAst of TAst
         | IAst of IAst
         | MakeFun of MakeFun
-        | GetProp of GetProp
         | MakeTuple of MakeTuple
-        | MakeRecord of MakeRecord
         | ArgOut of ArgOut
         | Unify of Unify
         | Inst of Inst
@@ -450,9 +430,7 @@ module ConstraintGraph =
         | TAst x -> [ x.inc ]
         | IAst x -> [ x.inc ]
         | MakeFun x -> [ x.inc1; x.inc2 ]
-        | GetProp x -> [ x.inc ]
         | MakeTuple x -> x.incs
-        | MakeRecord x -> x.incs
         | ArgOut x -> [ x.inc ]
         | Unify x -> [ x.inc1; x.inc2 ]
         | Inst x -> [ x.inc ]
@@ -474,9 +452,7 @@ module ConstraintGraph =
         let tast exp constr inc = addNode (TAst { exp = exp; inc = inc }) constr (Some exp.meta.tyvar)
         let iast exp inc = addNode (IAst { exp = exp; inc = inc }) None (Some exp.meta.tyvar)
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None None
-        let getProp field inc = addNode (GetProp { field = field; inc = inc }) None None
         let makeTuple incs = addNode (MakeTuple { incs = incs }) None None
-        let makeRecord fields incs = addNode (MakeRecord { fields = fields; incs = incs }) None None
         let argOut inc = addNode (ArgOut { inc = inc }) None None
         let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None None
         let inst scope inc = addNode (Inst { scope = scope; inc = inc }) None None
@@ -541,17 +517,9 @@ module ConstraintGraph =
                         (generateGraph e None, None) ==> iast ident
                         |> ignore
                     (generateGraph body None, inc) ==> nthis
-                | Prop (ident, e) -> 
-                    let nprop = (ident, generateGraph e None) ||> getProp
-                    (nprop, inc) ==> nthis
                 | Tuple es ->
                     let ntuple = [ for e in es do generateGraph e None ] |> makeTuple
                     (ntuple, inc) ==> nthis
-                | Record fields ->
-                    let fieldnames = fields |> List.map fst
-                    let es = fields |> List.map snd |> List.map (fun e -> generateGraph e None)
-                    let nrecord = (fieldnames, es) ||> makeRecord
-                    (nrecord, inc) ==> nthis
             res
 
         do generateGraph (annoRes.root) None |> ignore
@@ -599,20 +567,8 @@ module ConstraintGraph =
                     Constrained t, i, substs
             | MakeFun { inc1 = Cons(t1,i1,s1); inc2 = Cons(t2,i2,s2) } ->
                 Constrained(TFun (t1, t2)), i1 + i2, s1 + s2
-            | GetProp { field = field; inc = Cons(TRecord recordFields, i, s) } ->
-                let res =
-                    recordFields
-                    |> Seq.tryFind (fun (n,_) -> n = field)
-                    |> Option.map snd
-                    |> Option.map Constrained
-                    // TODO: this is not a unification error!
-                    |> Option.defaultValue (UnificationError(Origin $"Field not found: {field}"))
-                res,i,s
             | MakeTuple { incs = AllConstrained (taus,insts,substs) } ->
                 Constrained(TTuple taus), insts, substs
-            | MakeRecord { fields = fields; incs = AllConstrained (taus,insts,substs) } ->
-                let fields = List.zip fields taus
-                Constrained(TRecord (set fields)), insts, substs
             | ArgOut { inc = Cons(TFun(_,t2), i, s) } ->
                 Constrained t2, i, s
             | ArgOut { inc = Cons (t,i,s) } ->
