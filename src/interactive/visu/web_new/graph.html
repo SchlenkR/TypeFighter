@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Graph</title>
+
+    <meta name="description" content="A family tree diagram of British royalty." />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            margin: 2.5vh;
+        }
+
+        #diagramDiv {
+            min-width: 95vh;
+            min-height: 95vh;
+            border: none;
+            background-color: white;
+        }
+
+            #diagramDiv canvas {
+                outline: none;
+            }
+    </style>
+
+    <script src="go.js"></script>
+    <script src="data.js"></script>
+
+    <script id="code">
+        function init() {
+            // for conciseness in defining templates
+            var $ = go.GraphObject.make;
+
+            //var layout = $(go.LayeredDigraphLayout,
+            //    {
+            //        columnSpacing: 30,
+            //        direction: 90,
+            //        layerSpacing: 90,
+            //        layeringOption: go.LayeredDigraphLayout.LayerLongestPathSink,
+            //        cycleRemoveOption: go.LayeredDigraphLayout.InitDepthFirstOut,
+            //        packOption: go.LayeredDigraphLayout.PackStraighten
+            //    });
+            var layout = $(go.TreeLayout,
+                {
+                    angle: 90,
+                    layerSpacing: 100,
+                    nodeSpacing: 100
+                });
+
+            var myDiagram =
+                $(go.Diagram,
+                    "diagramDiv",
+                    {
+                        layout: layout,
+                        initialAutoScale: go.Diagram.Uniform,
+                        initialContentAlignment: go.Spot.Center,
+                        "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom
+                    });
+            myDiagram.animationManager.initialAnimationStyle = go.AnimationManager.None;
+
+            // default node
+            var nodeTemplate =
+                $(go.Node,
+                    "Auto",
+                    {
+                        zOrder: 10
+                    },
+                    $(go.Shape,
+                        {
+                            fill: "white",
+                            //opacity: 0.5,
+                            strokeWidth: 2,
+                            figure: "RoundedRectangle"
+                        }),
+                    $(go.TextBlock,
+                        {
+                            font: "12pt sans-serif",
+                            margin: 10
+                        },
+                        new go.Binding("text", "name"))
+                );
+
+            // default link
+            var treeNodeLinkTemplate =
+                $(go.Link, // the whole link panel
+                    {
+                    },
+                    $(go.Shape, // the link shape
+                        {
+                            strokeWidth: 1
+                        }),
+                    $(go.Shape, // the arrowhead
+                        {
+                            toArrow: "Standard"
+                        })
+                );
+
+            // constr link
+            var constrLinkTemplate =
+                $(go.Link, // the whole link panel
+                    {
+                        curve: go.Link.AvoidNodes,
+                        //curviness: 20,
+                        //corner: 10,
+                        isLayoutPositioned: false,
+                        isTreeLink: false,
+                        zOrder: 0
+                    },
+                    $(go.Shape, // the link shape
+                        {
+                            stroke: "red",
+                            strokeWidth: 4.5,
+                            strokeDashArray: [5, 5]
+                        })
+                );
+
+            var nodeTemplates = new go.Map();
+            nodeTemplates.add("", nodeTemplate);
+            myDiagram.nodeTemplateMap = nodeTemplates;
+
+            var linkTemplates = new go.Map();
+            linkTemplates.add("", treeNodeLinkTemplate);
+            linkTemplates.add("constr", constrLinkTemplate);
+            myDiagram.linkTemplateMap = linkTemplates;
+
+            myDiagram.model = new go.GraphLinksModel(window.nodeDataArray, window.linkDataArray);
+
+            window.myDiagram = myDiagram;
+        };
+
+    </script>
+</head>
+<body onload="init()">
+    <div id="diagramDiv"></div>
+</body>
+</html>

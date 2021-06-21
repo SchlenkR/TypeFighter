@@ -24,6 +24,8 @@ module ImportantInference =
         (Let "id" (Abs "x" (Var "x"))
         (App (Var "id") (Num 1.0)))
     )
+    |> showLightAst []
+    |> showSolvedAst []
     |> showSolvedGraph []
     |> showSolvedAstWEnv []
 

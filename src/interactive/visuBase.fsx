@@ -114,14 +114,8 @@ module Show =
                 Tree.var $"Fun ({ident.exp}) ->" details [ createNodes body ]
             | Let (ident, e, body) ->
                 Tree.var $"Let {ident.exp} = ..." details [ createNodes e; createNodes body ]
-            | Prop (ident, e) ->
-                Tree.var $"Prop {ident}" details [ createNodes e ]
             | Tuple es ->
                 Tree.var $"Tuple" details [ for e in es do createNodes e ]
-            | Record fields ->
-                let fieldNames = Format.recordFields fields
-                let details = $"fields = {fieldNames}\n{details}"
-                Tree.var $"Record" details [ for _,e in fields do createNodes e ]
         createNodes res.root |> flatten |> Tree.write
 
     let writeConstraintGraph (graph: Graph) =
@@ -148,8 +142,6 @@ module Show =
                         let name = $"{ast.exp.meta.tyvar} ({expName})"
                         name,NodeTypes.var
                     | MakeFun _ -> "MakeFun", NodeTypes.op
-                    | GetProp x -> $"GetProp ({x.field})", NodeTypes.op
-                    | MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
                     | Inst x -> $"Inst ({x.scope})", NodeTypes.op
                     | _ -> Format.getUnionCaseName n.data, NodeTypes.op
                 { key = i
