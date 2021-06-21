@@ -24,19 +24,17 @@ let tests = testList "Main Tests" [
         |> inferType [ map; add; numbers ] (seqOf numberTyp)
     }
     
-    test "Get record property" {
-        (*
-            let x = { a = 5.0; b = "hello" }
-            x.b
-        *)
-
-        (
-            (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
-            (Prop "b" (Var "x")))
-        )
-
-        |> inferType [] stringTyp
-    }
+    //test "Get record property" {
+    //    (*
+    //        let x = { a = 5.0; b = "hello" }
+    //        x.b
+    //    *)
+    //    (
+    //        (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
+    //        (Prop "b" (Var "x")))
+    //    )
+    //    |> inferType [] stringTyp
+    //}
     
     test "List of numbers" {
         (*
