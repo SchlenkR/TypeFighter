@@ -6,8 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Helper.fs" />
     <Compile Include="Core.fs" />
-    <Compile Include="Runtime.fs" />
   </ItemGroup>
 
   <ItemGroup>

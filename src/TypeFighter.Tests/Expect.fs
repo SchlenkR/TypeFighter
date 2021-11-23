@@ -30,7 +30,7 @@ let inferType env expected exp =
             let mappedVars = 
                 (varsInActual, varsInExpected)
                 ||> Seq.zip
-                |> Seq.map (fun (a,e) -> { genTyVar = e; substitute = TGenVar a})
+                |> Seq.map (fun (a,e) -> { tyvar = e; substitute = TVar a})
                 |> Set.ofSeq
             ConstraintGraph.Subst.subst mappedVars expected
 
