@@ -1,15 +1,16 @@
 {
   "name": "visu",
-  "version": "1.0.0",
-  "description": "",
-  "main": "offlineGen.js",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "dependencies": {
-    "puppeteer": "^8.0.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "vite": "^4.3.9"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
 }

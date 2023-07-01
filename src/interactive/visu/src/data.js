@@ -22,13 +22,13 @@ window.nodeDataArray = [
   {
     "key": 3,
     "name": "Inst (Var)",
-    "desc": "'a\nsubsts = [ 'a = 'd ]",
+    "desc": "'d\nsubsts = [ 'a = 'd ]",
     "fig": "Ellipse"
   },
   {
     "key": 4,
     "name": "MakeFun",
-    "desc": "('a -> 'a)\nsubsts = [ 'a = 'd ]",
+    "desc": "('a -> 'd)\nsubsts = [ 'a = 'd ]",
     "fig": "Ellipse"
   },
   {
@@ -40,7 +40,7 @@ window.nodeDataArray = [
   {
     "key": 6,
     "name": "Inst (Abs)",
-    "desc": "('d -> 'd)\nsubsts = \n-  'a = 'd\n-  'd = 'e",
+    "desc": "('e -> 'e)\nsubsts = \n-  'a = 'd\n-  'd = 'e",
     "fig": "Ellipse"
   },
   {
@@ -88,31 +88,31 @@ window.nodeDataArray = [
   {
     "key": 14,
     "name": "Inst (Var)",
-    "desc": "('e -> 'e)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'f",
+    "desc": "('f -> 'f)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'f",
     "fig": "Ellipse"
   },
   {
     "key": 15,
     "name": "Unify",
-    "desc": "(String -> 'b)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'b\n-  'e = 'f\n-  'e = String",
+    "desc": "(String -> 'b)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'f\n-  'f = 'b\n-  'f = String",
     "fig": "Ellipse"
   },
   {
     "key": 16,
     "name": "Arg Out",
-    "desc": "'b\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'b\n-  'e = 'f\n-  'e = String",
+    "desc": "'b\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'f\n-  'f = 'b\n-  'f = String",
     "fig": "Ellipse"
   },
   {
     "key": 17,
     "name": "7 (App)",
-    "desc": "String\nsubsts = \n-  'a = 'd\n-  'b = 'f\n-  'd = 'e\n-  'e = String\n-  'f = String",
+    "desc": "String\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'd = 'e\n-  'e = 'f\n-  'f = String",
     "fig": "Rectangle"
   },
   {
     "key": 18,
     "name": "Inst (App)",
-    "desc": "String\nsubsts = \n-  'a = 'd\n-  'b = 'f\n-  'd = 'e\n-  'e = String\n-  'f = String",
+    "desc": "String\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'd = 'e\n-  'e = 'f\n-  'f = String",
     "fig": "Ellipse"
   },
   {
@@ -154,61 +154,61 @@ window.nodeDataArray = [
   {
     "key": 25,
     "name": "Inst (Var)",
-    "desc": "('e -> 'e)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'g",
+    "desc": "('g -> 'g)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'g",
     "fig": "Ellipse"
   },
   {
     "key": 26,
     "name": "Unify",
-    "desc": "(Number -> 'c)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'c\n-  'e = 'g\n-  'e = Number",
+    "desc": "(Number -> 'c)\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'g\n-  'g = 'c\n-  'g = Number",
     "fig": "Ellipse"
   },
   {
     "key": 27,
     "name": "Arg Out",
-    "desc": "'c\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'c\n-  'e = 'g\n-  'e = Number",
+    "desc": "'c\nsubsts = \n-  'a = 'd\n-  'd = 'e\n-  'e = 'g\n-  'g = 'c\n-  'g = Number",
     "fig": "Ellipse"
   },
   {
     "key": 28,
     "name": "10 (App)",
-    "desc": "Number\nsubsts = \n-  'a = 'd\n-  'c = 'g\n-  'd = 'e\n-  'e = Number\n-  'g = Number",
+    "desc": "Number\nsubsts = \n-  'a = 'd\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'g = Number",
     "fig": "Rectangle"
   },
   {
     "key": 29,
     "name": "Inst (App)",
-    "desc": "Number\nsubsts = \n-  'a = 'd\n-  'c = 'g\n-  'd = 'e\n-  'e = Number\n-  'g = Number",
+    "desc": "Number\nsubsts = \n-  'a = 'd\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'g = Number",
     "fig": "Ellipse"
   },
   {
     "key": 30,
     "name": "MakeTuple",
-    "desc": "(String * Number)\nsubsts = \n-  'a = 'd\n-  'b = 'f\n-  'c = 'g\n-  'd = 'e\n-  'e = Number\n-  'e = String\n-  'f = String\n-  'g = Number",
+    "desc": "(String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'f\n-  'e = 'g\n-  'f = String\n-  'g = Number",
     "fig": "Ellipse"
   },
   {
     "key": 31,
     "name": "6 (Tuple)",
-    "desc": "ERROR: Cannot unify types \"Number\" and \"String\": Type mismatch\nsubsts = [ ]",
+    "desc": "(String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'f = 'g\n-  'f = String\n-  'g = Number",
     "fig": "Rectangle"
   },
   {
     "key": 32,
     "name": "Inst (Tuple)",
-    "desc": "ERROR (inherited)\nsubsts = [ ]",
+    "desc": "(String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'f = 'g\n-  'f = String\n-  'g = Number",
     "fig": "Ellipse"
   },
   {
     "key": 33,
     "name": "1 (Let)",
-    "desc": "ERROR (inherited)\nsubsts = [ ]",
+    "desc": "(String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'f = String\n-  'g = Number\n-  'g = String",
     "fig": "Rectangle"
   },
   {
     "key": 34,
     "name": "Inst (Let)",
-    "desc": "ERROR (inherited)\nsubsts = [ ]",
+    "desc": "(String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'f = String\n-  'g = Number\n-  'g = String",
     "fig": "Ellipse"
   }
 ];
