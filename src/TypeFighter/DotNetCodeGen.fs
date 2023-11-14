@@ -130,7 +130,7 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
             walkNext e2 |> ignore
             emitter.emit 0 $"t1: {Format.tau t1}   t2: {Format.tau t1}"
             Inline ""
-        | Abs (ident, body) ->
+        | Fun (ident, body) ->
             let tau = SolveResult.findTau exp solveRes
             let (TFun (t1,t2)) = tau
             let inType = Format.renderTypeDeclaration cachedRecords t1
@@ -253,7 +253,7 @@ let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.Solve
     //            Reference local
     //        | Inline e1code, Inline e2code ->
     //            Inline (renderApp e1code e2code)
-    //    | Abs (ident, body) ->
+    //    | Fun (ident, body) ->
     //        let local = newLocal()
     //        let tau = SolveResult.findTau exp solveRes
     //        let (TFun (t1,t2)) = tau

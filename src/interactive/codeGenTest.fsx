@@ -16,7 +16,7 @@ map Numbers (number ->
 *)
 
 (Let "x" (Num 10.0)
-(MapX (Var "Numbers") (Abs "number"
+(MapX (Var "Numbers") (Fun "number"
     (Appn (Var "add") [ Var "number"; Var "x" ] ))))
 |> renderDisplayClasses env1
 //|> render env1
@@ -31,7 +31,7 @@ map Numbers (number ->
 *)
 let env2 = env [ ]
 
-(Let "id" (Abs "x" (Record [ "whatever", Num 23.0 ] ))
+(Let "id" (Fun "x" (Record [ "whatever", Num 23.0 ] ))
 (Record [ "myString", App (Var "id") (Str "Hello World"); "myNumber", App (Var "id") (Num 42.0) ])
 )
 |> renderDisplayClasses env2
@@ -45,8 +45,8 @@ let env2 = env [ ]
 *)
 let env3 = env [ ]
 
-(Let "id" (Abs "x" (Var "x"))
-(Let "add" (Abs "a" (Abs "b" (Record [ "field1", Var "a"; "field2", Var "b" ])))
+(Let "id" (Fun "x" (Var "x"))
+(Let "add" (Fun "a" (Fun "b" (Record [ "field1", Var "a"; "field2", Var "b" ])))
 (App (App (Var "add") (Str "Hello")) (App (Var "id") (Num 42.0)))
 ))
 |> renderDisplayClasses env3
@@ -63,14 +63,14 @@ let env3 = env [ ]
 *)
 let env4 = env [ ]
 
-(Let "add" (Abs "a" (Record [ "field1", Var "a" ]))
-(Let "print" (Abs "f" (App (Var "f") (Num 42.0)))
+(Let "add" (Fun "a" (Record [ "field1", Var "a" ]))
+(Let "print" (Fun "f" (App (Var "f") (Num 42.0)))
 (App (Var "print") (Var "add"))
 ))
 |> showSolvedAst env4
 |> renderDisplayClasses env4
 
-(Abs "f" (App (Var "f") (Num 42.0)))
+(Fun "f" (App (Var "f") (Num 42.0)))
 |> showSolvedAst env4
 |> renderDisplayClasses env4
 

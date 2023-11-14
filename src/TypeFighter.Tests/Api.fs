@@ -62,7 +62,7 @@ module Dsl =
 
     let Var ident = Var ident |> mu
     let App e1 e2 = App (e1, e2) |> mu
-    let Abs ident e = Abs (mu ident, e) |> mu
+    let Fun ident e = Fun (mu ident, e) |> mu
     let Let ident e1 e2 = Let (mu ident, e1, e2) |> mu
     let Prop ident e = Prop (ident, e) |> mu
     let Tuple es = Tuple es |> mu

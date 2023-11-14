@@ -35,7 +35,7 @@ type Exp<'meta> =
     | Lit of Lit
     | Var of Ident
     | App of MetaExp<'meta> * MetaExp<'meta>
-    | Abs of MetaIdent<'meta> * MetaExp<'meta>
+    | Fun of MetaIdent<'meta> * MetaExp<'meta>
     | Let of MetaIdent<'meta> * MetaExp<'meta> * MetaExp<'meta>
     | Prop of Ident * MetaExp<'meta>
     | Tuple of MetaExp<'meta> list
@@ -178,7 +178,7 @@ module AnnotatedAst =
                         Var ident
                     | App (e1, e2) -> 
                         App (annotate env e1, annotate env e2)
-                    | Abs (ident, body) ->
+                    | Fun (ident, body) ->
                         let tyvarIdent = newTyVar.next()
                         let newEnv = env |> Env.bind ident.exp tyvarIdent
                         let annotatedIdent =
@@ -187,9 +187,9 @@ module AnnotatedAst =
                                   env = env
                                   initialConstr = None }
                               exp = ident.exp }
-                        Abs (annotatedIdent, annotate newEnv body)
+                        Fun (annotatedIdent, annotate newEnv body)
                     | Let (ident, e, body) ->
-                        // TODO: ident: redundant mit Abs
+                        // TODO: ident: redundant mit Fun
                         let tyvarIdent = newTyVar.next()
                         let newEnv = env |> Env.bind ident.exp tyvarIdent
                         let annotatedIdent =
@@ -473,7 +473,7 @@ module ConstraintGraph =
                     let ne1 = None |> generateGraph e1
                     let uniAndArgOut = unify ne1 nfunc |> argOut
                     (uniAndArgOut, inc) ==> nthis
-                | Abs (ident, body) ->
+                | Fun (ident, body) ->
                     let nident = ast (IExp ident) None (newGenVarSource())
                     let nbody = generateGraph body None
                     let nfunc = makeFunc nident nbody

@@ -12,7 +12,7 @@ class C1
 
 class C2<B, C>
 {
-    // Nicht Func<>, sondern die DisplayClass der Abs
+    // Nicht Func<>, sondern die DisplayClass der Fun
     // der Wert muss _von außen_ instanziiert und hier reingegeben werden
     // (closure)
     public C1 id;
@@ -27,7 +27,7 @@ class C3<C, B>
 {
     public B a;
 
-    // Nicht Func<>, sondern die DisplayClass der Abs
+    // Nicht Func<>, sondern die DisplayClass der Fun
     // der Wert muss _von außen_ instanziiert und hier reingegeben werden
     // (closure)
     public C1 id;

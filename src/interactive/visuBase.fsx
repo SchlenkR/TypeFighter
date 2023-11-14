@@ -92,7 +92,7 @@ let writeAnnotatedAst
             Tree.var $"Var ({ident})" details []
         | App (e1, e2) ->
             Tree.var "App" details [ createNodes e1; createNodes e2 ]
-        | Abs (ident, body) ->
+        | Fun (ident, body) ->
             Tree.var $"Fun ({ident.exp}) ->" details [ createNodes body ]
         | Let (ident, e, body) ->
             Tree.var $"Let {ident.exp} = ..." details [ createNodes e; createNodes body ]
@@ -185,7 +185,7 @@ let showSolvedAstWEnv env exp =
 
 
 //let renderDisplayClasses env exp =
-//    //let exp = App (Abs "__" exp) (Num 0.0)
+//    //let exp = App (Fun "__" exp) (Num 0.0)
 //    exp
 //    |> solve env 
 //    |> fun res -> renderDisplayClasses (RecordCache()) res
