@@ -1,7 +1,6 @@
-#r "nuget: Newtonsoft.Json"
-
 open System.IO
-open Newtonsoft.Json
+open System.Text.Json
+open System.Text.Json.Serialization
 
 module private Layouts =
     let graph = "graph"
@@ -15,11 +14,11 @@ type JsNode =
     { key: int
       name: string
       desc: string
-      [<JsonProperty "fig">] layout: string }
+      [<JsonPropertyName("fig")>] layout: string }
 
 type JsLink =
-    { [<JsonProperty "from">] fromNode: int
-      [<JsonProperty "to">] toNode: int }
+    { [<JsonPropertyName("from")>] fromNode: int
+      [<JsonPropertyName("to")>] toNode: int }
 
 
 let private writeData (nodesJson: string) (linksJson: string) (layout: string) =
@@ -32,6 +31,9 @@ window.linkDataArray = {linksJson};
     let path = Path.Combine(__SOURCE_DIRECTORY__, "src")
     let dataPath = Path.Combine(path, "data.js")
     File.WriteAllText(dataPath, json)
+
+let private serialize (v: obj) =
+    JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
 
 module Tree =
 
@@ -75,19 +77,13 @@ module Tree =
                     for c in n.children do
                         { fromNode = n.key; toNode = c.key }
             ]
-    
-        let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
-        let linksJson = JsonConvert.SerializeObject(jsLinks, Formatting.Indented)
 
-        writeData nodesJson linksJson Layouts.tree
+        writeData (serialize jsNodes) (serialize jsLinks) Layouts.tree
 
 module Graph =
 
     let write (jsNodes: JsNode list) (jsLinks: JsLink list) =
-        let nodesJson = JsonConvert.SerializeObject(jsNodes, Formatting.Indented)
-        let linksJson = JsonConvert.SerializeObject(jsLinks, Formatting.Indented)
-    
-        writeData nodesJson linksJson Layouts.graph
+        writeData (serialize jsNodes) (serialize jsLinks) Layouts.graph
 
 
 //module Test =

@@ -15,16 +15,29 @@ open TypeFighter.Tests.Expect
 
 
 (*
+    "Hello World"
+*)
+
+(Str "Hello World")
+// |> showSolvedGraph []
+|> showSolvedAst []
+
+
+
+
+
+(*
     let id = fun x -> x
     (id "Hello World", id 42.0)
 *)
 
 (
     (Let "id" (Abs "x" (Var "x"))
-    (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
+    (Tuple [
+        App (Var "id") (Str "Hello World")
+        App (Var "id") (Num 42.0) ]))
 )
-|> showSolvedGraph []
-
+// |> showSolvedGraph []
 |> showSolvedAst []
 
 

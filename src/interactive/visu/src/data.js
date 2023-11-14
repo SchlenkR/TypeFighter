@@ -4,37 +4,37 @@ window.nodeDataArray = [
   {
     "key": 0,
     "name": "Let id = ...",
-    "desc": "var = 1\ntype = (String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'f = String\n-  'g = Number\n-  'g = String",
+    "desc": "var = 1\ntype = (String * Number)\nsubsts = \n-  \u0027a = \u0027d\n-  \u0027b = String\n-  \u0027c = Number\n-  \u0027d = \u0027e\n-  \u0027e = \u0027g\n-  \u0027f = String\n-  \u0027g = Number\n-  \u0027g = String",
     "fig": "Rectangle"
   },
   {
     "key": 1,
-    "name": "Fun (x) ->",
-    "desc": "var = 3\ntype = ('d -> 'd)\nsubsts = [ 'a = 'd ]",
+    "name": "Fun (x) -\u003E",
+    "desc": "var = 3\ntype = (\u0027d -\u003E \u0027d)\nsubsts = [ \u0027a = \u0027d ]",
     "fig": "Rectangle"
   },
   {
     "key": 2,
     "name": "Var (x)",
-    "desc": "var = 5\ntype = 'a\nsubsts = [ ]",
+    "desc": "var = 5\ntype = \u0027a\nsubsts = [ ]",
     "fig": "Rectangle"
   },
   {
     "key": 3,
     "name": "Tuple",
-    "desc": "var = 6\ntype = (String * Number)\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'f = 'g\n-  'f = String\n-  'g = Number",
+    "desc": "var = 6\ntype = (String * Number)\nsubsts = \n-  \u0027a = \u0027d\n-  \u0027b = String\n-  \u0027c = Number\n-  \u0027d = \u0027e\n-  \u0027e = \u0027g\n-  \u0027f = \u0027g\n-  \u0027f = String\n-  \u0027g = Number",
     "fig": "Rectangle"
   },
   {
     "key": 4,
     "name": "App",
-    "desc": "var = 7\ntype = String\nsubsts = \n-  'a = 'd\n-  'b = String\n-  'd = 'e\n-  'e = 'f\n-  'f = String",
+    "desc": "var = 7\ntype = String\nsubsts = \n-  \u0027a = \u0027d\n-  \u0027b = String\n-  \u0027d = \u0027e\n-  \u0027e = \u0027f\n-  \u0027f = String",
     "fig": "Rectangle"
   },
   {
     "key": 5,
     "name": "Var (id)",
-    "desc": "var = 8\ntype = ('e -> 'e)\nsubsts = \n-  'a = 'd\n-  'd = 'e",
+    "desc": "var = 8\ntype = (\u0027e -\u003E \u0027e)\nsubsts = \n-  \u0027a = \u0027d\n-  \u0027d = \u0027e",
     "fig": "Rectangle"
   },
   {
@@ -46,13 +46,13 @@ window.nodeDataArray = [
   {
     "key": 7,
     "name": "App",
-    "desc": "var = 10\ntype = Number\nsubsts = \n-  'a = 'd\n-  'c = Number\n-  'd = 'e\n-  'e = 'g\n-  'g = Number",
+    "desc": "var = 10\ntype = Number\nsubsts = \n-  \u0027a = \u0027d\n-  \u0027c = Number\n-  \u0027d = \u0027e\n-  \u0027e = \u0027g\n-  \u0027g = Number",
     "fig": "Rectangle"
   },
   {
     "key": 8,
     "name": "Var (id)",
-    "desc": "var = 11\ntype = ('e -> 'e)\nsubsts = \n-  'a = 'd\n-  'd = 'e",
+    "desc": "var = 11\ntype = (\u0027e -\u003E \u0027e)\nsubsts = \n-  \u0027a = \u0027d\n-  \u0027d = \u0027e",
     "fig": "Rectangle"
   },
   {
