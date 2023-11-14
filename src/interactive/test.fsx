@@ -24,6 +24,7 @@ open TypeFighter.Tests.Expect
     (Tuple [ App (Var "id") (Str "Hello World"); App (Var "id") (Num 42.0) ]))
 )
 |> showSolvedGraph []
+
 |> showSolvedAst []
 
 

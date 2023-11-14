@@ -29,7 +29,7 @@ window.nodeDataArray = {nodesJson};
 window.linkDataArray = {linksJson};
     "
 
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "web")
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "src")
     let dataPath = Path.Combine(path, "data.js")
     File.WriteAllText(dataPath, json)
 
