@@ -83,10 +83,8 @@ open TypeFighter.Tests.Expect
         App (Var "id") (Num 42.0) ]))
 )
 |> showSolvedGraph [] |> ignore
-// |> showSolvedAst [] |> ignore
+|> showSolvedAst [] |> ignore
 
-
-hemd
 
 
 
