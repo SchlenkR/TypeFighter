@@ -10,17 +10,25 @@ let private error expected actual =
     let msg = $"type mismatch.     Expected :: {Format.tau expected}      Actual :: {Format.tau actual}"
     fail msg
 
-let private infer env exp =
-    let annoRes = AnnotatedAst.create env exp
+let inferType env exp =
+    let annoRes = AnnotatedAst.create (Map.ofList env) exp
     let res = annoRes |> ConstraintGraph.create |> ConstraintGraph.solve annoRes
     res.exprConstraintStates |> Map.find res.annotationResult.root
 
-let assertInferredType env typ exp =
-    match infer (Map.ofList env) exp with
+let assertIsType typ res =
+    match res with
     | Constrained c,_ -> if c <> typ then error typ c
     | UnificationError e,_ -> fail $"ERROR ({e})"
 
-let assertInferenceError env exp =
-    match infer (Map.ofList env) exp with
+let assertIsError typ res =
+    match res with
     | Constrained c,_ -> fail $"Expected: ERROR, but was: {(Format.tau c)}"
     | _ -> ()
+
+let assertInferredType env typ exp =
+    inferType env exp
+    |> assertIsType typ
+
+let assertInferenceError env exp =
+    inferType env exp
+    |> assertIsError

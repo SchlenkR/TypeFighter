@@ -1,8 +1,10 @@
-#load "11_Expect.fsx"
+
+#load "12_Visu.fsx"
 
 open ``01_Core``
 open ``10_Api``
 open ``11_Expect``
+open ``12_Visu``
 
 open Dsl
 open Types
@@ -19,8 +21,8 @@ open Types
     (MapX (Var "Numbers") (Fun "number"
         (Appn (Var "add") [ Var "number"; Var "x" ] ))))
 )
-
-|> assertInferredType [ map; add; numbers ] (seqOf numberTyp)
+|> inferType [ map; add; numbers ]
+|> assertIsType (seqOf numberTyp)
 
 
 (*
@@ -32,8 +34,8 @@ open Types
     (Let "x" (Record [ ("a", Num 5.0); ("b", Str "hello") ])
     (Prop "b" (Var "x")))
 )
-
-|> assertInferredType [] stringTyp
+|> inferType []
+|> assertIsType stringTyp
 
 
 
@@ -44,8 +46,8 @@ open Types
 (
     NewList [ Num 1.0; Num 2.0; ]
 )
-
-|> assertInferredType [ cons; emptyList ] (seqOf numberTyp)
+|> inferType [ cons; emptyList ]
+|> assertIsType (seqOf numberTyp)
 
 
 

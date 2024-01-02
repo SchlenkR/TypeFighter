@@ -1,9 +1,9 @@
 
-#load "30_Visu.fsx"
+#load "12_Visu.fsx"
 open ``01_Core``
 open ``10_Api``
 open ``11_Expect``
-open ``30_Visu``
+open ``12_Visu``
 
 open Dsl
 open ImportedFunctionNames

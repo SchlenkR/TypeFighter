@@ -1,9 +1,6 @@
 
-#r "nuget: Newtonsoft.Json"
-
 #load "11_Expect.fsx"
 
-#load "testBase.fsx"
 open ``01_Core``
 
 #load "../visu/visu.fsx"
@@ -118,9 +115,11 @@ let writeConstraintGraph
         [ 
             let nodesLookup = indexedNodes |> List.map (fun (a,b) -> b,a) |> readOnlyDict
             for n in nodes do
-                for i in ConstraintGraph.getIncomingNodes n do
-                    { Visu.JsLink.fromNode = nodesLookup.[i]
-                      Visu.JsLink.toNode = nodesLookup.[n] }
+            for i in ConstraintGraph.getIncomingNodes n do
+                { 
+                    Visu.JsLink.fromNode = nodesLookup.[i]
+                    Visu.JsLink.toNode = nodesLookup.[n] 
+                }
         ]
     let jsNodes =
         [ for i,n in indexedNodes do
@@ -141,19 +140,21 @@ let writeConstraintGraph
                 | ConstraintGraph.MakeRecord x -> $"MakeRecord ({Format.recordFieldNames x.fields})", NodeTypes.op
                 | ConstraintGraph.Inst x -> $"Inst ({x.scope})", NodeTypes.op
                 | _ -> Format.getUnionCaseName n.data, NodeTypes.op
-            { key = i
-              name = name
-              desc = 
-                [
-                    yield Format.constraintState (n.constr |> Option.map fst)
-                    yield 
-                        n.constr 
-                        |> Option.map snd 
-                        |> Option.map (fun substs -> $"substs = {Format.substs substs}")
-                        |> Option.defaultValue ""
-                ]
-                |> String.concat "\n"
-              layout = layout }
+            { 
+                key = i
+                name = name
+                desc = 
+                    [
+                        yield Format.constraintState (n.constr |> Option.map fst)
+                        yield 
+                            n.constr 
+                            |> Option.map snd 
+                            |> Option.map (fun substs -> $"substs = {Format.substs substs}")
+                            |> Option.defaultValue ""
+                    ]
+                    |> String.concat "\n"
+                layout = layout
+            }
         ]
     Graph.write jsNodes jsLinks
     
