@@ -1,22 +1,13 @@
 
-#load "visuBase.fsx"
+#load "30_Visu.fsx"
+open ``01_Core``
+open ``10_Api``
+open ``11_Expect``
+open ``30_Visu``
 
-open TestBase
-open VisuBase
-open TypeFighter
-open TypeFighter.Api
-open TypeFighter.Api.Dsl
-open TypeFighter.Api.ImportedFunctionNames
-open TypeFighter.Api.Types
-open TypeFighter.Tests
-open TypeFighter.Tests.Expect
-
-
-
-
-
-
-
+open Dsl
+open ImportedFunctionNames
+open Types
 
 
 
@@ -82,7 +73,7 @@ open TypeFighter.Tests.Expect
         App (Var "id") (Str "Hello World")
         App (Var "id") (Num 42.0) ]))
 )
-|> showSolvedGraph [] |> ignore
+// |> showSolvedGraph [] |> ignore
 |> showSolvedAst [] |> ignore
 
 

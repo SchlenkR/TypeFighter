@@ -1,12 +1,11 @@
-﻿namespace TypeFighter.Api
-
-open TypeFighter
+﻿#load "01_Core.fsx"
+open ``01_Core``
 
 module Types =
 
     // a small DSL for type definitions
     // TODO: Test the type DSL
-    let inline (~%) x = TGenVar x
+    let inline (~%) x = TVar x
     let ( * ) x y =
         match x with
         | TTuple taus -> TTuple (taus @ [y])

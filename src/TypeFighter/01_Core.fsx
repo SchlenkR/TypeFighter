@@ -1,29 +1,27 @@
-﻿namespace TypeFighter
-
-type GenTyVar = int
-type Tau =
-    | TGenVar of GenTyVar
-    | TApp of string * Tau list
-    | TFun of Tau * Tau
-    | TTuple of Tau list
+﻿
+type TVar = int
+type Typ =
+    | TVar of TVar
+    | TApp of string * Typ list
+    | TFun of Typ * Typ
+    | TTuple of Typ list
     | TRecord of TRecordFields
-and TRecordField = string * Tau
+and TRecordField = string * Typ
 and TRecordFields = Set<TRecordField>
 type UnificationError =
     | Inherit
     | Origin of string
 type ConstraintState =
-    | Constrained of Tau
+    | Constrained of Typ
     | UnificationError of UnificationError
-type Subst = { genTyVar: GenTyVar; substitute: Tau }
+type Subst = { genTyVar: TVar; substitute: Typ }
 
 // TODO: in type inference, respect the fact that annos can be initially constrained
 
-type TyVar = int
 type Ident = string
 type EnvItem =
-    | Extern of Tau
-    | Intern of TyVar
+    | Extern of Typ
+    | Intern of TVar
 type Env = Map<Ident, EnvItem>
 
 type Lit =
@@ -45,9 +43,11 @@ and MetaExp<'meta> = Meta<Exp<'meta>, 'meta>
 and MetaIdent<'meta> = Meta<Ident, 'meta>
 
 type Anno =
-    { tyvar: TyVar
-      env: Env
-      initialConstr: Tau option }
+    { 
+        tyvar: TVar
+        env: Env
+        initialConstr: Typ option 
+    }
 type UExp = Meta<Exp<unit>, unit>
 type TExp = MetaExp<Anno>
 type IExp = MetaIdent<Anno>
@@ -58,7 +58,9 @@ type IExp = MetaIdent<Anno>
 module Helper =
     type Counter(exclSeed) =
         let mutable varCounter = exclSeed
-        member this.next() = varCounter <- varCounter + 1; varCounter
+        member this.next() =
+            varCounter <- varCounter + 1
+            varCounter
     
     module Map =
         let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
@@ -88,11 +90,11 @@ module Lit =
         | LString _ -> TypeNames.string
         | LNumber _ -> TypeNames.number
         | LBool _ -> TypeNames.bool
-        | LUnit _ -> TypeNames.unit
+        | LUnit -> TypeNames.unit
 
 module Env =
     let empty : Env = Map.empty
-    let bind ident (tyvar: TyVar) (env: Env) : Env =
+    let bind ident (tyvar: TVar) (env: Env) : Env =
         env |> Map.change ident (fun _ -> Some(Intern tyvar))
     let resolve varName (env: Env) =
         match env |> Map.tryFind varName with
@@ -106,17 +108,17 @@ module Env =
         |> Map.ofListUnique
 
 module Tau =
-    let map (proj: Tau -> 'a list) (projGenVar: GenTyVar -> 'a list) (tau: Tau) =
+    let map (proj: Typ -> 'a list) (projGenVar: TVar -> 'a list) (tau: Typ) =
         match tau with
-        | TGenVar v -> projGenVar v
+        | TVar v -> projGenVar v
         | TApp (_, vars) -> vars |> List.collect proj
         | TFun (t1, t2) -> [ yield! proj t1; yield! proj t2 ]
         | TTuple taus -> taus |> List.collect proj
         | TRecord fields -> [ for _,t in fields do yield! proj t ]
 
-    let mapEndo (proj: Tau -> Tau) (projGenVar: GenTyVar -> Tau) (tau: Tau) =
+    let mapEndo (proj: Typ -> Typ) (projGenVar: TVar -> Typ) (tau: Typ) =
         match tau with
-        | TGenVar var -> projGenVar var
+        | TVar var -> projGenVar var
         | TApp (ident, taus) -> TApp (ident, [ for t in taus do proj t ])
         | TFun (t1, t2) -> TFun (proj t1, proj t2)
         | TTuple taus -> TTuple [ for t in taus do proj t ]
@@ -124,26 +126,28 @@ module Tau =
     
     let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
 
-    let getGenVars (t: Tau) =
-        let rec getGenVars (t: Tau) : GenTyVar list =
+    let getGenVars (t: Typ) =
+        let rec getGenVars (t: Typ) : TVar list =
             t |> map getGenVars (fun v -> [v])
         getGenVars t |> set
 
-    let getGenVarsMany (taus: Tau list) =
+    let getGenVarsMany (taus: Typ list) =
         taus |> List.map getGenVars |> List.fold (+) Set.empty
 
 
 module AnnotatedAst =
 
     type AnnotationResult =
-        { newGenVar: Counter
-          root : TExp
-          allExpressions: List<TExp>
-          allEnvVars: Map<TyVar, Ident * TExp> }
+        { 
+            newGenVar: Counter
+            root : TExp
+            allExpressions: List<TExp>
+            allEnvVars: Map<TVar, Ident * TExp> 
+        }
 
     let private remapGenVars (env: Env) : Counter * Env =
         let newGenVar = Counter(0)
-        let mutable varMap = Map.empty<GenTyVar, GenTyVar>
+        let mutable varMap = Map.empty<TVar, TVar>
         newGenVar, env |> Map.map (fun _ v ->
             match v with
             | Intern _ -> v
@@ -156,7 +160,7 @@ module AnnotatedAst =
                             let newVar = newGenVar.next()
                             varMap <- varMap |> Map.add var newVar
                             newVar)
-                        |> TGenVar)
+                        |> TVar)
                 Extern (remap tau))
 
     let create (env: Env) (exp: UExp) =
@@ -227,11 +231,11 @@ module Format =
         | c, _ -> c.Name
 
     // TODO: this is crap!
-    let genVar (x: GenTyVar) = $"'{char (x + 96)}"
+    let genVar (x: TVar) = $"'{char (x + 96)}"
 
-    let rec tau (t: Tau) =
+    let rec tau (t: Typ) =
         match t with
-        | TGenVar x -> 
+        | TVar x -> 
             genVar x
         | TApp (name, taus) ->
             match taus with
@@ -262,7 +266,7 @@ module ConstraintGraph =
     and Inst = { scope: string; inc: Node }
 
     and NodeData =
-        | Source of Tau
+        | Source of Typ
         | Ast of Ast
         | MakeFun of MakeFun
         | GetProp of GetProp
@@ -302,7 +306,7 @@ module ConstraintGraph =
         let subst (substs: Set<Subst>) tau =
             let rec substRec (substs: Set<Subst>) tau =
                 // TODO: quite similar with remapGenVars
-                let substVarInAwithB (tvar: GenTyVar) (a: Tau) (b: Tau) =
+                let substVarInAwithB (tvar: TVar) (a: Typ) (b: Typ) =
                     let rec substTau tau =
                         tau |> Tau.mapEndo substTau (fun var -> if var = tvar then b else tau)
                     substTau a
@@ -351,15 +355,15 @@ module ConstraintGraph =
                             Ok (state + x))))
                 (Ok Set.empty)
         
-        and unify (a: Tau) (b: Tau) =           
+        and unify (a: Typ) (b: Typ) =           
             let rec unify1 t1 t2 =
                 let error (msg: string) =
                     Error $"""Cannot unify types "{Format.tau t1}" and "{Format.tau t2}": {msg}"""
                 match t1,t2 with
                 | x,y when x = y ->
                     Ok (x, empty)
-                | TGenVar x, y
-                | y, TGenVar x ->
+                | TVar x, y
+                | y, TVar x ->
                     Ok (y, set [ { genTyVar = x; substitute = y } ])
                 | TApp (_, taus1), TApp (_, taus2) when taus1.Length <> taus2.Length ->
                     error "Generic argument count mismatch"
@@ -385,7 +389,7 @@ module ConstraintGraph =
             
             and unifyMany taus1 taus2 =
                 let unifiedTaus = [ for t1,t2 in List.zip taus1 taus2 do unify1 t1 t2 ]
-                let rec allOk (taus: Tau list) (allSubsts: Set<Subst>) remainingTaus =
+                let rec allOk (taus: Typ list) (allSubsts: Set<Subst>) remainingTaus =
                     match remainingTaus with
                     | [] -> Ok (taus, allSubsts)
                     | x :: xs ->
@@ -418,7 +422,7 @@ module ConstraintGraph =
             do nodes.Add node
             node
         let source tau = addNode (Source tau) (Some (Constrained tau, Unification.empty))
-        let newGenVarSource() = source (TGenVar (annoRes.newGenVar.next()))
+        let newGenVarSource() = source (TVar (annoRes.newGenVar.next()))
         let ast exp constr inc = addNode (Ast { exp = exp; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
@@ -566,7 +570,7 @@ module ConstraintGraph =
                     let substsGenVars = s |> Set.map (fun x -> x.genTyVar)
                     tgenvars - substsGenVars
                 let instances = ftv |> Set.map (fun x -> 
-                    { Subst.genTyVar = x; Subst.substitute = TGenVar (annoRes.newGenVar.next()) })
+                    { Subst.genTyVar = x; Subst.substitute = TVar (annoRes.newGenVar.next()) })
                 let replacedTau = Unification.subst instances t
                 Constrained replacedTau, s + instances
             | _ ->

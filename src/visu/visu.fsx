@@ -1,3 +1,8 @@
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No deps to any TypeFighter stuff
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 open System.IO
 open System.Text.Json
 open System.Text.Json.Serialization
@@ -11,14 +16,18 @@ module NodeTypes =
     let op = "Ellipse"
 
 type JsNode =
-    { key: int
-      name: string
-      desc: string
-      [<JsonPropertyName("fig")>] layout: string }
+    { 
+        key: int
+        name: string
+        desc: string
+        [<JsonPropertyName("fig")>] layout: string 
+    }
 
 type JsLink =
-    { [<JsonPropertyName("from")>] fromNode: int
-      [<JsonPropertyName("to")>] toNode: int }
+    {
+        [<JsonPropertyName("from")>] fromNode: int
+        [<JsonPropertyName("to")>] toNode: int 
+    }
 
 
 let private writeData (nodesJson: string) (linksJson: string) (layout: string) =
@@ -38,25 +47,31 @@ let private serialize (v: obj) =
 module Tree =
 
     type Node =
-        { mutable key: int
-          name: string
-          desc: string
-          typ: string
-          children: ResizeArray<Node> }
+        { 
+            mutable key: int
+            name: string
+            desc: string
+            typ: string
+            children: ResizeArray<Node> 
+        }
     
     let var name desc (children: Node list) =
-        { name = name
-          desc = desc
-          typ = NodeTypes.var
-          key = -1
-          children = ResizeArray(children) }
+        { 
+            name = name
+            desc = desc
+            typ = NodeTypes.var
+            key = -1
+            children = ResizeArray(children) 
+        }
 
     let op desc (children: Node list) =
-        { name = ""
-          desc = desc
-          typ = NodeTypes.op
-          key = -1
-          children = ResizeArray(children) }
+        { 
+            name = ""
+            desc = desc
+            typ = NodeTypes.op
+            key = -1
+            children = ResizeArray(children) 
+        }
 
     let connect (p: Node) c = p.children.Add c
 

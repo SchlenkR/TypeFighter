@@ -1,9 +1,12 @@
 
-#load "testBase.fsx"
-open TypeFighter
-//open TypeFighter.DotNetCodeGen
+#r "nuget: Newtonsoft.Json"
 
-#load "visu/visu.fsx"
+#load "11_Expect.fsx"
+
+#load "testBase.fsx"
+open ``01_Core``
+
+#load "../visu/visu.fsx"
 open Visu
 
 module Format =
