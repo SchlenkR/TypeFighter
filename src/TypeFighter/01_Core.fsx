@@ -2,65 +2,70 @@
 type TVar = int
 type Typ =
     | TVar of TVar
-    | TApp of string * Typ list
-    | TFun of Typ * Typ
+    | TApp of name: string * typArgs: Typ list
+    | TFun of funTyp: Typ * argTyp: Typ
     | TTuple of Typ list
     | TRecord of TRecordFields
-and TRecordField = string * Typ
+        override this.ToString() = ShowTyp.ToString(this)
+
+and TRecordField = { fname: string; typ: Typ }
 and TRecordFields = Set<TRecordField>
-type UnificationError =
-    | Inherit
-    | Origin of string
-type ConstraintState =
-    | Constrained of Typ
-    | UnificationError of UnificationError
-type Subst = { genTyVar: TVar; substitute: Typ }
 
-// TODO: in type inference, respect the fact that annos can be initially constrained
+and ShowTyp =
+    static member ToString(t: Typ) =
+        let tvarToString (x: TVar) = $"tv{x}"
 
-type Ident = string
-type EnvItem =
-    | Extern of Typ
-    | Intern of TVar
-type Env = Map<Ident, EnvItem>
+        match t with
+        | TVar x -> 
+            tvarToString x
+        | TApp (name, typArgs) ->
+            match typArgs with
+            | [] -> name
+            | _ ->
+                let typArgs = typArgs |> List.map _.ToString() |> String.concat ", "
+                $"{name}<{typArgs}>"
+        | TFun (t1, t2) ->
+            $"({t1} -> {t2})"
+        | TTuple taus ->
+            taus |> List.map _.ToString() |> String.concat " * " |> sprintf "(%s)"
+        | TRecord fields ->
+            [ for f in fields do $"{f.fname}: {f.typ}" ] |> String.concat "; " |> sprintf "{ %s }"
 
 type Lit =
     | LString of string
     | LNumber of float
     | LBool of bool
     | LUnit
-type Exp<'meta> =
-    | Lit of Lit
-    | Var of Ident
-    | App of MetaExp<'meta> * MetaExp<'meta>
-    | Fun of MetaIdent<'meta> * MetaExp<'meta>
-    | Let of MetaIdent<'meta> * MetaExp<'meta> * MetaExp<'meta>
-    | Prop of Ident * MetaExp<'meta>
-    | Tuple of MetaExp<'meta> list
-    | Record of (Ident * MetaExp<'meta>) list
-and Meta<'exp, 'meta> = { exp: 'exp; meta: 'meta }
-and MetaExp<'meta> = Meta<Exp<'meta>, 'meta>
-and MetaIdent<'meta> = Meta<Ident, 'meta>
 
-type Anno =
-    { 
-        tyvar: TVar
-        env: Env
-        initialConstr: Typ option 
-    }
-type UExp = Meta<Exp<unit>, unit>
-type TExp = MetaExp<Anno>
-type IExp = MetaIdent<Anno>
-
-
+type Exp<'anno> =
+    | Lit of {| value: Lit; tanno: 'anno |}
+    | Var of {| ident: string; tanno: 'anno |}
+    | App of {| func: Exp<'anno>; arg: Exp<'anno>; tanno: 'anno |}
+    | Fun of {| ident: Ident<'anno>; body: Exp<'anno>; tanno: 'anno |}
+    | Let of {| ident: Ident<'anno>; value: Exp<'anno>; body: Exp<'anno>; tanno: 'anno |}
+    | PropAcc of {| ident: Ident<'anno>; source: Exp<'anno>; tanno: 'anno |}
+    | Tuple of {| exprs: Exp<'anno> list; tanno: 'anno |}
+    | Record of {| fields: Field<'anno> list; tanno: 'anno |}
+        member this.tanno =
+            match this with
+            | Lit x -> x.tanno
+            | Var x -> x.tanno
+            | App x -> x.tanno
+            | Fun x -> x.tanno
+            | Let x -> x.tanno
+            | PropAcc x -> x.tanno
+            | Tuple x -> x.tanno
+            | Record x -> x.tanno
+and Field<'anno> = { name: Ident<'anno>; value: Exp<'anno>; tanno: 'anno }
+and Ident<'anno> = { nane: string; tanno: 'anno }
 
 [<AutoOpen>]
 module Helper =
-    type Counter(exclSeed) =
-        let mutable varCounter = exclSeed
+    type Counter() =
+        let mutable currVar = 0
         member this.next() =
-            varCounter <- varCounter + 1
-            varCounter
+            currVar <- currVar + 1
+            currVar
     
     module Map =
         let private xtract f (m: Map<_,_>) = m |> Seq.map f |> Seq.toList
@@ -107,155 +112,36 @@ module Env =
         |> List.choose id
         |> Map.ofListUnique
 
-module Tau =
-    let map (proj: Typ -> 'a list) (projGenVar: TVar -> 'a list) (tau: Typ) =
-        match tau with
-        | TVar v -> projGenVar v
-        | TApp (_, vars) -> vars |> List.collect proj
-        | TFun (t1, t2) -> [ yield! proj t1; yield! proj t2 ]
-        | TTuple taus -> taus |> List.collect proj
-        | TRecord fields -> [ for _,t in fields do yield! proj t ]
-
-    let mapEndo (proj: Typ -> Typ) (projGenVar: TVar -> Typ) (tau: Typ) =
-        match tau with
-        | TVar var -> projGenVar var
-        | TApp (ident, taus) -> TApp (ident, [ for t in taus do proj t ])
-        | TFun (t1, t2) -> TFun (proj t1, proj t2)
-        | TTuple taus -> TTuple [ for t in taus do proj t ]
-        | TRecord fields -> TRecord (set [ for f,t in fields do f, proj t ])
-    
-    let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
+module Typ =
+    let getTyp = function Constrained t -> t | _ -> failwith "TODO: unconstrained!"
 
     let getGenVars (t: Typ) =
-        let rec getGenVars (t: Typ) : TVar list =
-            t |> map getGenVars (fun v -> [v])
+        let rec getGenVars (t: Typ) =
+            let map (proj: Typ -> TVar list) (typ: Typ) =
+                match typ with
+                | TVar v -> [v]
+                | TApp (_, typs) -> typs |> List.collect proj
+                | TFun (t1, t2) -> [ yield! proj t1; yield! proj t2 ]
+                | TTuple typs -> typs |> List.collect proj
+                | TRecord fields -> [ for field in fields do yield! proj field.typ ]
+            t |> map getGenVars
         getGenVars t |> set
 
-    let getGenVarsMany (taus: Typ list) =
-        taus |> List.map getGenVars |> List.fold (+) Set.empty
 
-
-module AnnotatedAst =
-
-    type AnnotationResult =
-        { 
-            newGenVar: Counter
-            root : TExp
-            allExpressions: List<TExp>
-            allEnvVars: Map<TVar, Ident * TExp> 
-        }
-
-    let private remapGenVars (env: Env) : Counter * Env =
-        let newGenVar = Counter(0)
-        let mutable varMap = Map.empty<TVar, TVar>
-        newGenVar, env |> Map.map (fun _ v ->
-            match v with
-            | Intern _ -> v
-            | Extern tau ->
-                let rec remap tau =
-                    tau |> Tau.mapEndo remap (fun var -> 
-                        varMap
-                        |> Map.tryFind var
-                        |> Option.defaultWith (fun () ->
-                            let newVar = newGenVar.next()
-                            varMap <- varMap |> Map.add var newVar
-                            newVar)
-                        |> TVar)
-                Extern (remap tau))
-
-    let create (env: Env) (exp: UExp) =
-        let newGenVar,env = remapGenVars env
-        let newTyVar = Counter(0)
-        let mutable allExp = []
-        let mutable allEnvVars = Map.empty
-        let rec annotate (env: Env) (exp: UExp) =
-            let texp =
-                { meta =
-                    { tyvar = newTyVar.next()
-                      env = env
-                      initialConstr = None }
-                  exp =
-                    match exp.exp with
-                    | Lit x ->
-                        Lit x
-                    | Var ident -> 
-                        Var ident
-                    | App (e1, e2) -> 
-                        App (annotate env e1, annotate env e2)
-                    | Fun (ident, body) ->
-                        let tyvarIdent = newTyVar.next()
-                        let newEnv = env |> Env.bind ident.exp tyvarIdent
-                        let annotatedIdent =
-                            { meta =
-                                { tyvar = tyvarIdent
-                                  env = env
-                                  initialConstr = None }
-                              exp = ident.exp }
-                        Fun (annotatedIdent, annotate newEnv body)
-                    | Let (ident, e, body) ->
-                        // TODO: ident: redundant mit Fun
-                        let tyvarIdent = newTyVar.next()
-                        let newEnv = env |> Env.bind ident.exp tyvarIdent
-                        let annotatedIdent =
-                            { meta =
-                                { tyvar = tyvarIdent
-                                  env = env
-                                  initialConstr = None }
-                              exp = ident.exp }
-                        Let (annotatedIdent, annotate env e, annotate newEnv body)
-                    | Prop (ident, e) -> 
-                        Prop (ident, annotate env e)
-                    | Tuple es -> 
-                        Tuple (es |> List.map (annotate env))
-                    | Record fields -> 
-                        Record [ for ident,e in fields do ident, annotate env e ]
-                }
-            do allExp <- texp :: allExp
-            do
-                let newStuff = 
-                    Env.getInterns env
-                    |> Map.toSeq
-                    |> Seq.filter (fun (ident,tyvar) -> not (allEnvVars |> Map.containsKey tyvar))
-                for ident,tyvar in newStuff do
-                    allEnvVars <- allEnvVars |> Map.add tyvar (ident, texp)
-            texp
-        let res = annotate env exp
-        { newGenVar = newGenVar
-          root = res
-          allExpressions = allExp |> Seq.toList
-          allEnvVars = allEnvVars }
-
-module Format =
-    let getUnionCaseName x =
-        match Reflection.FSharpValue.GetUnionFields(x, x.GetType()) with
-        | c, _ -> c.Name
-
-    // TODO: this is crap!
-    let genVar (x: TVar) = $"'{char (x + 96)}"
-
-    let rec tau (t: Typ) =
-        match t with
-        | TVar x -> 
-            genVar x
-        | TApp (name, taus) ->
-            match taus with
-            | [] -> name
-            | _ ->
-                let taus = taus |> List.map tau |> String.concat ", "
-                $"{name}<{taus}>"
-        | TFun (t1, t2) -> 
-            $"({tau t1} -> {tau t2})"
-        | TTuple taus ->
-            taus |> List.map tau |> String.concat " * " |> sprintf "(%s)"
-        | TRecord fields ->
-            [ for n,t in fields do $"{n}: {tau t}" ] |> String.concat "; " |> sprintf "{ %s }"
+type AnnotationResult =
+    { 
+        newGenVar: Counter
+        root : Exp
+        allExpressions: List<Exp>
+        allEnvVars: Map<TVar, Ident * Exp>
+    }
 
 module ConstraintGraph =
 
-    type Ast = { exp: AstExp; inc: Node }
-    and AstExp =
-        | TExp of TExp
-        | IExp of IExp
+    type Ast = { term: Term; inc: Node }
+    and Term =
+        | ExprTerm of Exp
+        | IdentTerm of Ident
     and MakeFun = { inc1: Node; inc2: Node }
     and ArgOp = In | Out // TODO: In braucht man nicht mehr
     and Arg = { argOp: ArgOp; inc: Node }
@@ -282,34 +168,40 @@ module ConstraintGraph =
         member val constr = constr with get, set
 
     type SolveResult =
-        { constrainedNodes: List<Node>
-          errorNodes: List<Node>
-          unfinishedNodes: List<Node>
-          allNodes: List<Node>
-          exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>
-          envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>
-          annotationResult: AnnotatedAst.AnnotationResult
-          success: bool }
+        { 
+            constrainedNodes: List<Node>
+            errorNodes: List<Node>
+            unfinishedNodes: List<Node>
+            allNodes: List<Node>
+            exprConstraintStates: Map<Exp, ConstraintState * Set<Subst>>
+            envConstraintStates: Map<Ident, ConstraintState * Set<Subst>>
+            annotationResult: AnnotationResult
+            success: bool 
+        }
 
     module SolveResult =
-        let findTauAndSubsts (exp: TExp) sr =
+        let findTypsAndSubsts (exp: Exp) sr =
             sr.exprConstraintStates
             |> Map.find exp
             |> fun (cs,substs) ->
-                let tau = Tau.tau cs
+                let tau = Typ.getTyp cs
                 tau,substs
-        let findTau (exp: TExp) sr = findTauAndSubsts exp sr |> fst
+        let findTau (exp: Exp) sr = findTypsAndSubsts exp sr |> fst
 
     module Unification =
         let empty : Set<Subst> = Set.empty
 
         let subst (substs: Set<Subst>) tau =
             let rec substRec (substs: Set<Subst>) tau =
-                // TODO: quite similar with remapGenVars
                 let substVarInAwithB (tvar: TVar) (a: Typ) (b: Typ) =
-                    let rec substTau tau =
-                        tau |> Tau.mapEndo substTau (fun var -> if var = tvar then b else tau)
-                    substTau a
+                    let rec subst typ =
+                        match typ with
+                        | TVar var -> if var = tvar then b else typ
+                        | TApp (ident, typs) -> TApp (ident, [ for t in typs do subst t ])
+                        | TFun (t1, t2) -> TFun (subst t1, subst t2)
+                        | TTuple typs -> TTuple [ for t in typs do subst t ]
+                        | TRecord fields -> TRecord (set [ for field in fields do { fname = field.fname; typ = subst field.typ} ])
+                    subst a
                 match substs |> Set.toList with
                 | [] -> tau
                 | x :: xs ->
@@ -357,8 +249,7 @@ module ConstraintGraph =
         
         and unify (a: Typ) (b: Typ) =           
             let rec unify1 t1 t2 =
-                let error (msg: string) =
-                    Error $"""Cannot unify types "{Format.tau t1}" and "{Format.tau t2}": {msg}"""
+                let error (msg: string) = Error $"""Cannot unify types "{t1}" and "{t2}": {msg}"""
                 match t1,t2 with
                 | x,y when x = y ->
                     Ok (x, empty)
@@ -414,7 +305,7 @@ module ConstraintGraph =
         | Inst x -> [ x.inc ]
         
     // TODO: Rückgabe als annoRes + nodes, damit man besser pipen kann
-    let create (annoRes: AnnotatedAst.AnnotationResult) =
+    let create (annoRes: AnnotationResult) =
         let nodes = ResizeArray()
 
         let addNode n constr =
@@ -423,7 +314,7 @@ module ConstraintGraph =
             node
         let source tau = addNode (Source tau) (Some (Constrained tau, Unification.empty))
         let newGenVarSource() = source (TVar (annoRes.newGenVar.next()))
-        let ast exp constr inc = addNode (Ast { exp = exp; inc = inc }) constr
+        let ast exp constr inc = addNode (Ast { term = exp; inc = inc }) constr
         let makeFunc inc1 inc2 = addNode (MakeFun { inc1 = inc1; inc2 = inc2 }) None
         let getProp field inc = addNode (GetProp { field = field; inc = inc }) None
         let makeTuple incs = addNode (MakeTuple { incs = incs }) None
@@ -434,29 +325,29 @@ module ConstraintGraph =
         let unify inc1 inc2 = addNode (Unify { inc1 = inc1; inc2 = inc2 }) None
         let inst scope inc = addNode (Inst { scope = scope; inc = inc }) None
 
-        let rec generateGraph (exp: TExp) (inc: Node option) =
+        let rec generateGraph (exp: Exp) (inc: Node option) =
             let ( ==> ) (n1, maybeN2) f =
                 match maybeN2 with
                 | None -> f n1
                 | Some n2 -> unify n1 n2 |> f
             
             let nthis parent =
-                let constr = exp.meta.initialConstr |> Option.map (fun t -> Constrained t, Unification.empty)
-                ast (TExp exp) constr parent
+                let constr = exp.tanno.explicitConstr |> Option.map (fun t -> Constrained t, Unification.empty)
+                ast (ExprTerm exp) constr parent
             
             let res =
-                match exp.exp with
+                match exp with
                 | Lit x ->
                     let nsource = source (TApp(Lit.getTypeName x, []))
                     (nsource, inc) ==> nthis
-                | Var ident ->
+                | Var x ->
                     let nsource =
-                        match Env.resolve ident exp.meta.env with
+                        match Env.resolve x.ident.nane exp.tanno.env with
                         | Intern tyvarIdent ->
                             nodes |> Seq.find (fun n ->
                                 match n.data with
-                                | Ast { exp = TExp { meta = meta } }
-                                | Ast { exp = IExp { meta = meta } }
+                                | Ast { term = TExp { meta = meta } }
+                                | Ast { term = IExp { meta = meta } }
                                   when meta.tyvar = tyvarIdent ->
                                     true
                                 | _ ->
@@ -487,7 +378,7 @@ module ConstraintGraph =
                         (generateGraph e None, None) ==> ast (IExp ident) None
                         |> ignore
                     (generateGraph body None, inc) ==> nthis
-                | Prop (ident, e) -> 
+                | PropAcc (ident, e) -> 
                     let nprop = (ident, generateGraph e None) ||> getProp
                     (nprop, inc) ==> nthis
                 | Tuple es ->
@@ -527,7 +418,7 @@ module ConstraintGraph =
             match nodeData with
             | Source tau ->
                 Constrained tau, Unification.empty
-            | Ast { exp = exp; inc = Cons(t,s) } ->
+            | Ast { term = exp; inc = Cons(t,s) } ->
                 let flattenedSubsts = s |> Unification.flatten
                 match flattenedSubsts with
                 | Error msg ->
@@ -566,7 +457,7 @@ module ConstraintGraph =
                     Constrained tres, (sres + s1 + s2)
             | Inst { inc = Cons(t, s) } ->
                 let ftv =
-                    let tgenvars = Tau.getGenVars t
+                    let tgenvars = Typ.getGenVars t
                     let substsGenVars = s |> Set.map (fun x -> x.genTyVar)
                     tgenvars - substsGenVars
                 let instances = ftv |> Set.map (fun x -> 
@@ -599,7 +490,7 @@ module ConstraintGraph =
                         match allIncomingsAreOperations,node.data with
                         | true, _ -> err
                         | false, Ast ast ->
-                            match ast.exp with
+                            match ast.term with
                             | TExp _ -> inh
                             | IExp _ -> err
                             // TODO??
@@ -644,7 +535,7 @@ module ConstraintGraph =
 
         let doIt f =
             [ for ast,constr in allAsts do
-                let x = f ast.exp
+                let x = f ast.term
                 match x with
                 | Some x -> Some (x, constr.Value)
                 | _ -> None
