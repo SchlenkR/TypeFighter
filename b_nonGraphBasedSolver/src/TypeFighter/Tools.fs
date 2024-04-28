@@ -46,7 +46,7 @@ module PseudoCodeRendering =
                 sb.AppendLine().Append(mkIndent (indent + addedIndent))
                 |> ignore
             match expr with
-            | Lit s ->
+            | Expr.Lit s ->
                 match System.Int32.TryParse s.value with
                 | true, _ -> append s.value
                 | _ ->
@@ -54,39 +54,39 @@ module PseudoCodeRendering =
                     | s when s.Equals("true", System.StringComparison.OrdinalIgnoreCase) -> append "true"
                     | s when s.Equals("false", System.StringComparison.OrdinalIgnoreCase) -> append "false"
                     | s -> append ("\"" + s + "\"")
-            | App x ->
+            | Expr.App x ->
                 renderExpr indent x.func
                 append " ("; renderExpr indent x.arg; append ")"
-            | Fun x ->
+            | Expr.Fun x ->
                 append $"fun {x.ident.identName} ->"
                 newLineIndent 1
                 renderExpr (indent + 1) x.body
-            | Var x ->
+            | Expr.Var x ->
                 match x.ident with
                 | BuiltinValues.unitValueIdent -> append "()"
                 | _ -> append x.ident
-            | Let x ->
+            | Expr.Let x ->
                 append $"let {x.ident.identName} = "; renderExpr indent x.value
                 newLineIndent 0; renderExpr indent x.body
-            | Do x ->
+            | Expr.Do x ->
                 append "do ";  renderExpr indent x.value
                 newLineIndent 0
                 renderExpr indent x.body
-            | Match x ->
+            | Expr.Match x ->
                 append $"match "; renderExpr indent x.expr; append $" with"
                 for case in x.cases do
                     newLineIndent 0; append $"| {case.disc} ->"
                     newLineIndent 1; renderExpr (indent + 1) case.body
-            | PropAcc x ->
+            | Expr.PropAcc x ->
                 renderExpr indent x.source
                 append x.ident.identName
-            | MkArray x ->
+            | Expr.MkArray x ->
                 append "["
                 for item in x.values do
                     newLineIndent 1; renderExpr (indent + 1) item
                 newLineIndent 0
                 append "]"
-            | MkRecord x ->
+            | Expr.MkRecord x ->
                 append "{"
                 for field in x.fields do
                     newLineIndent 1; append $"{field.fname} = "

@@ -21,45 +21,45 @@ type NameHint =
     interface System.IComparable<NameHint> with
         member _.CompareTo(_) = 0
 
-type Mono =
+type MonoTyp =
     | TVar of VarNum
-    | TApp of TMonoApp
-    | TFun of Mono * Mono
-    | TProvideMembers of TRecord
-    | TIntersectMembers of TRecord list
-    | TRequireMember of TField
-    | TProvideCases of TUnion
+    | TApp of MonoAppTyp
+    | TFun of MonoTyp * MonoTyp
+    | TProvideMembers of RecordTyp
+    | TIntersectMembers of RecordTyp list
+    | TRequireMember of FieldTyp
+    | TProvideCases of UnionTyp
         override this.ToString() = ShowTyp.Show(this)
-and Poly =
-    { vars: Set<VarNum>; monoTyp: Mono }
+and PolyTyp =
+    { vars: Set<VarNum>; monoTyp: MonoTyp }
         override this.ToString() = ShowTyp.Show(this)
 and Typ =
-    | Mono of Mono
-    | Poly of Poly
+    | Mono of MonoTyp
+    | Poly of PolyTyp
         override this.ToString() = ShowTyp.Show(this)
-and TRecord = 
-    { nameHint: NameHint; fields: Set<TField>}
+and RecordTyp = 
+    { nameHint: NameHint; fields: Set<FieldTyp>}
         override this.ToString() = ShowTyp.Show(this)
-and TField =
-    { fname: string; typ: Mono }
+and FieldTyp =
+    { fname: string; typ: MonoTyp }
         override this.ToString() = ShowTyp.Show(this)
-and TUnion = { nameHint: NameHint; cases: Set<TCase> }
-and TCase = { disc: string; payloadTyp: Mono option }
-and TMonoApp = { name: string; args: Mono list }
+and UnionTyp = { nameHint: NameHint; cases: Set<CaseTyp> }
+and CaseTyp = { disc: string; payloadTyp: MonoTyp option }
+and MonoAppTyp = { name: string; args: MonoTyp list }
 
 and ShowTyp =
     static let getNameHint nameHint =
         match nameHint with
         | Anonymous -> ""
         | Named name -> $" (name={name})"
-    static member Show (field: TField) =
+    static member Show (field: FieldTyp) =
         $"{field.fname}: {field.typ}"
-    static member Show (record: TRecord) =
+    static member Show (record: RecordTyp) =
         record.fields
         |> Set.map ShowTyp.Show
         |> String.concat "; "
         |> fun s -> $"{{{getNameHint record.nameHint} {s} }}"
-    static member Show (typ: Mono) =
+    static member Show (typ: MonoTyp) =
         match typ with
         | TVar x -> x.ToString()
         | TApp x ->
@@ -85,7 +85,7 @@ and ShowTyp =
             |> fun s -> 
                 $"{{{getNameHint union.nameHint} {s} }}"
     
-    static member Show (typ: Poly) =
+    static member Show (typ: PolyTyp) =
         let printedVars = [ for v in typ.vars -> v.ToString() ] |> String.concat ", "
         $"<{printedVars}>.{ShowTyp.Show typ.monoTyp}"
     
@@ -94,6 +94,7 @@ and ShowTyp =
         | Mono typ -> ShowTyp.Show typ
         | Poly typ -> ShowTyp.Show typ
 
+[<RequireQualifiedAccess>]
 type Expr =
     // many exprs are non-elementary, but we don't care about that here,
     // since we aim for expressiveness when working with the AST
@@ -137,20 +138,20 @@ and ShowExpr =
                 | None -> $""
             $"    | {c.disc} {binding}-> {c.body}"
         match expr with
-        | Lit x -> $"Lit {x.value}"
-        | Var x -> $"Var {x.ident}"
-        | App x -> $"App {x.func} ..."
-        | Fun x -> $"Fun {printIdent x.ident} -> (... {x.body.TVar})"
-        | Let x -> $"Let {printIdent x.ident} = ({x.value}) in {x.body}"
-        | Do x -> $"Do {x.value} {x.body}"
-        | Match x ->
+        | Expr.Lit x -> $"Lit {x.value}"
+        | Expr.Var x -> $"Var {x.ident}"
+        | Expr.App x -> $"App {x.func} ..."
+        | Expr.Fun x -> $"Fun {printIdent x.ident} -> (... {x.body.TVar})"
+        | Expr.Let x -> $"Let {printIdent x.ident} = ({x.value}) in {x.body}"
+        | Expr.Do x -> $"Do {x.value} {x.body}"
+        | Expr.Match x ->
             let caseNames = [ for x in x.cases -> printUnionCase x ] |> String.concat " | "
             $"Match {x.expr} with | {caseNames})"
-        | PropAcc x -> $"PropAcc {x.source}.{x.ident}"
-        | MkArray x ->
+        | Expr.PropAcc x -> $"PropAcc {x.source}.{x.ident}"
+        | Expr.MkArray x ->
             let values = [ for x in x.values -> ShowExpr.Expr x ] |> String.concat "; "
             $"MkArray [ {values} ]"
-        | MkRecord x ->
+        | Expr.MkRecord x ->
             let fieldNames = 
                 x.fields 
                 |> List.map printField
@@ -167,50 +168,50 @@ module Expr =
     let collectTVars (expr: Expr) =
         let rec loop (expr: Expr) (acc: VarNum list) =
             match expr with
-            | Lit x -> x.tvar :: acc
-            | Var x -> x.tvar :: acc
-            | App x -> 
+            | Expr.Lit x -> x.tvar :: acc
+            | Expr.Var x -> x.tvar :: acc
+            | Expr.App x -> 
                 [ 
                     yield x.tvar
                     yield! loop x.func acc
                     yield! loop x.arg acc
                 ]
-            | Fun x ->
+            | Expr.Fun x ->
                 [
                     yield x.tvar
                     yield! loop x.body acc
                 ]
-            | Let x ->
-                [
-                    yield x.tvar
-                    yield! loop x.value acc
-                    yield! loop x.body acc
-                ]
-            | Do x ->
+            | Expr.Let x ->
                 [
                     yield x.tvar
                     yield! loop x.value acc
                     yield! loop x.body acc
                 ]
-            | Match x -> 
+            | Expr.Do x ->
+                [
+                    yield x.tvar
+                    yield! loop x.value acc
+                    yield! loop x.body acc
+                ]
+            | Expr.Match x -> 
                 [
                     yield x.tvar
                     yield! loop x.expr acc
                     for c in x.cases do
                         yield! loop c.body acc
                 ]
-            | PropAcc x ->
+            | Expr.PropAcc x ->
                 [
                     yield x.tvar
                     yield! loop x.source acc
                 ]
-            | MkArray x ->
+            | Expr.MkArray x ->
                 [
                     yield x.tvar
                     for v in x.values do
                         yield! loop v acc
                 ]
-            | MkRecord x ->
+            | Expr.MkRecord x ->
                 [
                     yield x.tvar
                     for f in x.fields do
@@ -230,12 +231,12 @@ module Typ =
             match typ with
             | Mono typ -> loopMono typ acc
             | Poly typ -> loopPoly typ acc
-        and loopRecord (record: TRecord) (acc: VarNum list) =
+        and loopRecord (record: RecordTyp) (acc: VarNum list) =
             [
                 for f in record.fields do
                     yield! loopMono f.typ acc
             ]
-        and loopMono (typ: Mono) (acc: VarNum list) =
+        and loopMono (typ: MonoTyp) (acc: VarNum list) =
             match typ with
             | TVar x -> x :: acc
             | TApp x ->
@@ -264,7 +265,7 @@ module Typ =
                         | Some payloadTyp -> yield! loopMono payloadTyp acc
                         | None -> ()
                 ]
-        and loopPoly (typ: Poly) (acc: VarNum list) =
+        and loopPoly (typ: PolyTyp) (acc: VarNum list) =
             [
                 yield! typ.vars
                 yield! loopMono typ.monoTyp acc
@@ -277,7 +278,7 @@ module Typ =
     let maxVar (typ: Typ) =
         0 :: collectTVars typ |> List.max
 
-    let gen (typ: Mono) =
+    let gen (typ: MonoTyp) =
         let tvars = collectTVars (Mono typ) |> List.map (fun v -> VarNum v)
         match tvars with
         | [] -> Mono typ
@@ -304,14 +305,14 @@ type ExprCtx() =
     member _.VarCount = currVar
     member _.NewTVar() = newTVar ()
     member _.Ident value = { identName = value; tvar = newTVar () }
-    member _.Lit value = Lit {| value = value; tvar = newTVar ()  |}
-    member _.Var ident = Var {| ident = ident; tvar = newTVar ()  |}
-    member _.App func arg = App {| func = func; arg = arg; tvar = newTVar ()  |}
-    member _.Fun ident body = Fun {| ident = ident; body = body; tvar = newTVar ()  |}
-    member _.Let ident value body = Let {| ident = ident; value = value; body = body; tvar = newTVar ()  |}
-    member _.Do value body = Do {| value = value; body = body; tvar = newTVar ()  |}
-    member _.Match expr cases = Match {| expr = expr; cases = cases; tvar = newTVar ()  |}
-    member _.PropAcc source ident = PropAcc {| source = source; ident = { identName = ident; tvar = newTVar () } ; tvar = newTVar ()  |}
+    member _.Lit value = Expr.Lit {| value = value; tvar = newTVar ()  |}
+    member _.Var ident = Expr.Var {| ident = ident; tvar = newTVar ()  |}
+    member _.App func arg = Expr.App {| func = func; arg = arg; tvar = newTVar ()  |}
+    member _.Fun ident body = Expr.Fun {| ident = ident; body = body; tvar = newTVar ()  |}
+    member _.Let ident value body = Expr.Let {| ident = ident; value = value; body = body; tvar = newTVar ()  |}
+    member _.Do value body = Expr.Do {| value = value; body = body; tvar = newTVar ()  |}
+    member _.Match expr cases = Expr.Match {| expr = expr; cases = cases; tvar = newTVar ()  |}
+    member _.PropAcc source ident = Expr.PropAcc {| source = source; ident = { identName = ident; tvar = newTVar () } ; tvar = newTVar ()  |}
     member t.PropAccN segments =
         match segments with
         | [] -> failwith "At least one segment required."
@@ -322,8 +323,8 @@ type ExprCtx() =
                 | [] -> source
                 | x :: xs -> loop (t.PropAcc source x) xs
             loop source xs
-    member _.MkArray values = MkArray {| values = values; tvar = newTVar ()  |}
-    member _.MkRecord fields = MkRecord {| fields = fields; tvar = newTVar ()  |}
+    member _.MkArray values = Expr.MkArray {| values = values; tvar = newTVar ()  |}
+    member _.MkRecord fields = Expr.MkRecord {| fields = fields; tvar = newTVar ()  |}
     member _.Field field value = { fname = field; value = value; tvar = newTVar () }
     member _.Case disc ident body = { disc = disc; ident = ident; body = body }
 
@@ -332,12 +333,12 @@ module TypDefHelper =
 
     let ( ~% ) x = TVar (VarNum x)
 
-    let TPoly (vars: int list) (monoTyp: Mono) =
+    let TPoly (vars: int list) (monoTyp: MonoTyp) =
         let vars = vars |> List.map VarNum |> set
         Poly { vars = vars; monoTyp = monoTyp }
 
-    let TFunCurr (args: Mono list) =
-        let rec loop (args: Mono list) =
+    let TFunCurr (args: MonoTyp list) =
+        let rec loop (args: MonoTyp list) =
             match args with
             | [] -> failwith "At least one argument and a return type required."
             | a1 :: a2 :: [] -> TFun (a1, a2)
@@ -347,28 +348,28 @@ module TypDefHelper =
     // CAREFUL HERE: -> is right-associative
     let ( ^-> ) t1 t2 = TFun (t1, t2)
     
-    let TRecordWith nameHint (fields: (string * Mono) list) =
+    let TRecordWith nameHint (fields: (string * MonoTyp) list) =
         let fields =
             [ for (fname, typ) in fields do { fname = fname; typ = typ } ]
             |> set
         { nameHint = nameHint; fields = fields }
     
-    let TProvideMembersWith nameHint (fields: (string * Mono) list) =
+    let TProvideMembersWith nameHint (fields: (string * MonoTyp) list) =
         TProvideMembers (TRecordWith nameHint fields)
 
-    let TProvideCasesWith nameHint (cases: (string * Mono option) list) =
+    let TProvideCasesWith nameHint (cases: (string * MonoTyp option) list) =
         let cases =
             [ for (disc, payloadTyp) in cases do { disc = disc; payloadTyp = payloadTyp } ]
             |> set
         TProvideCases { nameHint = nameHint; cases = cases }
     
-    let TAppWith (name: string) (args: Mono list) =
+    let TAppWith (name: string) (args: MonoTyp list) =
         TApp { name = name; args = args }
 
     let TConst (name: string) =
         TAppWith name []
 
-    let TGen (monoTyp: Mono) =
+    let TGen (monoTyp: MonoTyp) =
         Typ.gen monoTyp
 
 module BuiltinTypes =
@@ -396,12 +397,12 @@ module BuiltinValues =
 module TypeSystem =
 
     /// A constraint in the form: the right type must be assignable to the left type    
-    type Constraint = { triviaSource: Expr; t1: Mono; t2: Mono }
+    type Constraint = { triviaSource: Expr; t1: MonoTyp; t2: MonoTyp }
 
     type SolutionItem = { tvar: VarNum; typ: Typ }
-    type MSolutionItem = { tvar: VarNum; monoTyp: Mono }
+    type MSolutionItem = { tvar: VarNum; monoTyp: MonoTyp }
     
-    let rec substVarInTyp (tvarToReplace: VarNum) (withTyp: Mono) (inTyp: Mono) =
+    let rec substVarInTyp (tvarToReplace: VarNum) (withTyp: MonoTyp) (inTyp: MonoTyp) =
         let substRecord record =
             let fields = [ for f in record.fields do { f with typ = substVarInTyp tvarToReplace withTyp f.typ }]
             { record with fields = set fields }
@@ -428,7 +429,7 @@ module TypeSystem =
 
     let generateConstraints (env: Env) (expr: Expr) =
         let mutable constraints = []
-        let addConstraint (triviaSource: Expr) (tvar: VarNum) (typ: Mono) =
+        let addConstraint (triviaSource: Expr) (tvar: VarNum) (typ: MonoTyp) =
             constraints <-
                 { 
                     triviaSource = triviaSource
@@ -460,7 +461,7 @@ module TypeSystem =
 
         let rec generateConstraints (env: Env) (expr: Expr) =
             match expr with
-            | Lit x ->
+            | Expr.Lit x ->
                 let guessedTyp =
                     let ci = System.Globalization.CultureInfo.InvariantCulture
                     let (|Boolean|_|) (input: string) =
@@ -481,7 +482,7 @@ module TypeSystem =
                     | Date _ -> BuiltinTypes.date
                     | _ -> BuiltinTypes.string
                 addConstraint expr x.tvar guessedTyp
-            | Var x ->
+            | Expr.Var x ->
                 (*
                     ident   ||   t(ident) = tvar
                 *)
@@ -493,7 +494,7 @@ module TypeSystem =
                         inst typ
                     | None -> failwith $"Unresolved identifier: {x.ident}"
                 addConstraint expr x.tvar resolvedIdent
-            | App x ->
+            | Expr.App x ->
                 (*
                     func arg   ||   t(func): t1 -> t2   ||   t(arg) = t1   ||   t(app): t2
                 *)
@@ -501,7 +502,7 @@ module TypeSystem =
 
                 generateConstraints env x.func
                 generateConstraints env x.arg
-            | Fun x ->
+            | Expr.Fun x ->
                 (*
                     fun ident -> body   ||   t(ident) = t1   ||   t(body) = t2   ||   t(fun): t1 -> t2
                 *)
@@ -509,7 +510,7 @@ module TypeSystem =
 
                 let env = env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar)
                 generateConstraints env x.body
-            | Let x ->
+            | Expr.Let x ->
                 (*
                     let ident = value in body   ||   t(value) = t1   ||   t(body) = t2   ||   t(let): t2
                 *)
@@ -520,7 +521,7 @@ module TypeSystem =
                 
                 let env = env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar)
                 generateConstraints env x.body
-            | Do x ->
+            | Expr.Do x ->
                 (*
                     do value body   ||   t(value) = t(unit)   ||   t(body) = t2   ||   t(do) = t2
                 *)
@@ -529,17 +530,17 @@ module TypeSystem =
 
                 generateConstraints env x.value
                 generateConstraints env x.body
-            | PropAcc x ->
+            | Expr.PropAcc x ->
                 addConstraint expr x.source.TVar (TRequireMember { fname = x.ident.identName; typ = TVar x.tvar })
                 generateConstraints env x.source
-            | MkArray x ->
+            | Expr.MkArray x ->
                 let elemTyp = TVar (newTVar ())
                 
                 addConstraint expr x.tvar (BuiltinTypes.array elemTyp)
                 for v in x.values do
                     addConstraint expr v.TVar elemTyp
                     generateConstraints env v
-            | MkRecord x ->
+            | Expr.MkRecord x ->
                 // TODO: field names must be distinct
                 let fields =
                     x.fields
@@ -549,7 +550,7 @@ module TypeSystem =
 
                 for f in x.fields do
                     generateConstraints env f.value
-            | Match x ->
+            | Expr.Match x ->
                 // match is exhaustive:
                 // the type of the value expr that gets matched is a union type of all cases
                 addConstraint expr x.expr.TVar (TProvideCasesWith Anonymous [ for c in x.cases -> c.disc, None ])
@@ -587,7 +588,7 @@ module TypeSystem =
     let solveConstraints (constraints: Constraint list) =
         let mutable solverRuns = []
 
-        let throwUniError detail (source: Expr) (t1: Mono) (t2: Mono) =
+        let throwUniError detail (source: Expr) (t1: MonoTyp) (t2: MonoTyp) =
             let detail = 
                 match detail with
                 | "" -> ""
@@ -606,11 +607,11 @@ module TypeSystem =
             |> String.concat "\n"
             |> failwith
    
-        let rec unifyTypes (source: Expr) (t1: Mono) (t2: Mono) =
+        let rec unifyTypes (source: Expr) (t1: MonoTyp) (t2: MonoTyp) =
             let throwUniError message =
                 throwUniError message source t1 t2
 
-            let unifyRecordField (requiredField: TField) (providedRecord: TRecord) =
+            let unifyRecordField (requiredField: FieldTyp) (providedRecord: RecordTyp) =
                 let existingField = 
                     providedRecord.fields
                     |> Set.tryFind (fun f -> f.fname = requiredField.fname)
@@ -726,7 +727,7 @@ module Services =
                             let vars = [ for (VarNum v) in poly.vars do VarNum (v + varOffset) ]
                             let monoTyp = reindexMono poly.monoTyp
                             Poly { vars = vars |> Set.ofList; monoTyp = monoTyp }
-                    and reindexMono (typ: Mono) =
+                    and reindexMono (typ: MonoTyp) =
                         let reindexRecord record =
                             let fields = [ for f in record.fields do { f with typ = reindexMono f.typ } ]
                             { record with fields = fields |> Set.ofList }

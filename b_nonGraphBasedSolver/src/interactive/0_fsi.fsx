@@ -5,11 +5,9 @@
 #load "./visu/visu.fsx"
 open Visu
 
-open TypeFighter.Utils
 open TypeFighter.Lang
 
 module Visu =
-
     module Format =
         let rec longTyp (typ: Typ) =
             let indent = "\u00AD     "
@@ -74,21 +72,21 @@ module Visu =
             let getIdentDetails (ident: Ident) =
                 $"{ident.identName} : {ident.tvar} \n{details}"
             match expr with
-            | Lit x ->
+            | Expr.Lit x ->
                 Tree.var $"""Lit ("{x.value}") """ details []
-            | Var x ->
+            | Expr.Var x ->
                 Tree.var $"""Var "{x.ident}" """ details []
-            | App x ->
+            | Expr.App x ->
                 Tree.var "App" details [ createNodes x.func; createNodes x.arg ]
-            | Fun x ->
+            | Expr.Fun x ->
                 let details = getIdentDetails x.ident
                 Tree.var $"Fun {x.ident.identName} -> ..." details [ createNodes x.body ]
-            | Let x ->
+            | Expr.Let x ->
                 let details = getIdentDetails x.ident
                 Tree.var $"Let {x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
-            | Do x ->
+            | Expr.Do x ->
                 Tree.var $"Do ..." details [ createNodes x.value; createNodes x.body ]
-            | Match x ->
+            | Expr.Match x ->
                 let caseNames = 
                     [
                         for x in x.cases do
@@ -101,12 +99,12 @@ module Visu =
                     |> String.concat "\n"
                 let details = $"cases =\n{caseNames}\n\n{details}"
                 Tree.var $"MatchDU ..." details [ createNodes x.expr; for c in x.cases do createNodes c.body ]
-            | PropAcc x ->
+            | Expr.PropAcc x ->
                 let details = $"var(ident) = {x.ident.tvar}\n{details}" 
                 Tree.var $"""PropAcc "{x.ident.identName}" """ details [ createNodes x.source ]
-            | MkArray x ->
+            | Expr.MkArray x ->
                 Tree.var $"MkArray []" details [ for e in x.values do createNodes e ]
-            | MkRecord x ->
+            | Expr.MkRecord x ->
                 let fieldNames = 
                     x.fields 
                     |> List.map (fun f -> $"{f.fname}: {f.value.TVar}")
