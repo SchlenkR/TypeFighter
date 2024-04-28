@@ -52,17 +52,26 @@ type MonoTyp =
         |}
     override this.ToString() = ShowTyp.Show(this)
 and PolyTyp =
-    { vars: Set<VarNum>; monoTyp: MonoTyp }
+    { 
+        vars: Set<VarNum>
+        monoTyp: MonoTyp
+    }
     override this.ToString() = ShowTyp.Show(this)
 and Typ =
     | Mono of MonoTyp
     | Poly of PolyTyp
     override this.ToString() = ShowTyp.Show(this)
 and RecordDefinition =
-    { nameHint: NameHint; fields: Set<FieldDefinition>}
+    { 
+        nameHint: NameHint
+        fields: Set<FieldDefinition>
+    }
     override this.ToString() = ShowTyp.Show(this)
 and FieldDefinition =
-    { fname: string; typ: MonoTyp }
+    { 
+        fname: string
+        typ: MonoTyp 
+    }
     override this.ToString() = ShowTyp.Show(this)
 
 and ShowTyp =
