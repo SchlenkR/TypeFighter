@@ -44,7 +44,7 @@ let [<Test>] ``app with property access`` () =
     |> solve
         [
             yield! envWithAdd
-            yield "order", Mono (TProvideMembersWith (Named "Order") [ "quantity", BuiltinTypes.number ])
+            yield "order", Mono (TProvideMembersWith (NameHint.Given "Order") [ "quantity", BuiltinTypes.number ])
         ]
     |> shouldSolveType (Mono BuiltinTypes.number)
 
@@ -71,7 +71,7 @@ let [<Test>] ``let bound record`` () =
     ) (x.Var "myRecord")
     |> solve []
     |> shouldSolveType (
-            Mono (TProvideMembersWith (Named "Person") [
+            Mono (TProvideMembersWith (NameHint.Given "Person") [
                 "age", BuiltinTypes.number
                 "name", BuiltinTypes.string
             ]))

@@ -3,20 +3,22 @@ namespace TypeFighter.Lang
 open TypeFighter.Utils
 
 (*
-- we only allow top-level parametric polymorphism
-- we don not generalize on let bindings
-- generalization can only happen outside (when passing env)
-- Maybe generalizing on every "let" is overrated, and it could be
-  valuable to think about onyl generalizing at some "top-level".
+  - we only allow top-level parametric polymorphism
+  - we don not generalize on let bindings
+  - generalization can only happen outside (when passing env)
+  - Maybe generalizing on every "let" is overrated, and it could be
+    valuable to think about onyl generalizing at some "top-level".
 *)
 
 type VarNum = VarNum of int
     with override this.ToString() = let (VarNum v) = this in $"tv_{v}"
 
-[<CustomEquality; CustomComparison>]
+/// Names for types are really only hints for programmers, because
+/// they have no meaning for structural typing.
+[<CustomEquality; CustomComparison; RequireQualifiedAccess>]
 type NameHint =
-    | Anonymous
-    | Named of string
+    | Empty
+    | Given of string
     override _.Equals(other) =
         match other with :? NameHint -> true | _ -> false
     override this.GetHashCode() = hash this
@@ -30,15 +32,23 @@ type MonoTyp =
     //   1. While solving, it denotes a specific, but not yet known type.
     //   2. The mono typ occurs in a poly typ, and the variable is a quantified variable.
     | TVar of VarNum
-    | TApp of {| name: string; args: MonoTyp list |}
-    | TFun of MonoTyp * MonoTyp
-    | TRecord of RecordTypPayload
-    | TIntersectMembers of RecordTypPayload list
-    | TRequireMember of FieldTypPayload
-    | TProvideCases of 
+    | LeafTyp of {| name: string; args: MonoTyp list |}
+    | FunTyp of MonoTyp * MonoTyp
+    | RecordTyp of RecordDefinition
+    | IntersectionTyp of RecordDefinition list
+    // Since we currently only have "equivalence" in unification (correct term?),
+    // we hack around some needs by introducing constraints in these forms
+    // TODO: Get rid of it, and extend the unification system.
+    | RequireMemberConstraint of FieldDefinition
+    | ProvideCasesConstraing of 
         {| 
             nameHint: NameHint
-            cases: Set<{| disc: string; payloadTyp: MonoTyp option |}>
+            cases:
+                Set<
+                    {| 
+                        disc: string
+                        payloadTyp: MonoTyp option 
+                    |}>
         |}
     override this.ToString() = ShowTyp.Show(this)
 and PolyTyp =
@@ -48,21 +58,21 @@ and Typ =
     | Mono of MonoTyp
     | Poly of PolyTyp
     override this.ToString() = ShowTyp.Show(this)
-and RecordTypPayload =
-    { nameHint: NameHint; fields: Set<FieldTypPayload>}
+and RecordDefinition =
+    { nameHint: NameHint; fields: Set<FieldDefinition>}
     override this.ToString() = ShowTyp.Show(this)
-and FieldTypPayload =
+and FieldDefinition =
     { fname: string; typ: MonoTyp }
     override this.ToString() = ShowTyp.Show(this)
 
 and ShowTyp =
     static let getNameHint nameHint =
         match nameHint with
-        | Anonymous -> ""
-        | Named name -> $" (name={name})"
-    static member Show(field: FieldTypPayload) =
+        | NameHint.Empty -> ""
+        | NameHint.Given name -> $" (name={name})"
+    static member Show(field: FieldDefinition) =
         $"{field.fname}: {field.typ}"
-    static member Show(record: RecordTypPayload) =
+    static member Show(record: RecordDefinition) =
         record.fields
         |> Set.map ShowTyp.Show
         |> String.concat "; "
@@ -70,20 +80,20 @@ and ShowTyp =
     static member Show(typ: MonoTyp) =
         match typ with
         | TVar x -> x.ToString()
-        | TApp x ->
+        | LeafTyp x ->
             match x.args with
             | [] -> x.name
             | args ->
                 let printedArgs = [ for a in args -> ShowTyp.Show a ] |> String.concat ", "
                 $"{x.name}<{printedArgs}>"
-        | TFun (t1, t2) -> $"({t1} -> {t2})"
-        | TRecord record -> ShowTyp.Show record
-        | TIntersectMembers records ->
+        | FunTyp (t1, t2) -> $"({t1} -> {t2})"
+        | RecordTyp record -> ShowTyp.Show record
+        | IntersectionTyp records ->
             records 
             |> List.map ShowTyp.Show
             |> String.concat " & "
-        | TRequireMember f -> $"req_member({ShowTyp.Show f})"
-        | TProvideCases union ->
+        | RequireMemberConstraint f -> $"req_member({ShowTyp.Show f})"
+        | ProvideCasesConstraing union ->
             [
                 for c in union.cases do
                     let payload = c.payloadTyp |> Option.map (fun t -> $"({t})") |> Option.defaultValue "_"
@@ -237,7 +247,7 @@ module Typ =
             match typ with
             | Mono typ -> loopMono typ acc
             | Poly typ -> loopPoly typ acc
-        and loopRecord (record: RecordTypPayload) (acc: VarNum list) =
+        and loopRecord (record: RecordDefinition) (acc: VarNum list) =
             [
                 for f in record.fields do
                     yield! loopMono f.typ acc
@@ -245,26 +255,26 @@ module Typ =
         and loopMono (typ: MonoTyp) (acc: VarNum list) =
             match typ with
             | TVar x -> x :: acc
-            | TApp x ->
+            | LeafTyp x ->
                 [
                     for arg in x.args do
                         yield! loopMono arg acc
                 ]
-            | TFun (t1, t2) ->
+            | FunTyp (t1, t2) ->
                 [
                     yield! loopMono t1 acc
                     yield! loopMono t2 acc
                 ]
-            | TRecord record ->
+            | RecordTyp record ->
                 loopRecord record acc
-            | TIntersectMembers records ->
+            | IntersectionTyp records ->
                 [
                     for r in records do
                         yield! loopRecord r acc
                 ]
-            | TRequireMember f ->
+            | RequireMemberConstraint f ->
                 loopMono f.typ acc
-            | TProvideCases union ->
+            | ProvideCasesConstraing union ->
                 [
                     for c in union.cases do
                         match c.payloadTyp with
@@ -347,12 +357,12 @@ module TypDefHelper =
         let rec loop (args: MonoTyp list) =
             match args with
             | [] -> failwith "At least one argument and a return type required."
-            | a1 :: a2 :: [] -> TFun (a1, a2)
-            | a1 :: args -> TFun (a1, loop args)
+            | a1 :: a2 :: [] -> FunTyp (a1, a2)
+            | a1 :: args -> FunTyp (a1, loop args)
         loop args
     
     // CAREFUL HERE: -> is right-associative
-    let ( ^-> ) t1 t2 = TFun (t1, t2)
+    let ( ^-> ) t1 t2 = FunTyp (t1, t2)
     
     let TRecordWith nameHint (fields: (string * MonoTyp) list) =
         let fields =
@@ -361,16 +371,16 @@ module TypDefHelper =
         { nameHint = nameHint; fields = fields }
     
     let TProvideMembersWith nameHint (fields: (string * MonoTyp) list) =
-        TRecord (TRecordWith nameHint fields)
+        RecordTyp (TRecordWith nameHint fields)
 
     let TProvideCasesWith nameHint (cases: (string * MonoTyp option) list) =
         let cases =
             [ for (disc, payloadTyp) in cases do {| disc = disc; payloadTyp = payloadTyp |} ]
             |> set
-        TProvideCases {| nameHint = nameHint; cases = cases |}
+        ProvideCasesConstraing {| nameHint = nameHint; cases = cases |}
     
     let TAppWith (name: string) (args: MonoTyp list) =
-        TApp {| name = name; args = args |}
+        LeafTyp {| name = name; args = args |}
 
     let TConst (name: string) =
         TAppWith name []
@@ -388,7 +398,7 @@ module BuiltinTypes =
         let [<Literal>] bool = "Bool"
 
     let unit = TConst Names.unit
-    let boolean = TProvideCasesWith (Named Names.bool) [ "True", None; "False", None ]
+    let boolean = TProvideCasesWith (NameHint.Given Names.bool) [ "True", None; "False", None ]
     let number = TConst Names.number
     let string = TConst Names.string
     let date = TConst Names.date
@@ -415,20 +425,20 @@ module TypeSystem =
         match inTyp with
         | TVar tvar when tvar = tvarToReplace -> withTyp
         | TVar _ -> inTyp
-        | TApp app ->
+        | LeafTyp app ->
             let substitutedArgs = [ for arg in app.args do substVarInTyp tvarToReplace withTyp arg ]
-            TApp {| app with args = substitutedArgs |}
-        | TFun (t1, t2) ->
+            LeafTyp {| app with args = substitutedArgs |}
+        | FunTyp (t1, t2) ->
             let t1 = substVarInTyp tvarToReplace withTyp t1
             let t2 = substVarInTyp tvarToReplace withTyp t2
-            TFun (t1, t2)
-        | TRecord record -> 
-            TRecord (substRecord record)
-        | TIntersectMembers records ->
-            TIntersectMembers [ for record in records do substRecord record ]
-        | TRequireMember f ->
-            TRequireMember { f with typ = substVarInTyp tvarToReplace withTyp f.typ }
-        | TProvideCases union ->
+            FunTyp (t1, t2)
+        | RecordTyp record -> 
+            RecordTyp (substRecord record)
+        | IntersectionTyp records ->
+            IntersectionTyp [ for record in records do substRecord record ]
+        | RequireMemberConstraint f ->
+            RequireMemberConstraint { f with typ = substVarInTyp tvarToReplace withTyp f.typ }
+        | ProvideCasesConstraing union ->
             TProvideCasesWith
                 union.nameHint
                 [ for c in union.cases do c.disc, c.payloadTyp |> Option.map (substVarInTyp tvarToReplace withTyp) ]
@@ -504,7 +514,7 @@ module TypeSystem =
                 (*
                     func arg   ||   t(func): t1 -> t2   ||   t(arg) = t1   ||   t(app): t2
                 *)
-                addConstraint expr x.func.TVar (TFun (TVar x.arg.TVar, TVar x.tvar))
+                addConstraint expr x.func.TVar (FunTyp (TVar x.arg.TVar, TVar x.tvar))
 
                 generateConstraints env x.func
                 generateConstraints env x.arg
@@ -512,7 +522,7 @@ module TypeSystem =
                 (*
                     fun ident -> body   ||   t(ident) = t1   ||   t(body) = t2   ||   t(fun): t1 -> t2
                 *)
-                addConstraint expr x.tvar (TFun (TVar x.ident.tvar, TVar x.body.TVar))
+                addConstraint expr x.tvar (FunTyp (TVar x.ident.tvar, TVar x.body.TVar))
 
                 let env = env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar)
                 generateConstraints env x.body
@@ -537,7 +547,7 @@ module TypeSystem =
                 generateConstraints env x.value
                 generateConstraints env x.body
             | Expr.PropAcc x ->
-                addConstraint expr x.source.TVar (TRequireMember { fname = x.ident.identName; typ = TVar x.tvar })
+                addConstraint expr x.source.TVar (RequireMemberConstraint { fname = x.ident.identName; typ = TVar x.tvar })
                 generateConstraints env x.source
             | Expr.MkArray x ->
                 let elemTyp = TVar (newTVar ())
@@ -552,14 +562,14 @@ module TypeSystem =
                     x.fields
                     |> List.sortBy _.fname
                     |> List.map (fun f -> f.fname, TVar f.value.TVar)
-                addConstraint expr x.tvar (TProvideMembersWith Anonymous fields)
+                addConstraint expr x.tvar (TProvideMembersWith NameHint.Empty fields)
 
                 for f in x.fields do
                     generateConstraints env f.value
             | Expr.Match x ->
                 // match is exhaustive:
                 // the type of the value expr that gets matched is a union type of all cases
-                addConstraint expr x.expr.TVar (TProvideCasesWith Anonymous [ for c in x.cases -> c.disc, None ])
+                addConstraint expr x.expr.TVar (TProvideCasesWith NameHint.Empty [ for c in x.cases -> c.disc, None ])
 
                 generateConstraints env x.expr
 
@@ -617,7 +627,7 @@ module TypeSystem =
             let throwUniError message =
                 throwUniError message source t1 t2
 
-            let unifyRecordField (requiredField: FieldTypPayload) (providedRecord: RecordTypPayload) =
+            let unifyRecordField (requiredField: FieldDefinition) (providedRecord: RecordDefinition) =
                 let existingField = 
                     providedRecord.fields
                     |> Set.tryFind (fun f -> f.fname = requiredField.fname)
@@ -631,7 +641,7 @@ module TypeSystem =
             | t, TVar tvar
             | TVar tvar, t ->
                 [ tvar, t ]
-            | TApp app1, TApp app2 when app1.name = app2.name ->
+            | LeafTyp app1, LeafTyp app2 when app1.name = app2.name ->
                 let rec loop funArgs1 funArgs2 =
                     match funArgs1, funArgs2 with
                     | [], [] -> []
@@ -639,16 +649,16 @@ module TypeSystem =
                         loop args1 args2 @ unifyTypes source a1 a2
                     | _ -> throwUniError ""
                 loop app1.args app2.args
-            | TFun (ta, tb), TFun (tc, td) ->
+            | FunTyp (ta, tb), FunTyp (tc, td) ->
                 [
                     yield! unifyTypes source ta tc
                     yield! unifyTypes source tb td
                 ]
-            | TRequireMember requiredField, TRecord providedRecord
-            | TRecord providedRecord, TRequireMember requiredField ->
+            | RequireMemberConstraint requiredField, RecordTyp providedRecord
+            | RecordTyp providedRecord, RequireMemberConstraint requiredField ->
                 unifyRecordField requiredField providedRecord
-            | TRequireMember requiredField, TIntersectMembers providedRecords
-            | TIntersectMembers providedRecords, TRequireMember requiredField ->
+            | RequireMemberConstraint requiredField, IntersectionTyp providedRecords
+            | IntersectionTyp providedRecords, RequireMemberConstraint requiredField ->
                 [
                     for providedRecord in providedRecords do
                         yield! unifyRecordField requiredField providedRecord
@@ -739,14 +749,14 @@ module Services =
                             { record with fields = fields |> Set.ofList }
                         match typ with
                         | TVar (VarNum n) -> TVar (VarNum (n + varOffset))
-                        | TApp app -> TApp {| app with args = app.args |> List.map reindexMono |}
-                        | TFun (t1, t2) -> TFun (reindexMono t1, reindexMono t2)
-                        | TRequireMember field -> TRequireMember { field with typ = reindexMono field.typ }
-                        | TIntersectMembers records -> 
-                            TIntersectMembers [ for r in records do reindexRecord r ]
-                        | TRecord record ->
-                            TRecord (reindexRecord record)
-                        | TProvideCases union -> 
+                        | LeafTyp app -> LeafTyp {| app with args = app.args |> List.map reindexMono |}
+                        | FunTyp (t1, t2) -> FunTyp (reindexMono t1, reindexMono t2)
+                        | RequireMemberConstraint field -> RequireMemberConstraint { field with typ = reindexMono field.typ }
+                        | IntersectionTyp records -> 
+                            IntersectionTyp [ for r in records do reindexRecord r ]
+                        | RecordTyp record ->
+                            RecordTyp (reindexRecord record)
+                        | ProvideCasesConstraing union -> 
                             TProvideCasesWith
                                 union.nameHint
                                 [ for c in union.cases do c.disc, c.payloadTyp |> Option.map reindexMono ]

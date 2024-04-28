@@ -27,13 +27,13 @@ open TypeFighter.Lang
 // TODO: SharedProp with different type
 
 let TOneAndTwo =
-    TIntersectMembers [
-        TRecordWith (Named "One") [
+    IntersectionTyp [
+        TRecordWith (NameHint.Given "One") [
             "sharedProp", BuiltinTypes.number
             "sharedPropDiffType", BuiltinTypes.date
             "oneProp", BuiltinTypes.string
         ]
-        TRecordWith (Named "Two") [
+        TRecordWith (NameHint.Given "Two") [
             "sharedProp", BuiltinTypes.number
             "sharedPropDiffType", BuiltinTypes.number
             "twoProp", BuiltinTypes.string

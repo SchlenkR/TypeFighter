@@ -66,7 +66,7 @@ let [<Test>] ``polymorphic "mkPoly" with infered record`` () =
             "mkPoly", TGen (%1 ^-> %1)
         ]
     |> shouldSolveType (
-        Mono (TProvideMembersWith Anonymous [
+        Mono (TProvideMembersWith NameHint.Empty [
             "r1", BuiltinTypes.boolean
             "r2", BuiltinTypes.number
         ]))
