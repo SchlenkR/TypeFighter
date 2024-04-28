@@ -2,9 +2,13 @@ namespace TypeFighter.Lang
 
 open TypeFighter.Utils
 
-// - we only allow top-level parametric polymorphism
-// - we don not generalize on let bindings
-// - generalization can only happen outside (when passing env)
+(*
+- we only allow top-level parametric polymorphism
+- we don not generalize on let bindings
+- generalization can only happen outside (when passing env)
+- Maybe generalizing on every "let" is overrated, and it could be
+  valuable to think about onyl generalizing at some "top-level".
+*)
 
 type VarNum = VarNum of int
     with override this.ToString() = let (VarNum v) = this in $"tv_{v}"
@@ -22,44 +26,48 @@ type NameHint =
         member _.CompareTo(_) = 0
 
 type MonoTyp =
+    // TVar can occur in the following contexts :
+    //   1. While solving, it denotes a specific, but not yet known type.
+    //   2. The mono typ occurs in a poly typ, and the variable is a quantified variable.
     | TVar of VarNum
-    | TApp of MonoAppTyp
+    | TApp of {| name: string; args: MonoTyp list |}
     | TFun of MonoTyp * MonoTyp
-    | TProvideMembers of RecordTyp
-    | TIntersectMembers of RecordTyp list
-    | TRequireMember of FieldTyp
-    | TProvideCases of UnionTyp
-        override this.ToString() = ShowTyp.Show(this)
+    | TRecord of RecordTypPayload
+    | TIntersectMembers of RecordTypPayload list
+    | TRequireMember of FieldTypPayload
+    | TProvideCases of 
+        {| 
+            nameHint: NameHint
+            cases: Set<{| disc: string; payloadTyp: MonoTyp option |}>
+        |}
+    override this.ToString() = ShowTyp.Show(this)
 and PolyTyp =
     { vars: Set<VarNum>; monoTyp: MonoTyp }
-        override this.ToString() = ShowTyp.Show(this)
+    override this.ToString() = ShowTyp.Show(this)
 and Typ =
     | Mono of MonoTyp
     | Poly of PolyTyp
-        override this.ToString() = ShowTyp.Show(this)
-and RecordTyp = 
-    { nameHint: NameHint; fields: Set<FieldTyp>}
-        override this.ToString() = ShowTyp.Show(this)
-and FieldTyp =
+    override this.ToString() = ShowTyp.Show(this)
+and RecordTypPayload =
+    { nameHint: NameHint; fields: Set<FieldTypPayload>}
+    override this.ToString() = ShowTyp.Show(this)
+and FieldTypPayload =
     { fname: string; typ: MonoTyp }
-        override this.ToString() = ShowTyp.Show(this)
-and UnionTyp = { nameHint: NameHint; cases: Set<CaseTyp> }
-and CaseTyp = { disc: string; payloadTyp: MonoTyp option }
-and MonoAppTyp = { name: string; args: MonoTyp list }
+    override this.ToString() = ShowTyp.Show(this)
 
 and ShowTyp =
     static let getNameHint nameHint =
         match nameHint with
         | Anonymous -> ""
         | Named name -> $" (name={name})"
-    static member Show (field: FieldTyp) =
+    static member Show(field: FieldTypPayload) =
         $"{field.fname}: {field.typ}"
-    static member Show (record: RecordTyp) =
+    static member Show(record: RecordTypPayload) =
         record.fields
         |> Set.map ShowTyp.Show
         |> String.concat "; "
         |> fun s -> $"{{{getNameHint record.nameHint} {s} }}"
-    static member Show (typ: MonoTyp) =
+    static member Show(typ: MonoTyp) =
         match typ with
         | TVar x -> x.ToString()
         | TApp x ->
@@ -69,7 +77,7 @@ and ShowTyp =
                 let printedArgs = [ for a in args -> ShowTyp.Show a ] |> String.concat ", "
                 $"{x.name}<{printedArgs}>"
         | TFun (t1, t2) -> $"({t1} -> {t2})"
-        | TProvideMembers record -> ShowTyp.Show record
+        | TRecord record -> ShowTyp.Show record
         | TIntersectMembers records ->
             records 
             |> List.map ShowTyp.Show
@@ -84,12 +92,10 @@ and ShowTyp =
             |> String.concat "; "
             |> fun s -> 
                 $"{{{getNameHint union.nameHint} {s} }}"
-    
-    static member Show (typ: PolyTyp) =
+    static member Show(typ: PolyTyp) =
         let printedVars = [ for v in typ.vars -> v.ToString() ] |> String.concat ", "
         $"<{printedVars}>.{ShowTyp.Show typ.monoTyp}"
-    
-    static member Show (typ: Typ) =
+    static member Show(typ: Typ) =
         match typ with
         | Mono typ -> ShowTyp.Show typ
         | Poly typ -> ShowTyp.Show typ
@@ -128,7 +134,7 @@ and Field = internal { fname: string; value: Expr; tvar: VarNum }
 and UnionCase = internal { disc: string; ident: Ident option; body: Expr }
 
 and ShowExpr =
-    static member Expr (expr: Expr) =
+    static member Expr(expr: Expr) =
         let printIdent (ident: Ident) = ident.identName
         let printField (f: Field) = $"{f.fname}: {f.value}"
         let printUnionCase (c: UnionCase) =
@@ -231,7 +237,7 @@ module Typ =
             match typ with
             | Mono typ -> loopMono typ acc
             | Poly typ -> loopPoly typ acc
-        and loopRecord (record: RecordTyp) (acc: VarNum list) =
+        and loopRecord (record: RecordTypPayload) (acc: VarNum list) =
             [
                 for f in record.fields do
                     yield! loopMono f.typ acc
@@ -249,7 +255,7 @@ module Typ =
                     yield! loopMono t1 acc
                     yield! loopMono t2 acc
                 ]
-            | TProvideMembers record ->
+            | TRecord record ->
                 loopRecord record acc
             | TIntersectMembers records ->
                 [
@@ -355,16 +361,16 @@ module TypDefHelper =
         { nameHint = nameHint; fields = fields }
     
     let TProvideMembersWith nameHint (fields: (string * MonoTyp) list) =
-        TProvideMembers (TRecordWith nameHint fields)
+        TRecord (TRecordWith nameHint fields)
 
     let TProvideCasesWith nameHint (cases: (string * MonoTyp option) list) =
         let cases =
-            [ for (disc, payloadTyp) in cases do { disc = disc; payloadTyp = payloadTyp } ]
+            [ for (disc, payloadTyp) in cases do {| disc = disc; payloadTyp = payloadTyp |} ]
             |> set
-        TProvideCases { nameHint = nameHint; cases = cases }
+        TProvideCases {| nameHint = nameHint; cases = cases |}
     
     let TAppWith (name: string) (args: MonoTyp list) =
-        TApp { name = name; args = args }
+        TApp {| name = name; args = args |}
 
     let TConst (name: string) =
         TAppWith name []
@@ -411,13 +417,13 @@ module TypeSystem =
         | TVar _ -> inTyp
         | TApp app ->
             let substitutedArgs = [ for arg in app.args do substVarInTyp tvarToReplace withTyp arg ]
-            TApp { app with args = substitutedArgs }
+            TApp {| app with args = substitutedArgs |}
         | TFun (t1, t2) ->
             let t1 = substVarInTyp tvarToReplace withTyp t1
             let t2 = substVarInTyp tvarToReplace withTyp t2
             TFun (t1, t2)
-        | TProvideMembers record -> 
-            TProvideMembers (substRecord record)
+        | TRecord record -> 
+            TRecord (substRecord record)
         | TIntersectMembers records ->
             TIntersectMembers [ for record in records do substRecord record ]
         | TRequireMember f ->
@@ -611,7 +617,7 @@ module TypeSystem =
             let throwUniError message =
                 throwUniError message source t1 t2
 
-            let unifyRecordField (requiredField: FieldTyp) (providedRecord: RecordTyp) =
+            let unifyRecordField (requiredField: FieldTypPayload) (providedRecord: RecordTypPayload) =
                 let existingField = 
                     providedRecord.fields
                     |> Set.tryFind (fun f -> f.fname = requiredField.fname)
@@ -638,8 +644,8 @@ module TypeSystem =
                     yield! unifyTypes source ta tc
                     yield! unifyTypes source tb td
                 ]
-            | TRequireMember requiredField, TProvideMembers providedRecord
-            | TProvideMembers providedRecord, TRequireMember requiredField ->
+            | TRequireMember requiredField, TRecord providedRecord
+            | TRecord providedRecord, TRequireMember requiredField ->
                 unifyRecordField requiredField providedRecord
             | TRequireMember requiredField, TIntersectMembers providedRecords
             | TIntersectMembers providedRecords, TRequireMember requiredField ->
@@ -733,13 +739,13 @@ module Services =
                             { record with fields = fields |> Set.ofList }
                         match typ with
                         | TVar (VarNum n) -> TVar (VarNum (n + varOffset))
-                        | TApp app -> TApp { app with args = app.args |> List.map reindexMono }
+                        | TApp app -> TApp {| app with args = app.args |> List.map reindexMono |}
                         | TFun (t1, t2) -> TFun (reindexMono t1, reindexMono t2)
                         | TRequireMember field -> TRequireMember { field with typ = reindexMono field.typ }
                         | TIntersectMembers records -> 
                             TIntersectMembers [ for r in records do reindexRecord r ]
-                        | TProvideMembers record ->
-                            TProvideMembers (reindexRecord record)
+                        | TRecord record ->
+                            TRecord (reindexRecord record)
                         | TProvideCases union -> 
                             TProvideCasesWith
                                 union.nameHint
