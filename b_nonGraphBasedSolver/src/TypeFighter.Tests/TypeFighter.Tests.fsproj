@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TestHelper.fs" />
+    <Compile Include="TestCases\Base.fs" />
+    <Compile Include="TestCases\Arrays.fs" />
+    <Compile Include="TestCases\Misc.fs" />
+    <Compile Include="TestCases\PatternMatching.fs" />
+    <Compile Include="TestCases\Polymorphism.fs" />
+    <Compile Include="TestCases\Records.fs" />
+    <Compile Include="TestCases\TypeHierarchies.fs" />
+    <Compile Include="TestCases\IntersectionTypes.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsUnit" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
+  </ItemGroup>
+
+</Project>
