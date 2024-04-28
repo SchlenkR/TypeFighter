@@ -40,7 +40,7 @@ type MonoTyp =
     // we hack around some needs by introducing constraints in these forms
     // TODO: Get rid of it, and extend the unification system.
     | RequireMemberConstraint of FieldDefinition
-    | ProvideCasesConstraing of 
+    | ProvideCasesConstraint of 
         {| 
             nameHint: NameHint
             cases:
@@ -102,7 +102,7 @@ and ShowTyp =
             |> List.map ShowTyp.Show
             |> String.concat " & "
         | RequireMemberConstraint f -> $"req_member({ShowTyp.Show f})"
-        | ProvideCasesConstraing union ->
+        | ProvideCasesConstraint union ->
             [
                 for c in union.cases do
                     let payload = c.payloadTyp |> Option.map (fun t -> $"({t})") |> Option.defaultValue "_"
@@ -283,7 +283,7 @@ module Typ =
                 ]
             | RequireMemberConstraint f ->
                 loopMono f.typ acc
-            | ProvideCasesConstraing union ->
+            | ProvideCasesConstraint union ->
                 [
                     for c in union.cases do
                         match c.payloadTyp with
@@ -386,7 +386,7 @@ module TypDefHelper =
         let cases =
             [ for (disc, payloadTyp) in cases do {| disc = disc; payloadTyp = payloadTyp |} ]
             |> set
-        ProvideCasesConstraing {| nameHint = nameHint; cases = cases |}
+        ProvideCasesConstraint {| nameHint = nameHint; cases = cases |}
     
     let TAppWith (name: string) (args: MonoTyp list) =
         LeafTyp {| name = name; args = args |}
@@ -447,7 +447,7 @@ module TypeSystem =
             IntersectionTyp [ for record in records do substRecord record ]
         | RequireMemberConstraint f ->
             RequireMemberConstraint { f with typ = substVarInTyp tvarToReplace withTyp f.typ }
-        | ProvideCasesConstraing union ->
+        | ProvideCasesConstraint union ->
             TProvideCasesWith
                 union.nameHint
                 [ for c in union.cases do c.disc, c.payloadTyp |> Option.map (substVarInTyp tvarToReplace withTyp) ]
@@ -765,7 +765,7 @@ module Services =
                             IntersectionTyp [ for r in records do reindexRecord r ]
                         | RecordTyp record ->
                             RecordTyp (reindexRecord record)
-                        | ProvideCasesConstraing union -> 
+                        | ProvideCasesConstraint union -> 
                             TProvideCasesWith
                                 union.nameHint
                                 [ for c in union.cases do c.disc, c.payloadTyp |> Option.map reindexMono ]
