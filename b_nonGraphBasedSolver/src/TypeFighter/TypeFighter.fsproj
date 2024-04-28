@@ -11,9 +11,5 @@
     <Compile Include="Lang.fs" />
     <Compile Include="Tools.fs" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
   
 </Project>

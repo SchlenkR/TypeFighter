@@ -13,7 +13,7 @@ type VarNum = VarNum of int
 type NameHint =
     | Anonymous
     | Named of string
-    override this.Equals(other) =
+    override _.Equals(other) =
         match other with :? NameHint -> true | _ -> false
     override this.GetHashCode() = hash this
     interface System.IComparable with

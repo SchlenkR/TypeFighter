@@ -1,8 +1,3 @@
-
-// why ref directly? Just to speed up load times a bit
-// #r "nuget: Newtonsoft.Json"
-#r @"../_deps/Newtonsoft.Json-13.0.3/net6.0/Newtonsoft.Json.dll"
-
 #load "../TypeFighter/Utils.fs"
 #load "../TypeFighter/Lang.fs"
 #load "../TypeFighter/Tools.fs"
