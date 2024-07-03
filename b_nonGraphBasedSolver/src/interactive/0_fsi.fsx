@@ -13,17 +13,17 @@ module Visu =
             let indent = "\u00AD     "
             let getNameHint nameHint =
                 match nameHint with
-                | Anonymous -> ""
-                | Named name -> $" // name = {name}"
+                | NameHint.Empty -> ""
+                | NameHint.Given name -> $" // name = {name}"
             match typ with
             | Mono typ ->
                 match typ with
-                | TProvideMembers record ->
+                | RecordTyp record ->
                     [ for f in record.fields do
                         $"{indent}{f.fname}: {f.typ}" ]
                     |> String.concat "\n"
                     |> fun s -> $"{{{getNameHint record.nameHint} \n{s} }}"
-                | TProvideCases union ->
+                | ProvideCasesConstraint union ->
                     [ for c in union.cases do
                         $"{indent}{c.disc}: ..." ]
                     |> String.concat "\n"

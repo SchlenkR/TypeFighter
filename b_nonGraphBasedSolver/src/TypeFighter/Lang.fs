@@ -31,93 +31,39 @@ type MonoTyp =
     // TVar can occur in the following contexts :
     //   1. While solving, it denotes a specific, but not yet known type.
     //   2. The mono typ occurs in a poly typ, and the variable is a quantified variable.
+    // In a final typ, TVar only occurs in the context of a poly typ.
     | TVar of VarNum
     | LeafTyp of {| name: string; args: MonoTyp list |}
     | FunTyp of MonoTyp * MonoTyp
     | RecordTyp of RecordDefinition
-    | IntersectionTyp of RecordDefinition list
+    | OrTyp of RecordDefinition list
+    | AndTyp of RecordDefinition list
     // Since we currently only have "equivalence" in unification (correct term?),
-    // we hack around some needs by introducing constraints in these forms
+    // we hack around some needs by introducing constraints in these forms.
+    // These "types" will not occur in the final type.
     // TODO: Get rid of it, and extend the unification system.
     | RequireMemberConstraint of FieldDefinition
-    | ProvideCasesConstraint of 
-        {| 
-            nameHint: NameHint
-            cases:
-                Set<
-                    {| 
-                        disc: string
-                        payloadTyp: MonoTyp option 
-                    |}>
-        |}
-    override this.ToString() = ShowTyp.Show(this)
 and PolyTyp =
     { 
         vars: Set<VarNum>
         monoTyp: MonoTyp
     }
-    override this.ToString() = ShowTyp.Show(this)
 and Typ =
     | Mono of MonoTyp
     | Poly of PolyTyp
-    override this.ToString() = ShowTyp.Show(this)
 and RecordDefinition =
     { 
         nameHint: NameHint
         fields: Set<FieldDefinition>
     }
-    override this.ToString() = ShowTyp.Show(this)
+// and FieldDefinition =
+//     | NamedField of NamedFieldDefinition
+//     | UnnamedConstantField of MonoTyp
 and FieldDefinition =
     { 
         fname: string
         typ: MonoTyp 
     }
-    override this.ToString() = ShowTyp.Show(this)
-
-and ShowTyp =
-    static let getNameHint nameHint =
-        match nameHint with
-        | NameHint.Empty -> ""
-        | NameHint.Given name -> $" (name={name})"
-    static member Show(field: FieldDefinition) =
-        $"{field.fname}: {field.typ}"
-    static member Show(record: RecordDefinition) =
-        record.fields
-        |> Set.map ShowTyp.Show
-        |> String.concat "; "
-        |> fun s -> $"{{{getNameHint record.nameHint} {s} }}"
-    static member Show(typ: MonoTyp) =
-        match typ with
-        | TVar x -> x.ToString()
-        | LeafTyp x ->
-            match x.args with
-            | [] -> x.name
-            | args ->
-                let printedArgs = [ for a in args -> ShowTyp.Show a ] |> String.concat ", "
-                $"{x.name}<{printedArgs}>"
-        | FunTyp (t1, t2) -> $"({t1} -> {t2})"
-        | RecordTyp record -> ShowTyp.Show record
-        | IntersectionTyp records ->
-            records 
-            |> List.map ShowTyp.Show
-            |> String.concat " & "
-        | RequireMemberConstraint f -> $"req_member({ShowTyp.Show f})"
-        | ProvideCasesConstraint union ->
-            [
-                for c in union.cases do
-                    let payload = c.payloadTyp |> Option.map (fun t -> $"({t})") |> Option.defaultValue "_"
-                    $"{c.disc}: {payload}"
-            ]
-            |> String.concat "; "
-            |> fun s -> 
-                $"{{{getNameHint union.nameHint} {s} }}"
-    static member Show(typ: PolyTyp) =
-        let printedVars = [ for v in typ.vars -> v.ToString() ] |> String.concat ", "
-        $"<{printedVars}>.{ShowTyp.Show typ.monoTyp}"
-    static member Show(typ: Typ) =
-        match typ with
-        | Mono typ -> ShowTyp.Show typ
-        | Poly typ -> ShowTyp.Show typ
 
 [<RequireQualifiedAccess>]
 type Expr =
@@ -146,14 +92,47 @@ type Expr =
             | PropAcc x -> x.tvar
             | MkArray x -> x.tvar
             | MkRecord x -> x.tvar
-        override this.ToString() =
-            ShowExpr.Expr(this)
 and Ident = internal { identName: string; tvar: VarNum }
 and Field = internal { fname: string; value: Expr; tvar: VarNum }
 and UnionCase = internal { disc: string; ident: Ident option; body: Expr }
 
-and ShowExpr =
-    static member Expr(expr: Expr) =
+module Show =
+    let getNameHint nameHint =
+        match nameHint with
+        | NameHint.Empty -> ""
+        | NameHint.Given name -> $" (name={name})"
+    let fieldDef (field: FieldDefinition) =
+        $"{field.fname}: {field.typ}"
+    let recordDef (record: RecordDefinition) =
+        record.fields
+        |> Set.map fieldDef
+        |> String.concat "; "
+        |> fun s -> $"{{{getNameHint record.nameHint} {s} }}"
+    let rec monoTyp(typ: MonoTyp) =
+        match typ with
+        | TVar x -> x.ToString()
+        | LeafTyp x ->
+            match x.args with
+            | [] -> x.name
+            | args ->
+                let printedArgs = [ for a in args -> monoTyp a ] |> String.concat ", "
+                $"{x.name}<{printedArgs}>"
+        | FunTyp (t1, t2) -> $"({t1} -> {t2})"
+        | RecordTyp record -> recordDef record
+        | IntersectionTyp records ->
+            records 
+            |> List.map recordDef
+            |> String.concat " & "
+        | RequireMemberConstraint f -> $"req_member({fieldDef f})"
+    let polyTyp(typ: PolyTyp) =
+        let printedVars = [ for v in typ.vars -> v.ToString() ] |> String.concat ", "
+        $"<{printedVars}>.{monoTyp typ.monoTyp}"
+    let typ (typ: Typ) =
+        match typ with
+        | Mono typ -> monoTyp typ
+        | Poly typ -> polyTyp typ
+
+    let rec expression (expr: Expr) =
         let printIdent (ident: Ident) = ident.identName
         let printField (f: Field) = $"{f.fname}: {f.value}"
         let printUnionCase (c: UnionCase) =
@@ -174,7 +153,7 @@ and ShowExpr =
             $"Match {x.expr} with | {caseNames})"
         | Expr.PropAcc x -> $"PropAcc {x.source}.{x.ident}"
         | Expr.MkArray x ->
-            let values = [ for x in x.values -> ShowExpr.Expr x ] |> String.concat "; "
+            let values = [ for x in x.values -> expression x ] |> String.concat "; "
             $"MkArray [ {values} ]"
         | Expr.MkRecord x ->
             let fieldNames = 
@@ -283,13 +262,6 @@ module Typ =
                 ]
             | RequireMemberConstraint f ->
                 loopMono f.typ acc
-            | ProvideCasesConstraint union ->
-                [
-                    for c in union.cases do
-                        match c.payloadTyp with
-                        | Some payloadTyp -> yield! loopMono payloadTyp acc
-                        | None -> ()
-                ]
         and loopPoly (typ: PolyTyp) (acc: VarNum list) =
             [
                 yield! typ.vars
@@ -382,12 +354,6 @@ module TypDefHelper =
     let TProvideMembersWith nameHint (fields: (string * MonoTyp) list) =
         RecordTyp (TRecordWith nameHint fields)
 
-    let TProvideCasesWith nameHint (cases: (string * MonoTyp option) list) =
-        let cases =
-            [ for (disc, payloadTyp) in cases do {| disc = disc; payloadTyp = payloadTyp |} ]
-            |> set
-        ProvideCasesConstraint {| nameHint = nameHint; cases = cases |}
-    
     let TAppWith (name: string) (args: MonoTyp list) =
         LeafTyp {| name = name; args = args |}
 
@@ -407,7 +373,7 @@ module BuiltinTypes =
         let [<Literal>] bool = "Bool"
 
     let unit = TConst Names.unit
-    let boolean = TProvideCasesWith (NameHint.Given Names.bool) [ "True", None; "False", None ]
+    let boolean = failwith "Not implemented"
     let number = TConst Names.number
     let string = TConst Names.string
     let date = TConst Names.date
@@ -447,10 +413,6 @@ module TypeSystem =
             IntersectionTyp [ for record in records do substRecord record ]
         | RequireMemberConstraint f ->
             RequireMemberConstraint { f with typ = substVarInTyp tvarToReplace withTyp f.typ }
-        | ProvideCasesConstraint union ->
-            TProvideCasesWith
-                union.nameHint
-                [ for c in union.cases do c.disc, c.payloadTyp |> Option.map (substVarInTyp tvarToReplace withTyp) ]
 
     let generateConstraints (env: Env) (expr: Expr) =
         let mutable constraints = []
@@ -575,27 +537,28 @@ module TypeSystem =
 
                 for f in x.fields do
                     generateConstraints env f.value
-            | Expr.Match x ->
-                // match is exhaustive:
-                // the type of the value expr that gets matched is a union type of all cases
-                addConstraint expr x.expr.TVar (TProvideCasesWith NameHint.Empty [ for c in x.cases -> c.disc, None ])
+            | _ -> failwith "TODO: Implement the rest of the cases."
+            // | Expr.Match x ->
+            //     // match is exhaustive:
+            //     // the type of the value expr that gets matched is a union type of all cases
+            //     addConstraint expr x.expr.TVar (TProvideCasesWith NameHint.Empty [ for c in x.cases -> c.disc, None ])
 
-                generateConstraints env x.expr
+            //     generateConstraints env x.expr
 
-                match x.cases with
-                | [] -> failwith $"Match expression must have at least one case."
-                | firstCase :: otherCases ->
-                    addConstraint expr x.tvar (TVar firstCase.body.TVar)
+            //     match x.cases with
+            //     | [] -> failwith $"Match expression must have at least one case."
+            //     | firstCase :: otherCases ->
+            //         addConstraint expr x.tvar (TVar firstCase.body.TVar)
                     
-                    for c in x.cases do
-                        // the type of the case body must be the same as the type of the value expr
-                        addConstraint expr c.body.TVar (TVar firstCase.body.TVar)
+            //         for c in x.cases do
+            //             // the type of the case body must be the same as the type of the value expr
+            //             addConstraint expr c.body.TVar (TVar firstCase.body.TVar)
 
-                        let env =
-                            match c.ident with
-                            | Some ident -> env |> Map.add ident.identName (EnvItem.Internal ident.tvar)
-                            | None -> env
-                        generateConstraints env c.body
+            //             let env =
+            //                 match c.ident with
+            //                 | Some ident -> env |> Map.add ident.identName (EnvItem.Internal ident.tvar)
+            //                 | None -> env
+            //             generateConstraints env c.body
 
         do generateConstraints env expr
 
@@ -765,10 +728,6 @@ module Services =
                             IntersectionTyp [ for r in records do reindexRecord r ]
                         | RecordTyp record ->
                             RecordTyp (reindexRecord record)
-                        | ProvideCasesConstraint union -> 
-                            TProvideCasesWith
-                                union.nameHint
-                                [ for c in union.cases do c.disc, c.payloadTyp |> Option.map reindexMono ]
 
                     ident, EnvItem.External (reindexedVarNums typ)
             ]
