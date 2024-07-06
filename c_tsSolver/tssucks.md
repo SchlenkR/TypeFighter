@@ -1,0 +1,4 @@
+- no binds in pattern matching (to see: unify / no symmetric matching)
+- no similar names: type and module name
+- no piping
+- equality is only referencial!
