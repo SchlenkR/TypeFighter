@@ -1,13 +1,5 @@
 import * as Lang from './lang';
-
-export function shouldSolve(expr: Lang.InitialExpr, expected: Lang.MonoTyp, env: Lang.ExternalEnv) {
-  const actual = Lang.solve(env, expr);
-  if (actual.solutionResult.kind !== 'Ok') {
-    throw new Error(actual.solutionResult.error);
-  } else if (actual.solutionResult.value.finalTyp !== expected) {
-    throw new Error(`Expected ${expected}, but got ${actual.solutionResult.value}`);
-  }
-}
+import { areEqual } from './utils';
 
 export module Print {
   const indent = '    ';
@@ -40,6 +32,7 @@ export module Print {
   export function solverRun(run: Lang.SolverRun): string {
     const lines = newBuilder();
 
+    lines.br();
     lines.append(`---- Solver Run ${run.cycle} ----`);
 
     lines.append(`${indent}Constraints:`);
@@ -73,6 +66,24 @@ export module Print {
   }
 }
 
+export function shouldSolve(env: Lang.ExternalEnv, expr: Lang.InitialExpr, expected: Lang.MonoTyp) {
+  const finalSolveResult = Lang.solve(env, expr);
+  console.log(Print.solution(finalSolveResult));
+
+  if (finalSolveResult.solutionResult.kind !== 'Ok') {
+    throw new Error(finalSolveResult.solutionResult.error);
+  } else if (!areEqual(finalSolveResult.solutionResult.value.finalTyp, expected)) {
+    throw new Error(`Expected ${Print.typ(expected)}, but got ${Print.typ(finalSolveResult.solutionResult.value.finalTyp)}`);
+  }
+}
+
+export function shouldFail(env: Lang.ExternalEnv, expr: Lang.InitialExpr) {
+  const finalSolveResult = Lang.solve(env, expr);
+  console.log(Print.solution(finalSolveResult));
+  if (finalSolveResult.solutionResult.kind === 'Ok') {
+    throw new Error('Expected failure, but got success');
+  }
+}
 
 // module ExprEx {
 //   export function flatten<Meta>(rootExpr: Expr<Meta>): readonly Expr<Meta>[] {
