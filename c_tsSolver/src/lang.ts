@@ -194,8 +194,15 @@ module MkExpr {
     ({ kind: 'Lit', value: toLit(value), meta: {} });
   export const var_ = (ident: string): InitialExpr =>
     ({ kind: 'Var', ident, meta: {} });
-  export const app = (func: InitialExprOrDirectLiteral, arg: InitialExprOrDirectLiteral): InitialExpr =>
-    ({ kind: 'App', func: toExpr(func), arg: toExpr(arg), meta: {} });
+  const mkAppRec = (args: InitialExpr[]): InitialExpr => {
+    if (args.length === 0)
+      throw new Error('Cannot create an application without arguments');
+    if (args.length === 1)
+      return args[0];
+    return { kind: 'App', func: mkAppRec(args.slice(0, args.length - 1)), arg: args[args.length - 1], meta: {} };
+  }
+  export const app = (func: InitialExprOrDirectLiteral, arg: InitialExprOrDirectLiteral, ...args: InitialExprOrDirectLiteral[]): InitialExpr =>
+    mkAppRec([toExpr(func), toExpr(arg), ...args.map(toExpr)]);
   export const fun = (ident: Ident, body: InitialExprOrDirectLiteral): InitialExpr =>
     ({ kind: 'Fun', ident, body: toExpr(body), meta: {} });
   export const let_ = (ident: Ident, value: InitialExprOrDirectLiteral, body: InitialExprOrDirectLiteral): InitialExpr =>
@@ -213,7 +220,6 @@ module MkExpr {
 module MkTyp {
   export const var_ = (varNum: VarNum): MonoTyp => ({ kind: 'TVar', varNum });
   export const app = (name: string, args: readonly MonoTyp[]): MonoTyp => ({ kind: 'TApp', name, args: args });
-
   const mkFunRec = (args: MonoTyp[]): MonoTyp => {
     if (args.length === 0)
       throw new Error('Cannot create a function type without arguments');
@@ -221,7 +227,6 @@ module MkTyp {
       return args[0];
     return { kind: 'TFun', from: args[0], to: mkFunRec(args.slice(1)) };
   }
-
   export const fun = (from: MonoTyp, arg: MonoTyp, ...args: MonoTyp[]): MonoTyp =>
     mkFunRec([from, arg, ...args]);
 
