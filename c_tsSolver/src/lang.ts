@@ -9,6 +9,8 @@ type VarNum = number;
 
 type Ident = Readonly<{
   identName: string;
+  // this should only occur in enumerated exprs, but we leave it aleays here for now,
+  // and give it a meaningful value when enumerating
   tvar: VarNum;
 }>;
 
@@ -182,14 +184,6 @@ module MkExpr {
     return lit;
   }
 
-  type InitialExprOrDirectLiteral = InitialExpr | DirectLiteral;
-
-  function toExpr(expr: InitialExprOrDirectLiteral): InitialExpr {
-    if (typeof expr === 'number' || typeof expr === 'boolean' || typeof expr === 'string')
-      return lit(toLit(expr));
-    return expr;
-  }
-
   export const lit = (value: LitOrDirectLiteral): InitialExpr =>
     ({ kind: 'Lit', value: toLit(value), meta: {} });
   export const var_ = (ident: string): InitialExpr =>
@@ -201,15 +195,14 @@ module MkExpr {
       return args[0];
     return { kind: 'App', func: mkAppRec(args.slice(0, args.length - 1)), arg: args[args.length - 1], meta: {} };
   }
-  export const app = (func: InitialExprOrDirectLiteral, arg: InitialExprOrDirectLiteral, ...args: InitialExprOrDirectLiteral[]): InitialExpr =>
-    mkAppRec([toExpr(func), toExpr(arg), ...args.map(toExpr)]);
-  export const fun = (ident: Ident, body: InitialExprOrDirectLiteral): InitialExpr =>
-    ({ kind: 'Fun', ident, body: toExpr(body), meta: {} });
-  export const let_ = (ident: Ident, value: InitialExprOrDirectLiteral, body: InitialExprOrDirectLiteral): InitialExpr =>
-    ({ kind: 'Let', ident, value: toExpr(value), body: toExpr(body), meta: {} });
-  export const do_ = (action: InitialExprOrDirectLiteral, body: InitialExprOrDirectLiteral): InitialExpr =>
-    ({ kind: 'Do', action: toExpr(action), body: toExpr(body), meta: {} });
-
+  export const app = (func: InitialExpr, arg: InitialExpr, ...args: InitialExpr[]): InitialExpr =>
+    mkAppRec([func, arg, ...args]);
+  export const fun = (ident: string, body: InitialExpr): InitialExpr =>
+    ({ kind: 'Fun', ident: { identName: ident, tvar: 0 }, body: body, meta: {} });
+  export const let_ = (ident: string, value: InitialExpr, body: InitialExpr): InitialExpr =>
+    ({ kind: 'Let', ident: { identName: ident, tvar: 0 }, value: value, body: body, meta: {} });
+  export const do_ = (action: InitialExpr, body: InitialExpr): InitialExpr =>
+    ({ kind: 'Do', action: action, body: body, meta: {} });
 
   export const void_ = lit({ kind: 'Void' });
   export const number = (value: number) => lit({ kind: 'Number', value });

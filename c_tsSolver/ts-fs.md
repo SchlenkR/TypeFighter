@@ -2,3 +2,5 @@
 - no similar names: type and module name
 - no piping
 - equality is only referencial!
+- "&" Operator / Pattern Matching / Exhaustiveness checks / ADTs / etc.
+- conditional operator is not AN EXPRESSION - thus no body
