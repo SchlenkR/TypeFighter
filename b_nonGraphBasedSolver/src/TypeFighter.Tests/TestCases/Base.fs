@@ -49,7 +49,7 @@ let [<Test>] ``simple fun`` () =
     
     x.Fun (x.Ident "x") (x.Var "x")
     |> solve []
-    |> shouldSolveType (TGen (%1 ^-> %1))
+    |> shouldSolveType (TDef.Generalize (%1 ^-> %1))
 
 
 

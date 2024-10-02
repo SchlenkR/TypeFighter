@@ -40,7 +40,7 @@ let [<Test>] ``polymorphic "log"`` () =
     )
     |> solve
         [
-            yield "log", TGen (%1 ^-> BuiltinTypes.unit)
+            yield "log", TDef.Generalize (%1 ^-> BuiltinTypes.unit)
         ]
     |> shouldSolveType (Mono BuiltinTypes.number)
 
@@ -63,10 +63,10 @@ let [<Test>] ``polymorphic "mkPoly" with infered record`` () =
     ]
     |> solve
         [
-            "mkPoly", TGen (%1 ^-> %1)
+            "mkPoly", TDef.Generalize (%1 ^-> %1)
         ]
     |> shouldSolveType (
-        Mono (TProvideMembersWith NameHint.Empty [
+        Mono (TDef.RecordWith [
             "r1", BuiltinTypes.boolean
             "r2", BuiltinTypes.number
         ]))

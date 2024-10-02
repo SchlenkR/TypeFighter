@@ -38,7 +38,7 @@ Visu.writeExpr <| fun x ->
 // Visu.writeExpr <| fun x ->
 PseudoCodeRendering.print <| fun x ->
     x.Let (x.Ident "myRecord") (
-        x.Record [
+        x.MkRecord [
             x.Field "birthDate" (x.App (x.App (x.Var "addDays") (x.Var "now")) (x.Lit "-365"))
             x.Field "name" (x.Lit "John")
         ]) (
@@ -61,7 +61,7 @@ PseudoCodeRendering.print <| fun x ->
 // Visu.writeExpr <| fun x ->
 PseudoCodeRendering.print <| fun x ->
     x.Let (x.Ident "x") (
-        x.Record [
+        x.MkRecord [
             x.Field "a" (x.Lit "10")
             x.Field "b" (x.Lit "20")
         ]) (
@@ -69,16 +69,3 @@ PseudoCodeRendering.print <| fun x ->
     x.Let (x.Ident "z") (x.PropAcc (x.Var "x") "b") (
         x.App (x.App (x.Var "add") (x.Var "y")) (x.Var "z")
     )))
-
-
-
-
-let xmlFile = __SOURCE_DIRECTORY__ + "/../data/wf.xml"
-System.Xml.Linq.XDocument.Load(xmlFile).Root
-|> WfXml.parse
-|> WfAst.build (ExprCtx())
-// |> _.ast
-// |> PseudoCodeRendering.renderExpr |> printfn "%s"
-// |> Visu.writeAnnotatedAst true
-
-

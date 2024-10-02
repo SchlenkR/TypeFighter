@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "TypeFighter (NonGraphBased): build dotnet solution",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/b_nonGraphBasedSolver/TypeFighter.sln",
+        "/property:GenerateFullPaths=true",
+        "/nowarn:CS8602;CS8618;CS1998;NU1803"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build"
+      }
+    }
+  ]
+}

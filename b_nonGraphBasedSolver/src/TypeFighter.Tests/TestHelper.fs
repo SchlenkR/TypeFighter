@@ -18,16 +18,14 @@ let solve (env: (string * Typ) list) (expr: Expr) =
 
 let shouldSolveType (typ: Typ) (solution: SolveResult) =
     match solution.result with
-    | Ok res ->
-        if res.finalTyp <> typ then
-            failwithf $"Expected typ '{typ}', but got '{res.finalTyp}'"
-    | Error err ->
-        failwithf $"Cannot solve: {err}"
+    | Ok res when res.finalTyp <> typ -> failwithf $"Expected typ '{typ}', but got '{res.finalTyp}'"
+    | Ok _ -> ()
+    | Error err -> failwithf $"{err}"
 
 let shouldFail (solution: SolveResult) =
     match solution.result with
     | Ok _ -> failwithf $"Expected failure, but got success"
-    | _ -> ()
+    | Error err -> printfn $"Test failed as expected: {err}"
 
 let resolveDataPath (path: string) =
     let up = ".."

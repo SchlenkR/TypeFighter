@@ -11,7 +11,10 @@ type JsNode =
     { 
         key: int
         name: string
-        desc: string
+        varNum: string
+        additionalInfo: string
+        exprTyp: string
+        env: string
         [<JsonPropertyName("fig")>] layout: string
     }
 
@@ -24,12 +27,10 @@ type JsLink =
 [<AutoOpen>]
 module internal Internal =
     module Layouts =
-        let graph = "graph"
         let tree = "tree"
 
     module NodeTypes =
-        let var = "Rectangle"
-        let op = "Ellipse"
+        let expr = "Rectangle"
 
     let writeData (nodesJson: string) (linksJson: string) (layout: string) =
         let json = $"
@@ -50,42 +51,37 @@ module Tree =
         { 
             mutable key: int
             name: string
-            desc: string
+            varNum: int
+            additionalInfo: string
+            exprTyp: string
             typ: string
+            env: string
             children: ResizeArray<Node> 
         }
     
-    let var name desc (children: Node list) =
+    let expr varNum exprTyp name env additionalInfo (children: Node list) =
         { 
+            key = varNum
             name = name
-            desc = desc
-            typ = NodeTypes.var
-            key = -1
+            varNum = varNum
+            additionalInfo = additionalInfo
+            exprTyp = exprTyp
+            typ = NodeTypes.expr
+            env = env
             children = ResizeArray(children) 
         }
 
-    let op desc (children: Node list) =
-        { 
-            name = ""
-            desc = desc
-            typ = NodeTypes.op
-            key = -1
-            children = ResizeArray(children)
-        }
-
-    let private connect (p: Node) c = p.children.Add c
-
     let write (nodes: Node list) =
-        for i,n in nodes |> List.indexed do
-            n.key <- i
-
         let jsNodes =
             nodes
             |> List.map (fun n ->
                 { 
                     key = n.key
                     name = n.name
-                    desc = n.desc
+                    varNum = $"{n.key}"
+                    additionalInfo = n.additionalInfo
+                    exprTyp = n.exprTyp
+                    env = n.env
                     layout = n.typ 
                 })
         let jsLinks =
@@ -96,21 +92,3 @@ module Tree =
             ]
 
         writeData (serialize jsNodes) (serialize jsLinks) Layouts.tree
-
-module Graph =
-    let write (jsNodes: JsNode list) (jsLinks: JsLink list) =
-        writeData (serialize jsNodes) (serialize jsLinks) Layouts.graph
-
-
-//module Test =
-//    open TreeNode
-//    let n1 = var "n 1" "constr 1" []
-//    let n2 = var "n 2" "constr 2" []
-//    let n3 = var "n 3" "constr 3" []
-//    let n4 = constr "constr 4" []
-
-//    connect n1 n2
-//    connect n2 n3
-//    connect n2 n4 
-
-//    createTree [ n1; n2; n3; n4 ]

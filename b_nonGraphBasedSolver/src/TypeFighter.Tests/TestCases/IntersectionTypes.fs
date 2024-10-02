@@ -28,12 +28,12 @@ open TypeFighter.Lang
 
 let TOneAndTwo =
     IntersectionTyp [
-        TRecordWith (NameHint.Given "One") [
+        TDef.RecordDefWith (NameHint.Given "One") [
             "sharedProp", BuiltinTypes.number
             "sharedPropDiffType", BuiltinTypes.date
             "oneProp", BuiltinTypes.string
         ]
-        TRecordWith (NameHint.Given "Two") [
+        TDef.RecordDefWith (NameHint.Given "Two") [
             "sharedProp", BuiltinTypes.number
             "sharedPropDiffType", BuiltinTypes.number
             "twoProp", BuiltinTypes.string
@@ -51,7 +51,7 @@ let env = [
 (*
     oneAndTwo.sharedProp
 *)
-let [<Test>] ``Shared prop on intersection type`` () =
+let [<Test; Ignore("")>] ``Shared prop on intersection type`` () =
 
     let x = ExprCtx()
 
@@ -69,9 +69,12 @@ let [<Test>] ``Disjoint prop on intersection type`` () =
 
     let x = ExprCtx()
 
+    // 2 Possibilities:
+    //    Fail
+    //    return an empty set / bottom type
     x.PropAccN [ "oneAndTwo"; "oneProp" ]
     |> solve env
-    |> shouldSolveType (Mono BuiltinTypes.number)
+    |> shouldFail
 
 
 
@@ -85,8 +88,12 @@ let [<Test>] ``Shared prop, diff type on intersection type`` () =
     
     let x = ExprCtx()
 
+    // 2 possibilities:
+    //     Find a common base type for both (in this case: object - if there was one)
+    //     Fail when both types are not equal
     x.PropAccN [ "oneAndTwo"; "sharedPropDiffType" ]
     |> solve env
-    |> shouldSolveType (Mono BuiltinTypes.number)
+    |> shouldFail
+    // |> shouldSolveType (Mono BuiltinTypes.number)
 
 

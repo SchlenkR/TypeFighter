@@ -49,11 +49,11 @@ module Format =
     let genArgListVars vars =
          vars |> Set.map genArg |> Set.toList |> genArgList
     let genArgListTaus taus =
-         taus |> Tau.getGenVarsMany |> genArgListVars
+         taus |> Tau.geTDef.GeneralizeVarsMany |> genArgListVars
     let genArgListTau tau =
          genArgListTaus [tau]
     
-    let getGenericRecordDefinition (cachedRecords: RecordCache) (fields: TRecordFields) =
+    let geTDef.GeneralizeericRecordDefinition (cachedRecords: RecordCache) (fields: TRecordFields) =
         let fieldNames = set [ for n,_ in fields do n ]
         let succ,recordName = cachedRecords.TryGetValue fieldNames
         let recordName =
@@ -68,7 +68,7 @@ module Format =
     let renderTypeDeclaration (cachedRecords: RecordCache) (t: Tau) =
         let rec renderTypeDeclaration (t: Tau) =
             match t with
-            | TGenVar v ->
+            | TDef.GeneralizeVar v ->
                 (genArg v).ToUpperInvariant()
             | TApp (name, vars) ->
                 let name = typeName name
@@ -80,7 +80,7 @@ module Format =
                 let taus = [ for t in taus do renderTypeDeclaration t ] |> genArgList
                 $"ValueTuple{taus}"
             | TRecord fields ->
-                let typeName,_ = getGenericRecordDefinition cachedRecords fields
+                let typeName,_ = geTDef.GeneralizeericRecordDefinition cachedRecords fields
                 let recordArgs = [ for _,t in fields do renderTypeDeclaration t ] |> genArgList
                 $"%s{typeName}%s{recordArgs}"
         renderTypeDeclaration t
@@ -147,8 +147,8 @@ let renderDisplayClasses (cachedRecords: RecordCache) (solveRes: ConstraintGraph
                 fields
                 |> List.map snd
                 |> List.map Tau.tau
-                |> Tau.getGenVarsMany
-            let invokeGenArgs = (Tau.getGenVars tau) - classGenArgs
+                |> Tau.geTDef.GeneralizeVarsMany
+            let invokeGenArgs = (Tau.geTDef.GeneralizeVars tau) - classGenArgs
                     
             let fieldsString =
                 fields
@@ -196,7 +196,7 @@ let renderRecords (cachedRecords: RecordCache) (solveRes: ConstraintGraph.SolveR
         ]
     let recordDefinitions = 
         collectedRecords 
-        |> List.map (Format.getGenericRecordDefinition cachedRecords)
+        |> List.map (Format.geTDef.GeneralizeericRecordDefinition cachedRecords)
         |> List.distinct
     [ for rname,fields in recordDefinitions do
         let getArgName = sprintf "T%d"
@@ -308,7 +308,7 @@ let rec renderBody (cachedRecords: RecordCache) (solveRes: ConstraintGraph.Solve
     //            |> Set.toList
     //            |> List.map snd
     //            |> Format.genArgListTaus
-    //        let recordName,_ = Format.getGenericRecordDefinition cachedRecords trecord
+    //        let recordName,_ = Format.geTDef.GeneralizeericRecordDefinition cachedRecords trecord
     //        let recordDecl = $"{recordName}{genArgs}"
     //        let local = newLocal()
     //        let renderedFieldExps =

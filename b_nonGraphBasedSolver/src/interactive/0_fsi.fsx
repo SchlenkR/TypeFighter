@@ -1,3 +1,8 @@
+
+// why ref directly? Just to speed up load times a bit
+// #r "nuget: Newtonsoft.Json"
+#r @"../_deps/Newtonsoft.Json-13.0.3/net6.0/Newtonsoft.Json.dll"
+
 #load "../TypeFighter/Utils.fs"
 #load "../TypeFighter/Lang.fs"
 #load "../TypeFighter/Tools.fs"
@@ -8,37 +13,11 @@ open Visu
 open TypeFighter.Lang
 
 module Visu =
-    module Format =
-        let rec longTyp (typ: Typ) =
-            let indent = "\u00AD     "
-            let getNameHint nameHint =
-                match nameHint with
-                | NameHint.Empty -> ""
-                | NameHint.Given name -> $" // name = {name}"
-            match typ with
-            | Mono typ ->
-                match typ with
-                | RecordTyp record ->
-                    [ for f in record.fields do
-                        $"{indent}{f.fname}: {f.typ}" ]
-                    |> String.concat "\n"
-                    |> fun s -> $"{{{getNameHint record.nameHint} \n{s} }}"
-                | ProvideCasesConstraint union ->
-                    [ for c in union.cases do
-                        $"{indent}{c.disc}: ..." ]
-                    |> String.concat "\n"
-                    |> fun s -> $"{{{getNameHint union.nameHint} \n{s} }}"
-                | _ -> typ.ToString()
-            | _ -> typ.ToString()
-    
+
     let writeAnnotatedAst 
-            (showVar: bool) 
-            // (showEnv: bool)
-            // (showSubsts: bool)
-            (solution: option<TypeSystem.SolutionItem list>)
-            (root: Expr)
-            // (exprConstraintStates: Map<TExp, ConstraintState * Set<Subst>>)
-            // (envConstraintStates: Map<IExp, ConstraintState * Set<Subst>>)
+        (solution: option<TypeSystem.SolutionItem list>) 
+        (exprToEnv: Map<Expr, Env>)
+        (root: Expr)
         =
         let rec flatten (node: Tree.Node) =
             [
@@ -46,47 +25,52 @@ module Visu =
                 for c in node.children do
                     yield! flatten c
             ]
-        let rec createNodes (expr: Expr) =
-            let details =
-                [
-                    // let constrSubsts = lazy (exprConstraintStates |> Map.find expr)
 
-                    if showVar then
-                        yield expr.TVar.ToString()
-                    match solution with
-                    | None -> ()
-                    | Some solution ->
-                        let typ = 
-                            solution 
-                            |> List.tryFind (fun s -> s.tvar = expr.TVar)
-                            |> Option.map (_.typ)
-                            |> Option.map Format.longTyp
-                            |> Option.defaultValue "???"
-                        yield $"typ = {typ}"
-                    // if showSubsts then
-                    //     yield $"substs = {Format.substs (snd constrSubsts.Value)}"
-                    // if showEnv then
-                    //    yield $"env = {Format.env exp.meta envConstraintStates}"
-                ]
-                |> String.concat "\n"
-            let getIdentDetails (ident: Ident) =
-                $"{ident.identName} : {ident.tvar} \n{details}"
+        let rec createNodes (expr: Expr) =
+            let getIdentDetails (ident: Ident) = $"{ident.identName} : {ident.tvar}"
+            let getExprTyp tvar =
+                let unknown = "???"
+                match solution with
+                | None -> unknown
+                | Some solution ->
+                    solution 
+                    |> List.tryFind (fun s -> s.tvar = tvar)
+                    |> Option.map (_.typ.ToString())
+                    |> Option.defaultValue unknown
+            let env =
+                exprToEnv
+                |> Map.tryFind expr
+                |> Option.map (fun env ->
+                    env
+                    |> Seq.map (fun kvp -> 
+                        match kvp.Value with 
+                        | EnvItem.External _ -> None 
+                        | EnvItem.Internal t -> Some (kvp.Key, t))
+                    |> Seq.choose id
+                    |> Seq.map (fun (ident, varNum) ->
+                        let solvedTyp = getExprTyp varNum
+                        $"{ident}: {varNum} ({solvedTyp})")
+                    |> String.concat "; "
+                )
+                |> Option.defaultValue ""
+            let createExprNode name additionalInfo children =
+                Tree.expr (VarNum.number expr.TVar) (getExprTyp expr.TVar) name env additionalInfo children
             match expr with
-            | Expr.Lit x ->
-                Tree.var $"""Lit ("{x.value}") """ details []
-            | Expr.Var x ->
-                Tree.var $"""Var "{x.ident}" """ details []
-            | Expr.App x ->
-                Tree.var "App" details [ createNodes x.func; createNodes x.arg ]
-            | Expr.Fun x ->
+            | Lit x ->
+                createExprNode $"""Lit ("{x.value}") """ "" []
+            | Var x ->
+                createExprNode $"""Var "{x.ident}" """ "" []
+            | App x ->
+                createExprNode "App" "" [ createNodes x.func; createNodes x.arg ]
+            | Fun x ->
                 let details = getIdentDetails x.ident
-                Tree.var $"Fun {x.ident.identName} -> ..." details [ createNodes x.body ]
-            | Expr.Let x ->
+                createExprNode $"Fun {x.ident.identName} -> ..." details [ createNodes x.body ]
+            | Let x ->
                 let details = getIdentDetails x.ident
-                Tree.var $"Let {x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
-            | Expr.Do x ->
-                Tree.var $"Do ..." details [ createNodes x.value; createNodes x.body ]
-            | Expr.Match x ->
+                createExprNode $"Let {x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
+            | Do x ->
+                createExprNode $"Do ..." "" [ createNodes x.action; createNodes x.body ]
+            | Match x ->
                 let caseNames = 
                     [
                         for x in x.cases do
@@ -97,24 +81,20 @@ module Visu =
                             $"    | {x.disc} {binding}-> ... ({x.body.TVar})"
                     ]
                     |> String.concat "\n"
-                let details = $"cases =\n{caseNames}\n\n{details}"
-                Tree.var $"MatchDU ..." details [ createNodes x.expr; for c in x.cases do createNodes c.body ]
-            | Expr.PropAcc x ->
-                let details = $"var(ident) = {x.ident.tvar}\n{details}" 
-                Tree.var $"""PropAcc "{x.ident.identName}" """ details [ createNodes x.source ]
-            | Expr.MkArray x ->
-                Tree.var $"MkArray []" details [ for e in x.values do createNodes e ]
-            | Expr.MkRecord x ->
+                createExprNode $"MatchDU ..." $"cases =\n{caseNames}\n" [ createNodes x.expr; for c in x.cases do createNodes c.body ]
+            | PropAcc x ->
+                createExprNode $"""PropAcc "{x.ident.identName}" """ $"var(ident) = {x.ident.tvar}" [ createNodes x.source ]
+            | MkArray x ->
+                createExprNode $"MkArray []" "" [ for e in x.values do createNodes e ]
+            | MkRecord x ->
                 let fieldNames = 
                     x.fields 
                     |> List.map (fun f -> $"{f.fname}: {f.value.TVar}")
                     |> String.concat "; " 
                     |> sprintf "{ %s }"
-                let details = $"fields = {fieldNames}\n{details}"
-                Tree.var $"Record" details [ for f in x.fields do createNodes f.value ]
+                createExprNode $"Record" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
         
         do createNodes root |> flatten |> Tree.write
 
     let writeExpr (f: ExprCtx -> Expr) =
-        f (ExprCtx()) |> writeAnnotatedAst true None
-
+        f (ExprCtx()) |> writeAnnotatedAst None Map.empty

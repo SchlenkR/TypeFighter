@@ -8,9 +8,9 @@ open System.IO
 open TypeFighter.Lang
 open TypeFighter.Tools
 
-let solve (env: (string * Typ) list) (expr: Expr) =
-    do expr |> Visu.writeAnnotatedAst true None
-    let solution = TypeFighter.Tests.TestHelper.solve env expr
+let solve (externalEnv: (string * Typ) list) (expr: Expr) =
+    do expr |> Visu.writeAnnotatedAst None Map.empty
+    let solution = TypeFighter.Tests.TestHelper.solve externalEnv expr
     
     do
         printfn "SOLVER RUNS"
@@ -23,19 +23,20 @@ let solve (env: (string * Typ) list) (expr: Expr) =
         | Ok res -> 
             printfn $"Final type:\n    {res.finalTyp}"
             printfn ""
-            
-            do expr |> Visu.writeAnnotatedAst true (Some res.solution)
+
+            do Visu.writeAnnotatedAst (Some res.solution) solution.exprToEnv expr
         | Error err ->
             printfn $"Error:\n    {err}"
             printfn ""
             
-            let lastSolverRun = 
-                solution.solverRuns
-                |> List.tryLast
-                |> Option.map snd
-                |> Option.defaultValue []
-                |> TypeSystem.finalizeSolution
-            do expr |> Visu.writeAnnotatedAst true (Some lastSolverRun)
+            let finalSolution =
+                let s =
+                    match solution.solverRuns |> List.tryLast with
+                    | Some lastSolverRun -> lastSolverRun
+                    | None -> { cycle = 0; constraints = []; solutionItems = []; recordRefs = Map.empty }
+                TypeSystem.finalizeSolution s.solutionItems s.recordRefs
+
+            do expr |> Visu.writeAnnotatedAst (Some finalSolution) solution.exprToEnv
     solution
 
 let resolveDataPath (path: string) =

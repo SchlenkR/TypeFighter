@@ -126,13 +126,13 @@ module Tau =
     
     let tau = function | Constrained t -> t | _ -> failwith "TODO: unconstrained!"
 
-    let getGenVars (t: Typ) =
-        let rec getGenVars (t: Typ) : TVar list =
-            t |> map getGenVars (fun v -> [v])
-        getGenVars t |> set
+    let geTDef.GeneralizeVars (t: Typ) =
+        let rec geTDef.GeneralizeVars (t: Typ) : TVar list =
+            t |> map geTDef.GeneralizeVars (fun v -> [v])
+        geTDef.GeneralizeVars t |> set
 
-    let getGenVarsMany (taus: Typ list) =
-        taus |> List.map getGenVars |> List.fold (+) Set.empty
+    let geTDef.GeneralizeVarsMany (taus: Typ list) =
+        taus |> List.map geTDef.GeneralizeVars |> List.fold (+) Set.empty
 
 
 module AnnotatedAst =
@@ -566,9 +566,9 @@ module ConstraintGraph =
                     Constrained tres, (sres + s1 + s2)
             | Inst { inc = Cons(t, s) } ->
                 let ftv =
-                    let tgenvars = Tau.getGenVars t
+                    let TDef.Generalizevars = Tau.geTDef.GeneralizeVars t
                     let substsGenVars = s |> Set.map (fun x -> x.genTyVar)
-                    tgenvars - substsGenVars
+                    TDef.Generalizevars - substsGenVars
                 let instances = ftv |> Set.map (fun x -> 
                     { Subst.genTyVar = x; Subst.substitute = TVar (annoRes.newGenVar.next()) })
                 let replacedTau = Unification.subst instances t

@@ -27,8 +27,8 @@ open TypeFighter.Lang
 // we don't use nil+cons for lists, but "MkArray" as syntax sugar in the language
 // let typeHierarchyParamPolyEnv =
 //     [
-//         "nil", TGen (BuiltinTypes.array %1)
-//         "cons", TGen (%1 ^-> BuiltinTypes.array %1 ^-> BuiltinTypes.array %1)
+//         "nil", TDef.Generalize (BuiltinTypes.array %1)
+//         "cons", TDef.Generalize (%1 ^-> BuiltinTypes.array %1 ^-> BuiltinTypes.array %1)
 //         "concat", Mono (BuiltinTypes.array BuiltinTypes.string ^-> BuiltinTypes.string)
 //     ]
 
@@ -71,3 +71,44 @@ let [<Test>] ``error - non-homogeneous arrays`` () =
     |> solve []
     |> shouldFail
 
+
+
+
+(*
+    [
+        { validFrom = MkThing "foo1" };
+        { validFrom = MkThing "foo2" };
+    ]
+*)
+let [<Test>] ``array with multiple record elements having field value from function app`` () =
+
+    let defaultTcEnv =
+        [
+            "MkThing", TDef.Generalize (BuiltinTypes.string ^-> %1)
+        ]
+ 
+    let x = ExprCtx()
+    let ast =
+        x.MkArray
+            [
+                x.MkRecord [
+                    x.Field
+                        "validFrom"
+                        (x.App
+                          (x.Var "MkThing")
+                          (x.Lit "foo1")) 
+                ]
+                x.MkRecord [
+                    x.Field
+                        "validFrom"
+                        (x.App
+                          (x.Var "MkThing")
+                          (x.Lit "foo2")) 
+                ]
+            ]
+ 
+    // TODO: Comparison of poly types according to poly type params naming/numbering has to be implemented correctly
+    //       + apply reindexing of vars (see reindex vars for external envs)
+    //       %14 - that's the thing here.
+    solve defaultTcEnv ast
+    |> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %14 ])))

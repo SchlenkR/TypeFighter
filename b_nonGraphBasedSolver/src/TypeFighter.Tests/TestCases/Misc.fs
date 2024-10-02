@@ -37,11 +37,11 @@ let [<Test>] ``error - SetDataField wrong types`` () =
     |> solve
         [
             "SetDataField", Mono (%1 ^-> %1 ^-> BuiltinTypes.unit)
-            "Object", Mono (TProvideMembersWith (NameHint.Given "ContextObject") [
+            "Object", Mono (TDef.NamedRecordWith (NameHint.Given "ContextObject") [
                 "ShouldBeComboxVariable", BuiltinTypes.date
             ])
-            "Environment", Mono (TProvideMembersWith (NameHint.Given "Environment") [ 
-                "AuthUser", (TProvideMembersWith (NameHint.Given "User") [ 
+            "Environment", Mono (TDef.NamedRecordWith (NameHint.Given "Environment") [ 
+                "AuthUser", (TDef.NamedRecordWith (NameHint.Given "User") [ 
                     "Username", BuiltinTypes.string 
                 ])
             ])
