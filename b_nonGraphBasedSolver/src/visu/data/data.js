@@ -2,6 +2,15 @@
 window.layout = "tree";
 window.nodeDataArray = [
   {
+    "key": 5,
+    "name": "App",
+    "varNum": "5",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": "",
+    "fig": "Rectangle"
+  },
+  {
     "key": 3,
     "name": "App",
     "varNum": "3",
@@ -27,9 +36,26 @@ window.nodeDataArray = [
     "exprTyp": "Number",
     "env": "",
     "fig": "Rectangle"
+  },
+  {
+    "key": 4,
+    "name": "Lit (\u002210\u0022) ",
+    "varNum": "4",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": "",
+    "fig": "Rectangle"
   }
 ];
 window.linkDataArray = [
+  {
+    "from": 5,
+    "to": 3
+  },
+  {
+    "from": 5,
+    "to": 4
+  },
   {
     "from": 3,
     "to": 1
