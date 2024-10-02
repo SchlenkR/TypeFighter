@@ -55,7 +55,7 @@ ast
 
 The visualized AST of the program looks like this:
 
-![AST for example 1](ast_ex_1.png)
+![AST for example 1](b_nonGraphBasedSolver/docu/ast_ex_1.png)
 
 The solver runs recursively, generating a constraint set from the program's AST and the provided context. The constraint set is then solved using a unification algorithm, which assigns types to each term in the program. If a type mismatch is found, the solver halts and reports an error.
 
