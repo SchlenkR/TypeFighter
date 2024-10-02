@@ -1,5 +1,5 @@
-#load "../interactive/0_fsi.fsx"
-open ``0_fsi``
+#load "../_fsiBase.fsx"
+open ``_fsiBase``
 
 #r "nuget: FsUnit, 6.0.0"
 #load "TestHelper.fs"

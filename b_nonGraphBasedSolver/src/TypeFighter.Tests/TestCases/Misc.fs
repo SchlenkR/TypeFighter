@@ -24,19 +24,19 @@ open TypeFighter.Lang
 
 
 (*
-    SetDataField Object.ShouldBeComboxVariable Environment.AuthUser.Username
+    SetField Object.ShouldBeComboxVariable Environment.AuthUser.Username
 *)
 // ERROR Date != String
-let [<Test>] ``error - SetDataField wrong types`` () =
+let [<Test>] ``error - SetField wrong types`` () =
 
     let x = ExprCtx()
 
     x.App
-        (x.App (x.Var "SetDataField") (x.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
+        (x.App (x.Var "SetField") (x.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
         (x.PropAccN [ "Environment"; "AuthUser"; "Username" ])
     |> solve
         [
-            "SetDataField", Mono (%1 ^-> %1 ^-> BuiltinTypes.unit)
+            "SetField", Mono (%1 ^-> %1 ^-> BuiltinTypes.unit)
             "Object", Mono (TDef.NamedRecordWith (NameHint.Given "ContextObject") [
                 "ShouldBeComboxVariable", BuiltinTypes.date
             ])

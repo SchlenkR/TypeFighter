@@ -1,6 +1,5 @@
-
-#load "0_fsi.fsx"
-open ``0_fsi``
+#load "../_fsiBase.fsx"
+open ``_fsiBase``
 
     
 open TypeFighter.Lang
@@ -22,18 +21,18 @@ open TypeFighter.Lang.Services
 // ------------------------------------------
 
 (*
-    SetDataField Object.ShouldBeComboxVariable Environment.AuthUser.Username
+    SetField Object.ShouldBeComboxVariable Environment.AuthUser.Username
 *)
 
 do
     let x = ExprCtx()
 
     x.App
-        (x.App (x.Var "SetDataField") (x.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
+        (x.App (x.Var "SetField") (x.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
         (x.PropAccN [ "Environment"; "AuthUser"; "Username" ])
     |> solve
         [
-            "SetDataField", Mono (%3 ^-> %3 ^-> BuiltinTypes.unit)
+            "SetField", Mono (%3 ^-> %3 ^-> BuiltinTypes.unit)
             "Object", Mono (TRecordWith [
                 "ShouldBeComboxVariable", BuiltinTypes.date
             ])

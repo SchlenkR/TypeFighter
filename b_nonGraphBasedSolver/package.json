@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "dependencies": {},
+  "dependencies": {
+    "gojs": "^3.0.12"
+  },
   "devDependencies": {
     "vite": "5.0.0"
   }

@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: './src/interactive/visu',
+  root: './src/visu',
+  server: {
+    port: 3000,
+  },
 });

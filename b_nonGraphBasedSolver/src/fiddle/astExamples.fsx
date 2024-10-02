@@ -1,6 +1,5 @@
-
-#load "../interactive/0_fsi.fsx"
-open ``0_fsi``
+#load "../_fsiBase.fsx"
+open ``_fsiBase``
 
 open TypeFighter.Lang
 open TypeFighter.Tools

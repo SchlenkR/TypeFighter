@@ -1,11 +1,6 @@
-
-// why ref directly? Just to speed up load times a bit
-// #r "nuget: Newtonsoft.Json"
-#r @"../_deps/Newtonsoft.Json-13.0.3/net6.0/Newtonsoft.Json.dll"
-
-#load "../TypeFighter/Utils.fs"
-#load "../TypeFighter/Lang.fs"
-#load "../TypeFighter/Tools.fs"
+#load "./TypeFighter/Utils.fs"
+#load "./TypeFighter/Lang.fs"
+#load "./TypeFighter/Tools.fs"
 
 #load "./visu/visu.fsx"
 open Visu
@@ -56,21 +51,21 @@ module Visu =
             let createExprNode name additionalInfo children =
                 Tree.expr (VarNum.number expr.TVar) (getExprTyp expr.TVar) name env additionalInfo children
             match expr with
-            | Lit x ->
+            | Expr.Lit x ->
                 createExprNode $"""Lit ("{x.value}") """ "" []
-            | Var x ->
+            | Expr.Var x ->
                 createExprNode $"""Var "{x.ident}" """ "" []
-            | App x ->
+            | Expr.App x ->
                 createExprNode "App" "" [ createNodes x.func; createNodes x.arg ]
-            | Fun x ->
+            | Expr.Fun x ->
                 let details = getIdentDetails x.ident
                 createExprNode $"Fun {x.ident.identName} -> ..." details [ createNodes x.body ]
-            | Let x ->
+            | Expr.Let x ->
                 let details = getIdentDetails x.ident
                 createExprNode $"Let {x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
-            | Do x ->
+            | Expr.Do x ->
                 createExprNode $"Do ..." "" [ createNodes x.action; createNodes x.body ]
-            | Match x ->
+            | Expr.Match x ->
                 let caseNames = 
                     [
                         for x in x.cases do
@@ -82,11 +77,11 @@ module Visu =
                     ]
                     |> String.concat "\n"
                 createExprNode $"MatchDU ..." $"cases =\n{caseNames}\n" [ createNodes x.expr; for c in x.cases do createNodes c.body ]
-            | PropAcc x ->
+            | Expr.PropAcc x ->
                 createExprNode $"""PropAcc "{x.ident.identName}" """ $"var(ident) = {x.ident.tvar}" [ createNodes x.source ]
-            | MkArray x ->
+            | Expr.MkArray x ->
                 createExprNode $"MkArray []" "" [ for e in x.values do createNodes e ]
-            | MkRecord x ->
+            | Expr.MkRecord x ->
                 let fieldNames = 
                     x.fields 
                     |> List.map (fun f -> $"{f.fname}: {f.value.TVar}")
