@@ -58,6 +58,8 @@ let [<Test>] ``simple fun`` () =
 *)
 let [<Test>] ``simple fun app`` () =
 
+    // TODO: Re-Number when generalizing
+
     X.App (X.Fun (X.Ident "x") (X.Var "x")) (X.Lit "xxx")
     |> solve []
     |> shouldSolveType (Mono BuiltinTypes.string)
