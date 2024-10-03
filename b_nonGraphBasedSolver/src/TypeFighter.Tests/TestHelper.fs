@@ -13,7 +13,7 @@ open TypeFighter.Lang.Services
 type InitMsgUtils() =
     inherit FSharpCustomMessageFormatter()
 
-let solve (env: (string * Typ) list) (expr: Expr) =
+let solve (env: (string * Typ) list) (expr: Expr<_>) =
     solve env expr
 
 let shouldSolveType (typ: Typ) (solution: SolveResult) =

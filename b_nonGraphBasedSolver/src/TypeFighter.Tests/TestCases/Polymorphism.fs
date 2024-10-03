@@ -31,11 +31,9 @@ open TypeFighter.Lang
 *)
 let [<Test>] ``polymorphic "log"`` () =
 
-    let x = ExprCtx()
-
-    x.Do (x.App (x.Var "log") (x.Lit "Hello")) (
-        x.Do (x.App (x.Var "log") (x.Lit "88")) (
-            x.Lit "42"
+    X.Do (X.App (X.Var "log") (X.Lit "Hello")) (
+        X.Do (X.App (X.Var "log") (X.Lit "88")) (
+            X.Lit "42"
         )
     )
     |> solve
@@ -55,11 +53,9 @@ let [<Test>] ``polymorphic "log"`` () =
 *)
 let [<Test>] ``polymorphic "mkPoly" with infered record`` () =
 
-    let x = ExprCtx()
-
-    x.MkRecord [
-        x.Field "r1" (x.App (x.Var "mkPoly") (x.Lit "true"))
-        x.Field "r2" (x.App (x.Var "mkPoly") (x.Lit "33"))
+    X.MkRecord [
+        X.Field "r1" (X.App (X.Var "mkPoly") (X.Lit "true"))
+        X.Field "r2" (X.App (X.Var "mkPoly") (X.Lit "33"))
     ]
     |> solve
         [

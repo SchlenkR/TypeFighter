@@ -39,9 +39,7 @@ open TypeFighter.Lang
 *)
 let [<Test>] ``array literal number`` () =
 
-    let x = ExprCtx()
-
-    x.MkArray [ x.Lit "1"; x.Lit "2"; x.Lit "3" ]
+    X.MkArray [ X.Lit "1"; X.Lit "2"; X.Lit "3" ]
     |> solve []
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.number))
 
@@ -51,9 +49,7 @@ let [<Test>] ``array literal number`` () =
 *)
 let [<Test>] ``array literal string`` () =
 
-    let x = ExprCtx()
-
-    x.MkArray [ x.Lit "a"; x.Lit "b"; x.Lit "c" ]
+    X.MkArray [ X.Lit "a"; X.Lit "b"; X.Lit "c" ]
     |> solve []
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.string))
 
@@ -65,9 +61,7 @@ let [<Test>] ``array literal string`` () =
 // ERROR: Can't unify String and Number
 let [<Test>] ``error - non-homogeneous arrays`` () =
 
-    let x = ExprCtx()
-
-    x.MkArray [ x.Lit "a"; x.Lit "1"; x.Lit "c" ]
+    X.MkArray [ X.Lit "a"; X.Lit "1"; X.Lit "c" ]
     |> solve []
     |> shouldFail
 
@@ -87,23 +81,22 @@ let [<Test>] ``array with multiple record elements having field value from funct
             "MkThing", TDef.Generalize (BuiltinTypes.string ^-> %1)
         ]
  
-    let x = ExprCtx()
     let ast =
-        x.MkArray
+        X.MkArray
             [
-                x.MkRecord [
-                    x.Field
+                X.MkRecord [
+                    X.Field
                         "validFrom"
-                        (x.App
-                          (x.Var "MkThing")
-                          (x.Lit "foo1")) 
+                        (X.App
+                          (X.Var "MkThing")
+                          (X.Lit "foo1")) 
                 ]
-                x.MkRecord [
-                    x.Field
+                X.MkRecord [
+                    X.Field
                         "validFrom"
-                        (x.App
-                          (x.Var "MkThing")
-                          (x.Lit "foo2")) 
+                        (X.App
+                          (X.Var "MkThing")
+                          (X.Lit "foo2")) 
                 ]
             ]
  

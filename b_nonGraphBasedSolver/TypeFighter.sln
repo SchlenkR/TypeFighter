@@ -9,6 +9,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TypeFighter", "src\TypeFigh
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TypeFighter.Tests", "src\TypeFighter.Tests\TypeFighter.Tests.fsproj", "{63D9FDF6-4312-428F-8204-AF6A83874FA2}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TypeFighter.Parser01", "src\TypeFighter.Parser01\TypeFighter.Parser01.fsproj", "{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,9 +28,14 @@ Global
 		{63D9FDF6-4312-428F-8204-AF6A83874FA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{63D9FDF6-4312-428F-8204-AF6A83874FA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{63D9FDF6-4312-428F-8204-AF6A83874FA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{908BCCEB-50CE-44ED-9C1B-E699557775C0} = {D03F538B-B68F-470C-993D-25F2A3BD462D}
 		{63D9FDF6-4312-428F-8204-AF6A83874FA2} = {D03F538B-B68F-470C-993D-25F2A3BD462D}
+		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4} = {D03F538B-B68F-470C-993D-25F2A3BD462D}
 	EndGlobalSection
 EndGlobal

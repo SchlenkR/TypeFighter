@@ -9,11 +9,13 @@ open TypeFighter.Lang
 
 module Visu =
 
-    let writeAnnotatedAst 
+    let writeAnnotatedAst
         (solution: option<TypeSystem.SolutionItem list>) 
-        (exprToEnv: Map<Expr, Env>)
-        (root: Expr)
+        (exprToEnv: Map<Expr<VarNum>, Env>)
+        (root: Expr<unit>)
         =
+        let root = Expr.initialExprToNumberedExpr root
+
         let rec flatten (node: Tree.Node) =
             [
                 yield node
@@ -21,8 +23,8 @@ module Visu =
                     yield! flatten c
             ]
 
-        let rec createNodes (expr: Expr) =
-            let getIdentDetails (ident: Ident) = $"{ident.identName} : {ident.tvar}"
+        let rec createNodes (expr: Expr<_>) =
+            let getIdentDetails (ident: Ident<_>) = $"{ident.identName} : {ident.tvar}"
             let getExprTyp tvar =
                 let unknown = "???"
                 match solution with
@@ -91,5 +93,5 @@ module Visu =
         
         do createNodes root |> flatten |> Tree.write
 
-    let writeExpr (f: ExprCtx -> Expr) =
-        f (ExprCtx()) |> writeAnnotatedAst None Map.empty
+    let writeExpr (expr: Expr<_>) =
+        writeAnnotatedAst None Map.empty expr

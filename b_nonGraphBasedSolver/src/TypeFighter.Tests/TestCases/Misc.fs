@@ -29,11 +29,9 @@ open TypeFighter.Lang
 // ERROR Date != String
 let [<Test>] ``error - SetField wrong types`` () =
 
-    let x = ExprCtx()
-
-    x.App
-        (x.App (x.Var "SetField") (x.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
-        (x.PropAccN [ "Environment"; "AuthUser"; "Username" ])
+    X.App
+        (X.App (X.Var "SetField") (X.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
+        (X.PropAccN [ "Environment"; "AuthUser"; "Username" ])
     |> solve
         [
             "SetField", Mono (%1 ^-> %1 ^-> BuiltinTypes.unit)

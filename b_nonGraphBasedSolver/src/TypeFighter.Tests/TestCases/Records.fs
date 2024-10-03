@@ -41,9 +41,7 @@ let envWithAdd =
 *)
 let [<Test>] ``app with property access`` () =
 
-    let x = ExprCtx()
-    
-    x.App (x.App (x.Var "add") (x.Lit "10")) (x.PropAcc (x.Var "order") "quantity")
+    X.App (X.App (X.Var "add") (X.Lit "10")) (X.PropAcc (X.Var "order") "quantity")
     |> solve
         [
             yield! envWithAdd
@@ -64,15 +62,13 @@ let [<Test>] ``app with property access`` () =
 *)
 let [<Test>] ``let bound record`` () =
 
-    let x = ExprCtx()
-
     let ast =
-        x.Let (x.Ident "myRecord") (
-            x.MkRecord [
-                x.Field "age" (x.Lit "22")
-                x.Field "name" (x.Lit "John")
+        X.Let (X.Ident "myRecord") (
+            X.MkRecord [
+                X.Field "age" (X.Lit "22")
+                X.Field "name" (X.Lit "John")
             ]
-        ) (x.Var "myRecord")
+        ) (X.Var "myRecord")
     
     ast
     |> solve []
@@ -96,16 +92,14 @@ let [<Test>] ``let bound record`` () =
 *)
 let [<Test>] ``let bound record and access prop`` () =
 
-    let x = ExprCtx()
-
     let ast =
-        x.Let (x.Ident "myRecord") (
-            x.MkRecord [
-                x.Field "age" (x.Lit "22")
-                x.Field "name" (x.Lit "John")
+        X.Let (X.Ident "myRecord") (
+            X.MkRecord [
+                X.Field "age" (X.Lit "22")
+                X.Field "name" (X.Lit "John")
             ]
         ) (
-            x.PropAcc (x.Var "myRecord") "name"
+            X.PropAcc (X.Var "myRecord") "name"
         )
     
     ast
@@ -124,16 +118,14 @@ let [<Test>] ``let bound record and access prop`` () =
 *)
 let [<Test>] ``let bound record and access prop 2`` () =
 
-    let x = ExprCtx()
-
     let ast =
-        x.Let (x.Ident "myRecord") (
-            x.MkRecord [
-                x.Field "age" (x.Lit "22")
-                x.Field "name" (x.Lit "John")
+        X.Let (X.Ident "myRecord") (
+            X.MkRecord [
+                X.Field "age" (X.Lit "22")
+                X.Field "name" (X.Lit "John")
             ]
         ) (
-            x.PropAcc (x.Var "myRecord") "age"
+            X.PropAcc (X.Var "myRecord") "age"
         )
     
     ast
@@ -154,16 +146,14 @@ let [<Test>] ``let bound record and access prop 2`` () =
 // ERROR: Member 'xxxxxxxx' is missing in type { age: Number; name: String }
 let [<Test>] ``error - let bound record and access non existing prop`` () =
 
-    let x = ExprCtx()
-    
     let ast =
-        x.Let (x.Ident "myRecord") (
-            x.MkRecord [
-                x.Field "age" (x.Lit "22")
-                x.Field "name" (x.Lit "John")
+        X.Let (X.Ident "myRecord") (
+            X.MkRecord [
+                X.Field "age" (X.Lit "22")
+                X.Field "name" (X.Lit "John")
             ]
         ) (
-            x.PropAcc (x.Var "myRecord") "xxxxxxxx"
+            X.PropAcc (X.Var "myRecord") "xxxxxxxx"
         )
     
     ast
@@ -183,18 +173,17 @@ let [<Test>] ``comparing two ununifiable record fields from one record should fa
         [
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
 
     let ast =
-        x.Let
-            (x.Ident "r")
-            (x.MkRecord [
-                x.Field "IntField" (x.Lit "3")
-                x.Field "BooleanField" (x.Lit "true")
+        X.Let
+            (X.Ident "r")
+            (X.MkRecord [
+                X.Field "IntField" (X.Lit "3")
+                X.Field "BooleanField" (X.Lit "true")
             ])
-            (x.App
-                (x.App (x.Var("EQUALS")) (x.PropAcc (x.Var "r") "BooleanField"))
-                (x.PropAcc (x.Var "r") "IntField"))
+            (X.App
+                (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "BooleanField"))
+                (X.PropAcc (X.Var "r") "IntField"))
  
     ast
     |> solve defaultTcEnv 
@@ -214,25 +203,24 @@ let [<Test>] ``accessing two record fields in boolean expression should solve`` 
             "AND", Mono(BuiltinTypes.boolean ^-> BuiltinTypes.boolean ^-> BuiltinTypes.boolean)
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
  
     let left =
-        x.App
-            (x.App (x.Var("EQUALS")) (x.PropAcc (x.Var "r") "IntField"))
-            (x.Lit("3"))
+        X.App
+            (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "IntField"))
+            (X.Lit("3"))
     let right =
-        x.App
-            (x.App (x.Var("EQUALS")) (x.PropAcc (x.Var "r") "BooleanField"))
-            (x.Lit("true"))
+        X.App
+            (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "BooleanField"))
+            (X.Lit("true"))
     let ast =
-        x.Let
-            (x.Ident "r")
-            (x.MkRecord [
-                x.Field "IntField" (x.Lit "3")
-                x.Field "BooleanField" (x.Lit "true")
+        X.Let
+            (X.Ident "r")
+            (X.MkRecord [
+                X.Field "IntField" (X.Lit "3")
+                X.Field "BooleanField" (X.Lit "true")
             ])
-            (x.App
-                (x.App (x.Var "AND") left)
+            (X.App
+                (X.App (X.Var "AND") left)
                 right)
 
     solve defaultTcEnv ast 
@@ -255,30 +243,29 @@ let [<Test>] ``array with multiple record elements should solve`` () =
             "ADD", TDef.Generalize (%1 ^-> %1 ^-> %1)
         ]
  
-    let x = ExprCtx()
     let body =
-        x.MkArray
+        X.MkArray
             [
-                x.MkRecord [
-                    x.Field "myfield" (x.Lit "1")
+                X.MkRecord [
+                    X.Field "myfield" (X.Lit "1")
                 ]
-                x.MkRecord [
-                   x.Field
+                X.MkRecord [
+                   X.Field
                         "myfield"
-                        (x.App
-                          (x.Var "plusOne")
-                          (x.Lit "1")) 
+                        (X.App
+                          (X.Var "plusOne")
+                          (X.Lit "1")) 
                 ]
             ]
     let plusOneFunc =
-        x.Let
-            (x.Ident "plusOne")
-            (x.Fun (x.Ident "x")
-                (x.App
-                  (x.App
-                    (x.Var "ADD")
-                    (x.Var "x"))
-                  (x.Lit "1")))
+        X.Let
+            (X.Ident "plusOne")
+            (X.Fun (X.Ident "x")
+                (X.App
+                  (X.App
+                    (X.Var "ADD")
+                    (X.Var "x"))
+                  (X.Lit "1")))
             body
  
     let ast = plusOneFunc
@@ -302,26 +289,25 @@ let [<Test>] ``function with record argument should solve`` () =
             "AND", Mono(BuiltinTypes.boolean ^-> BuiltinTypes.boolean ^-> BuiltinTypes.boolean)
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
  
     let ast =
-        x.Let
-            (x.Ident "myFunc")
-            (x.Fun (x.Ident "r")
-                (x.App
-                    (x.App
-                        (x.Var "AND")
-                        (x.App
-                            (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "IntField"))
-                            (x.Lit "3")))
-                    (x.App
-                        (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "BooleanField"))
-                        (x.Lit "true"))))
-            (x.App
-                (x.Var "myFunc")
-                (x.MkRecord [
-                    x.Field "IntField" (x.Lit "3")
-                    x.Field "BooleanField" (x.Lit "true")
+        X.Let
+            (X.Ident "myFunc")
+            (X.Fun (X.Ident "r")
+                (X.App
+                    (X.App
+                        (X.Var "AND")
+                        (X.App
+                            (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "IntField"))
+                            (X.Lit "3")))
+                    (X.App
+                        (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "BooleanField"))
+                        (X.Lit "true"))))
+            (X.App
+                (X.Var "myFunc")
+                (X.MkRecord [
+                    X.Field "IntField" (X.Lit "3")
+                    X.Field "BooleanField" (X.Lit "true")
                 ]))
 
     solve defaultTcEnv ast
@@ -339,15 +325,14 @@ let [<Test>] ``lambda taking record infers correct type`` () =
         [
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
  
     let ast =
-        x.Fun (x.Ident "r")
-            (x.App
-                (x.App
-                    (x.Var "EQUALS")
-                    (x.PropAcc (x.Var "r") "IntField"))
-                (x.Lit "3"))
+        X.Fun (X.Ident "r")
+            (X.App
+                (X.App
+                    (X.Var "EQUALS")
+                    (X.PropAcc (X.Var "r") "IntField"))
+                (X.Lit "3"))
  
     ast 
     |> solve defaultTcEnv
@@ -369,19 +354,18 @@ let [<Test>] ``anonymous function taking record solves on correct field usage`` 
             "AND", Mono(BuiltinTypes.boolean ^-> BuiltinTypes.boolean ^-> BuiltinTypes.boolean)
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
  
     let ast =
-        x.Fun (x.Ident "r")
-            (x.App
-                (x.App
-                    (x.Var "AND")
-                    (x.App
-                        (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "IntField"))
-                        (x.Lit "3")))
-                (x.App
-                    (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "BooleanField"))
-                    (x.Lit "true")))
+        X.Fun (X.Ident "r")
+            (X.App
+                (X.App
+                    (X.Var "AND")
+                    (X.App
+                        (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "IntField"))
+                        (X.Lit "3")))
+                (X.App
+                    (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "BooleanField"))
+                    (X.Lit "true")))
  
     ast 
     |> solve defaultTcEnv 
@@ -414,22 +398,21 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
         [
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
 
     let ast =
-        x.Let
-            (x.Ident "myFunc")
-            (x.Fun (x.Ident "r")
-                (x.App
-                    (x.App
-                        (x.Var "EQUALS")
-                        (x.PropAcc (x.Var "r") "IntField"))
-                    (x.PropAcc (x.Var "r") "BooleanField")))
-            (x.App
-                (x.Var "myFunc")
-                (x.MkRecord [
-                    x.Field "IntField" (x.Lit "3")
-                    x.Field "BooleanField" (x.Lit "true")
+        X.Let
+            (X.Ident "myFunc")
+            (X.Fun (X.Ident "r")
+                (X.App
+                    (X.App
+                        (X.Var "EQUALS")
+                        (X.PropAcc (X.Var "r") "IntField"))
+                    (X.PropAcc (X.Var "r") "BooleanField")))
+            (X.App
+                (X.Var "myFunc")
+                (X.MkRecord [
+                    X.Field "IntField" (X.Lit "3")
+                    X.Field "BooleanField" (X.Lit "true")
                 ]))
 
     ast
@@ -450,19 +433,18 @@ let [<Test>] ``xxxxxxxx`` () =
             "AND", Mono(BuiltinTypes.boolean ^-> BuiltinTypes.boolean ^-> BuiltinTypes.boolean)
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
  
     let ast =
-        x.Fun (x.Ident "a")
-            (x.App
-                (x.App
-                    (x.Var "AND")
-                    (x.App
-                        (x.App (x.Var "EQUALS") (x.Var "a"))
-                        (x.Lit "3")))
-                (x.App
-                    (x.App (x.Var "EQUALS") (x.Var "a"))
-                    (x.Lit "true")))
+        X.Fun (X.Ident "a")
+            (X.App
+                (X.App
+                    (X.Var "AND")
+                    (X.App
+                        (X.App (X.Var "EQUALS") (X.Var "a"))
+                        (X.Lit "3")))
+                (X.App
+                    (X.App (X.Var "EQUALS") (X.Var "a"))
+                    (X.Lit "true")))
  
     ast
     |> solve defaultTcEnv 
@@ -486,30 +468,29 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
             "AND", Mono(BuiltinTypes.boolean ^-> BuiltinTypes.boolean ^-> BuiltinTypes.boolean)
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
         ]
-    let x = ExprCtx()
 
     let ast =
-        x.Let
-            (x.Ident "inst")
-            (x.MkRecord [
-                x.Field "IntField" (x.Lit "3")
-                x.Field "BooleanField" (x.Lit "true")
+        X.Let
+            (X.Ident "inst")
+            (X.MkRecord [
+                X.Field "IntField" (X.Lit "3")
+                X.Field "BooleanField" (X.Lit "true")
             ])
-            (x.Let
-                (x.Ident "myFunc")
-                (x.Fun (x.Ident "r")
-                    (x.App
-                        (x.App
-                            (x.Var "AND")
-                            (x.App
-                                (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "IntField"))
-                                (x.Lit "3")))
-                            (x.App
-                                (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "BooleanField"))
-                                (x.Lit "true"))))
-                (x.App
-                    (x.Var "myFunc")
-                    (x.Var "inst")))
+            (X.Let
+                (X.Ident "myFunc")
+                (X.Fun (X.Ident "r")
+                    (X.App
+                        (X.App
+                            (X.Var "AND")
+                            (X.App
+                                (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "IntField"))
+                                (X.Lit "3")))
+                            (X.App
+                                (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "BooleanField"))
+                                (X.Lit "true"))))
+                (X.App
+                    (X.Var "myFunc")
+                    (X.Var "inst")))
 
     ast
     |> solve defaultTcEnv

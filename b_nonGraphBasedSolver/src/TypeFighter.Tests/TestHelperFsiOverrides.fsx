@@ -8,7 +8,7 @@ open System.IO
 open TypeFighter.Lang
 open TypeFighter.Tools
 
-let solve (externalEnv: (string * Typ) list) (expr: Expr) =
+let solve (externalEnv: (string * Typ) list) (expr: Expr<unit>) =
     do expr |> Visu.writeAnnotatedAst None Map.empty
     let solution = TypeFighter.Tests.TestHelper.solve externalEnv expr
     

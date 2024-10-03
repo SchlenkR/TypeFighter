@@ -53,9 +53,7 @@ let env = [
 *)
 let [<Test; Ignore("")>] ``Shared prop on intersection type`` () =
 
-    let x = ExprCtx()
-
-    x.PropAccN [ "oneAndTwo"; "sharedProp" ]
+    X.PropAccN [ "oneAndTwo"; "sharedProp" ]
     |> solve env
     |> shouldSolveType (Mono BuiltinTypes.number)
 
@@ -67,12 +65,10 @@ let [<Test; Ignore("")>] ``Shared prop on intersection type`` () =
 *)
 let [<Test>] ``Disjoint prop on intersection type`` () =
 
-    let x = ExprCtx()
-
     // 2 Possibilities:
     //    Fail
     //    return an empty set / bottom type
-    x.PropAccN [ "oneAndTwo"; "oneProp" ]
+    X.PropAccN [ "oneAndTwo"; "oneProp" ]
     |> solve env
     |> shouldFail
 
@@ -85,13 +81,11 @@ let [<Test>] ``Disjoint prop on intersection type`` () =
 let [<Test>] ``Shared prop, diff type on intersection type`` () =
 
     // TODO: Better error message
-    
-    let x = ExprCtx()
 
     // 2 possibilities:
     //     Find a common base type for both (in this case: object - if there was one)
     //     Fail when both types are not equal
-    x.PropAccN [ "oneAndTwo"; "sharedPropDiffType" ]
+    X.PropAccN [ "oneAndTwo"; "sharedPropDiffType" ]
     |> solve env
     |> shouldFail
     // |> shouldSolveType (Mono BuiltinTypes.number)

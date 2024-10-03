@@ -32,11 +32,9 @@ open TypeFighter.Lang
 // ERROR: Can't unify Number and String
 let [<Test>] ``error - match branches unification error`` () =
 
-    let x = ExprCtx()
-
-    x.Match (x.App (x.Var "isValid") (x.Lit "42")) [
-        x.Case "true" None (x.Lit "valid")
-        x.Case "false" None (x.Lit "34")
+    X.Match (X.App (X.Var "isValid") (X.Lit "42")) [
+        X.Case "true" None (X.Lit "valid")
+        X.Case "false" None (X.Lit "34")
     ]
     |> solve
         [
@@ -54,11 +52,9 @@ let [<Test>] ``error - match branches unification error`` () =
 *)
 let [<Test>] ``match branches ok`` () =
 
-    let x = ExprCtx()
-
-    x.Match (x.App (x.Var "isValid") (x.Lit "42")) [
-        x.Case "True" None (x.Lit "valid")
-        x.Case "False" None (x.Lit "invalid")
+    X.Match (X.App (X.Var "isValid") (X.Lit "42")) [
+        X.Case "True" None (X.Lit "valid")
+        X.Case "False" None (X.Lit "invalid")
     ]
     |> solve
         [
@@ -76,11 +72,9 @@ let [<Test>] ``match branches ok`` () =
 *)
 let [<Test>] ``match branches ok 2`` () =
 
-    let x = ExprCtx()
-
-    x.Match (x.App (x.Var "isValid") (x.Lit "42")) [
-        x.Case "True" None (x.Lit "22")
-        x.Case "False" None (x.Lit "22")
+    X.Match (X.App (X.Var "isValid") (X.Lit "42")) [
+        X.Case "True" None (X.Lit "22")
+        X.Case "False" None (X.Lit "22")
     ]
     |> solve
         [

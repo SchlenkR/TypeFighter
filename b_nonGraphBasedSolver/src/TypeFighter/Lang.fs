@@ -9,10 +9,13 @@ namespace TypeFighter.Lang
 
 
 type VarNum = VarNum of int
-    with
-        override this.ToString() = let (VarNum v) = this in $"tv_{v}"
+    with override this.ToString() = let (VarNum v) = this in $"tv_{v}"
 
 module VarNum =
+    let mutable private currVar = -1
+    let newVar () = 
+        currVar <- currVar + 1
+        VarNum currVar
     let number (VarNum v) = v
 
 [<CustomEquality; CustomComparison; RequireQualifiedAccess>]
@@ -130,43 +133,45 @@ and [<RequireQualifiedAccess>] EnvItem =
     | External of Typ
 
 [<RequireQualifiedAccess>]
-type Expr =
+type Expr<'noneOrVarnum> =
     // many exprs are non-elementary, but we don't care about that here,
     // since we aim for expressiveness when working with the AST
     internal
-    | Lit of {| value: string; tvar: VarNum |}                            // "foo" oder 2323
-    | Var of {| ident: string; tvar: VarNum |}                            // ident
-    | App of {| func: Expr; arg: Expr; tvar: VarNum |}                    // func arg
-    | Fun of {| ident: Ident; body: Expr; tvar: VarNum |}                 // fun ident -> body
-    | Let of {| ident: Ident; value: Expr; body: Expr; tvar: VarNum |}    // let ident = value in body
-    | Do of {| action: Expr; body: Expr; tvar: VarNum |}                  // do value body
-    | Match of {| expr: Expr; cases: UnionCase list; tvar: VarNum |}      // match expr with | cases
-    | PropAcc of {| source: Expr; ident: Ident; tvar: VarNum |}
-    | MkArray of {| values: Expr list; tvar: VarNum |}
-    | MkRecord of {| fields: Field list; tvar: VarNum |}
-        member this.TVar =
-            match this with
-            | Lit x -> x.tvar
-            | Var x -> x.tvar
-            | App x -> x.tvar
-            | Fun x -> x.tvar
-            | Let x -> x.tvar
-            | Do x -> x.tvar
-            | Match x -> x.tvar
-            | PropAcc x -> x.tvar
-            | MkArray x -> x.tvar
-            | MkRecord x -> x.tvar
-        override this.ToString() =
-            ShowExpr.Expr(this)
-and Ident = internal { identName: string; tvar: VarNum }
-and Field = internal { fname: string; value: Expr; tvar: VarNum }
-and UnionCase = internal { disc: string; ident: Ident option; body: Expr }
+    | Lit of {| value: string; tvar: 'noneOrVarnum |}                                                                             // "foo" oder 2323
+    | Var of {| ident: string; tvar: 'noneOrVarnum |}                                                                             // ident
+    | App of {| func: Expr<'noneOrVarnum>; arg: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                       // func arg
+    | Fun of {| ident: Ident<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                    // fun ident -> body
+    | Let of {| ident: Ident<'noneOrVarnum>; value: Expr<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}        // let ident = value in body
+    | Do of {| action: Expr<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                     // do value body
+    | Match of {| expr: Expr<'noneOrVarnum>; cases: UnionCase<'noneOrVarnum> list; tvar: 'noneOrVarnum |}                         // match expr with | cases
+    | PropAcc of {| source: Expr<'noneOrVarnum>; ident: Ident<'noneOrVarnum>; tvar: 'noneOrVarnum |}
+    | MkArray of {| values: Expr<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
+    | MkRecord of {| fields: Field<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
+    
+    member this.TVar =
+        match this with
+        | Lit x -> x.tvar
+        | Var x -> x.tvar
+        | App x -> x.tvar
+        | Fun x -> x.tvar
+        | Let x -> x.tvar
+        | Do x -> x.tvar
+        | Match x -> x.tvar
+        | PropAcc x -> x.tvar
+        | MkArray x -> x.tvar
+        | MkRecord x -> x.tvar
+    override this.ToString() =
+        ShowExpr.Expr(this)
+
+and Ident<'noneOrVarnum> = internal { identName: string; tvar: 'noneOrVarnum }
+and Field<'noneOrVarnum> = internal { fname: string; value: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum }
+and UnionCase<'noneOrVarnum> = internal { disc: string; ident: Ident<'noneOrVarnum> option; body: Expr<'noneOrVarnum> }
 
 and ShowExpr =
-    static member Expr (expr: Expr) =
-        let printIdent (ident: Ident) = ident.identName
-        let printField (f: Field) = $"{f.fname}: {f.value}"
-        let printUnionCase (c: UnionCase) =
+    static member Expr (expr: Expr<'noneOrVarnum>) =
+        let printIdent (ident: Ident<'noneOrVarnum>) = ident.identName
+        let printField (f: Field<'noneOrVarnum>) = $"{f.fname}: {f.value}"
+        let printUnionCase (c: UnionCase<'noneOrVarnum>) =
             let binding =
                 match c.ident with
                 | Some ident -> $"as {printIdent ident}"
@@ -194,8 +199,33 @@ and ShowExpr =
                 |> sprintf "{ %s }"
             $"{{ {fieldNames} }}"
 
+type X =
+    static member Ident value = { identName = value; tvar = ()}
+    static member Lit value = Expr.Lit {| value = value; tvar = ()|}
+    static member Var ident = Expr.Var {| ident = ident; tvar = ()|}
+    static member App func arg = Expr.App {| func = func; arg = arg; tvar = ()|}
+    static member Fun ident body = Expr.Fun {| ident = ident; body = body; tvar = ()|}
+    static member Let ident value body = Expr.Let {| ident = ident; value = value; body = body; tvar = ()|}
+    static member Do action body = Expr.Do {| action = action; body = body; tvar = ()|}
+    static member Match expr cases = Expr.Match {| expr = expr; cases = cases; tvar = ()|}
+    static member PropAcc source ident = Expr.PropAcc {| source = source; ident = { identName = ident; tvar = () } ; tvar = ()|}
+    static member PropAccN segments =
+        match segments with
+        | [] -> failwith "At least one segment required."
+        | x :: xs ->
+            let source = X.Var x
+            let rec loop source segments =
+                match segments with
+                | [] -> source
+                | x :: xs -> loop (X.PropAcc source x) xs
+            loop source xs
+    static member MkArray values = Expr.MkArray {| values = values; tvar = ()  |}
+    static member MkRecord fields = Expr.MkRecord {| fields = fields; tvar = ()  |}
+    static member Field field value = { fname = field; value = value; tvar = () }
+    static member Case disc ident body = { disc = disc; ident = ident; body = body }
+
 // TODO: Replace this (and throwing) with a "TError"
-type UnificationError(source: Expr, t1: MonoTyp, t2: MonoTyp, reason: string option) =
+type UnificationError(source: Expr<_>, t1: MonoTyp, t2: MonoTyp, reason: string option) =
     inherit System.Exception(
         [
             $"-----------------"
@@ -215,8 +245,27 @@ type UnificationError(source: Expr, t1: MonoTyp, t2: MonoTyp, reason: string opt
     member _.Reason = reason
 
 module Expr =
-    let collectTVars (expr: Expr) =
-        let rec loop (expr: Expr) (acc: VarNum list) =
+
+    let initialExprToNumberedExpr (expr: Expr<unit>) : Expr<VarNum> =
+        let initialIdentToNumberedIdent (ident: Ident<unit>) : Ident<VarNum> =
+            { identName = ident.identName; tvar = VarNum.newVar () }
+
+        let rec loop (expr: Expr<Unit>) =
+            match expr with
+            | Expr.Lit x -> Expr.Lit {| value = x.value; tvar = VarNum.newVar () |}
+            | Expr.Var x -> Expr.Var {| ident = x.ident; tvar = VarNum.newVar () |}
+            | Expr.App x -> Expr.App {| func = loop x.func; arg = loop x.arg; tvar = VarNum.newVar () |}
+            | Expr.Fun x -> Expr.Fun {| ident = initialIdentToNumberedIdent x.ident; body = loop x.body; tvar = VarNum.newVar () |}
+            | Expr.Let x -> Expr.Let {| ident = initialIdentToNumberedIdent x.ident; value = loop x.value; body = loop x.body; tvar = VarNum.newVar () |}
+            | Expr.Do x -> Expr.Do {| action = loop x.action; body = loop x.body; tvar = VarNum.newVar () |}
+            | Expr.Match x -> Expr.Match {| expr = loop x.expr; cases = [ for c in x.cases -> { disc = c.disc; ident = Option.map (fun i -> { identName = i.identName; tvar = VarNum.newVar () }) c.ident; body = loop c.body } ]; tvar = VarNum.newVar () |}
+            | Expr.PropAcc x -> Expr.PropAcc {| source = loop x.source; ident = { identName = x.ident.identName; tvar = VarNum.newVar () }; tvar = VarNum.newVar () |}
+            | Expr.MkArray x -> Expr.MkArray {| values = [ for v in x.values -> loop v ]; tvar = VarNum.newVar () |}
+            | Expr.MkRecord x -> Expr.MkRecord {| fields = [ for f in x.fields -> { fname = f.fname; value = loop f.value; tvar = VarNum.newVar () } ]; tvar = VarNum.newVar () |}
+        loop expr
+
+    let collectTVars (expr: Expr<VarNum>) =
+        let rec loop (expr: Expr<VarNum>) (acc: VarNum list) =
             match expr with
             | Expr.Lit x -> x.tvar :: acc
             | Expr.Var x -> x.tvar :: acc
@@ -272,7 +321,7 @@ module Expr =
         |> List.map VarNum.number
         |> List.distinct
 
-    let maxVar (expr: Expr) =
+    let maxVar (expr: Expr<VarNum>) =
         0 :: collectTVars expr |> List.max
 
 module Typ =
@@ -319,7 +368,7 @@ module Typ =
                 yield! typ.vars
                 yield! loopMono typ.monoTyp acc
             ]
-        
+
         loop typ []
         |> List.map VarNum.number
         |> List.distinct
@@ -346,40 +395,6 @@ module Env =
         0 :: collectTVars env |> List.max
 
 [<AutoOpen>]
-type ExprCtx() =
-    let mutable currVar = 0
-    // TODO: We would benefit having ordered tvars that correspond to the order of appearance in the constraint map
-    let newTVar () =
-        currVar <- currVar + 1
-        VarNum currVar
-
-    member _.VarCount = currVar
-    member _.NewTVar() = newTVar ()
-    member _.Ident value = { identName = value; tvar = newTVar () }
-    member _.Lit value = Expr.Lit {| value = value; tvar = newTVar ()  |}
-    member _.Var ident = Expr.Var {| ident = ident; tvar = newTVar ()  |}
-    member _.App func arg = Expr.App {| func = func; arg = arg; tvar = newTVar ()  |}
-    member _.Fun ident body = Expr.Fun {| ident = ident; body = body; tvar = newTVar ()  |}
-    member _.Let ident value body = Expr.Let {| ident = ident; value = value; body = body; tvar = newTVar ()  |}
-    member _.Do action body = Expr.Do {| action = action; body = body; tvar = newTVar ()  |}
-    member _.Match expr cases = Expr.Match {| expr = expr; cases = cases; tvar = newTVar ()  |}
-    member _.PropAcc source ident = Expr.PropAcc {| source = source; ident = { identName = ident; tvar = newTVar () } ; tvar = newTVar ()  |}
-    member t.PropAccN segments =
-        match segments with
-        | [] -> failwith "At least one segment required."
-        | x :: xs ->
-            let source = t.Var x
-            let rec loop source segments =
-                match segments with
-                | [] -> source
-                | x :: xs -> loop (t.PropAcc source x) xs
-            loop source xs
-    member _.MkArray values = Expr.MkArray {| values = values; tvar = newTVar ()  |}
-    member _.MkRecord fields = Expr.MkRecord {| fields = fields; tvar = newTVar ()  |}
-    member _.Field field value = { fname = field; value = value; tvar = newTVar () }
-    member _.Case disc ident body = { disc = disc; ident = ident; body = body }
-
-[<AutoOpen>]
 module TDefAutoOps =
     let ( ~% ) x = TVar (VarNum x)
 
@@ -388,6 +403,8 @@ module TDefAutoOps =
 
 [<RequireQualifiedAccess>]
 module TDef =
+
+    // TODO: no capitals
 
     let Poly (vars: int list) (monoTyp: MonoTyp) =
         let vars = vars |> List.map VarNum |> set
@@ -448,7 +465,7 @@ module TypeSystem =
     open TypeFighter.Utils
 
     /// A constraint in the form: the right type must be assignable to the left type    
-    type Constraint = { triviaSource: Expr; t1: MonoTyp; t2: MonoTyp }
+    type Constraint = { triviaSource: Expr<VarNum>; t1: MonoTyp; t2: MonoTyp }
 
     type SolutionItem = { tvar: VarNum; typ: Typ }
     type MSolutionItem = { tvar: VarNum; monoTyp: MonoTyp }
@@ -497,24 +514,16 @@ module TypeSystem =
     let rec substVarWithTypInTyp (tvarToReplace: VarNum) withTyp inTyp =
         substTypWithTypInTyp (SubstThis (TVar tvarToReplace)) withTyp inTyp
 
-    let generateConstraints (env: Env) (expr: Expr) =
+    let generateConstraints (env: Env) (expr: Expr<VarNum>) =
         let constraints = Mutable.fifo None
-        let appendConstraint (triviaSource: Expr) (tvar: VarNum) (typ: MonoTyp) =
+        let appendConstraint (triviaSource: Expr<VarNum>) (tvar: VarNum) (typ: MonoTyp) =
             do constraints.Append({ triviaSource = triviaSource; t1 = TVar tvar; t2 = typ })
 
         let recordRefs = Mutable.oneToMany None
 
         let mutable exprToEnv = Map.empty
-        let addEnv (expr: Expr) (env: Env) =
+        let addEnv (expr: Expr<VarNum>) (env: Env) =
             do exprToEnv <- exprToEnv |> Map.add expr env
-
-        let mutable currVar =
-            let maxEnvVarNum = Env.maxVar env
-            let maxExprVarNum = Expr.maxVar expr
-            max maxEnvVarNum maxExprVarNum
-        let newTVar () =
-            currVar <- currVar + 1
-            VarNum currVar
         
         let inst (typ: Typ) =
             match typ with
@@ -525,11 +534,11 @@ module TypeSystem =
                     match remainingVars with
                     | [] -> typ
                     | v :: remainingVars ->
-                        let substedTyp = substVarWithTypInTyp v (SubstWith (TVar (newTVar ()))) (SubstIn typ)
+                        let substedTyp = substVarWithTypInTyp v (SubstWith (TVar (VarNum.newVar ()))) (SubstIn typ)
                         substPoly remainingVars substedTyp
                 substPoly (poly.vars |> Set.toList) poly.monoTyp
 
-        let rec generateConstraints (env: Env) (expr: Expr) =
+        let rec generateConstraints (env: Env) (expr: Expr<VarNum>) =
             do addEnv expr env
             match expr with
             | Expr.Lit x ->
@@ -628,7 +637,7 @@ module TypeSystem =
 
                 appendConstraint expr x.tvar (TVar x.ident.tvar)
             | Expr.MkArray x ->
-                let elemTyp = TVar (newTVar ())
+                let elemTyp = TVar (VarNum.newVar ())
 
                 for v in x.values do
                     appendConstraint expr v.TVar elemTyp
@@ -715,7 +724,7 @@ module TypeSystem =
                 let nextConstraints = Mutable.fifo None
                 let recordRefs = Mutable.oneToMany (Some recordRefs)
 
-                let rec unifyTypes (source: Expr) (t1: MonoTyp) (t2: MonoTyp) =
+                let rec unifyTypes (source: Expr<VarNum>) (t1: MonoTyp) (t2: MonoTyp) =
                     let throwUniError message = raise (UnificationError(source, t1, t2, Some message))
 
                     let unifyRecordFields (requiredFields: Set<FieldDefinition>) (providedFields: Set<FieldDefinition>) =
@@ -881,7 +890,6 @@ module TypeSystem =
             solverRuns = solverRuns
         |}
 
-
 module Services =
 
     type SolveResult = 
@@ -895,10 +903,12 @@ module Services =
                     string
                 >
             solverRuns: list<TypeSystem.SolverRun>
-            exprToEnv: Map<Expr, Env>
+            exprToEnv: Map<Expr<VarNum>, Env>
         }
 
-    let solve (env: (string * Typ) list) (expr: Expr) =
+    let solve (env: (string * Typ) list) (expr: Expr<Unit>) =
+        let expr = Expr.initialExprToNumberedExpr expr
+
         // TODO: In Env, it should be disallowed having unquantified TVars
         
         // reindex all TVars in env and expr

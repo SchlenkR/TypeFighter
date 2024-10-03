@@ -39,9 +39,7 @@ let typeHierarchyEnv =
 *)
 let [<Test; Ignore("Acceptance invalid")>] ``implicit conversion from number to string`` () =
 
-    let x = ExprCtx()
-
-    x.App (x.App (x.Var "concat") (x.Lit "10")) (x.Lit "Hello")
+    X.App (X.App (X.Var "concat") (X.Lit "10")) (X.Lit "Hello")
     |> solve typeHierarchyEnv
     |> shouldSolveType (Mono BuiltinTypes.string)
 
