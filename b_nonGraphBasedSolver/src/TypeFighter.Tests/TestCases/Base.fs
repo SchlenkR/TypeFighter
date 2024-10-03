@@ -44,6 +44,8 @@ let [<Test>] ``literal`` () =
 *)
 let [<Test>] ``simple fun`` () =
 
+    // TODO: Re-Number when generalizing
+
     X.Fun (X.Ident "x") (X.Var "x")
     |> solve []
     |> shouldSolveType (TDef.Generalize (%1 ^-> %1))
@@ -57,9 +59,6 @@ let [<Test>] ``simple fun`` () =
     (fun x -> x) "fdf"
 *)
 let [<Test>] ``simple fun app`` () =
-
-    // TODO: Re-Number when generalizing
-
     X.App (X.Fun (X.Ident "x") (X.Var "x")) (X.Lit "xxx")
     |> solve []
     |> shouldSolveType (Mono BuiltinTypes.string)
