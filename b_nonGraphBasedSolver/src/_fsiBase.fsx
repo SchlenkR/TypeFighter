@@ -9,13 +9,11 @@ open TypeFighter.Lang
 
 module Visu =
 
-    let writeAnnotatedAst
+    let writeNumberedAst
+        (root: Expr<VarNum>)
         (solution: option<TypeSystem.SolutionItem list>) 
         (exprToEnv: Map<Expr<VarNum>, Env>)
-        (root: Expr<unit>)
-        =
-        let root = Expr.initialExprToNumberedExpr root
-
+        = 
         let rec flatten (node: Tree.Node) =
             [
                 yield node
@@ -51,7 +49,7 @@ module Visu =
                 )
                 |> Option.defaultValue ""
             let createExprNode name additionalInfo children =
-                Tree.expr (VarNum.number expr.TVar) (getExprTyp expr.TVar) name env additionalInfo children
+                Tree.expr (let (VarNum x) = expr.TVar in x) (getExprTyp expr.TVar) name env additionalInfo children
             match expr with
             | Expr.Lit x ->
                 createExprNode $"""Lit ("{x.value}") """ "" []
@@ -93,5 +91,6 @@ module Visu =
         
         do createNodes root |> flatten |> Tree.write
 
-    let writeExpr (expr: Expr<_>) =
-        writeAnnotatedAst None Map.empty expr
+    let writeAst (root: Expr<unit>) = 
+        let numGen = NumGen.mkGenerator ()
+        writeNumberedAst (Expr.toNumberedExpr root numGen)
