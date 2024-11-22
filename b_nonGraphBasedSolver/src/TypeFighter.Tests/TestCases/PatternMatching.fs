@@ -32,9 +32,9 @@ open TypeFighter.Lang
 // ERROR: Can't unify Number and String
 let [<Test>] ``error - match branches unification error`` () =
 
-    X.Match (X.App (X.Var "isValid") (X.Lit "42")) [
+    X.Match (X.App (X.Var "isValid") (X.Lit 42)) [
         X.Case "true" None (X.Lit "valid")
-        X.Case "false" None (X.Lit "34")
+        X.Case "false" None (X.Lit 34)
     ]
     |> solve
         [
@@ -52,7 +52,7 @@ let [<Test>] ``error - match branches unification error`` () =
 *)
 let [<Test>] ``match branches ok`` () =
 
-    X.Match (X.App (X.Var "isValid") (X.Lit "42")) [
+    X.Match (X.App (X.Var "isValid") (X.Lit 42)) [
         X.Case "True" None (X.Lit "valid")
         X.Case "False" None (X.Lit "invalid")
     ]
@@ -72,9 +72,9 @@ let [<Test>] ``match branches ok`` () =
 *)
 let [<Test>] ``match branches ok 2`` () =
 
-    X.Match (X.App (X.Var "isValid") (X.Lit "42")) [
-        X.Case "True" None (X.Lit "22")
-        X.Case "False" None (X.Lit "22")
+    X.Match (X.App (X.Var "isValid") (X.Lit 42)) [
+        X.Case "True" None (X.Lit 22)
+        X.Case "False" None (X.Lit 22)
     ]
     |> solve
         [

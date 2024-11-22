@@ -39,7 +39,7 @@ open TypeFighter.Lang
 *)
 let [<Test>] ``array literal number`` () =
 
-    X.MkArray [ X.Lit "1"; X.Lit "2"; X.Lit "3" ]
+    X.MkArray [ X.Lit 1; X.Lit 2; X.Lit 3 ]
     |> solve []
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.number))
 

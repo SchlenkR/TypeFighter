@@ -52,7 +52,12 @@ module Visu =
                 Tree.expr (let (VarNum x) = expr.TVar in x) (getExprTyp expr.TVar) name env additionalInfo children
             match expr with
             | Expr.Lit x ->
-                createExprNode $"""Lit ("{x.value}") """ "" []
+                let litTyp,litValue = 
+                    match x.value with 
+                    | Number value -> "number", (value.ToString())
+                    | String value -> "string", "'" + value + "'"
+                    | Boolean value -> "boolean", (value.ToString())
+                createExprNode $"""Lit ({litValue}) """ "" []
             | Expr.Var x ->
                 createExprNode $"""Var "{x.ident}" """ "" []
             | Expr.App x ->

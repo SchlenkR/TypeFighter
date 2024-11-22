@@ -33,11 +33,11 @@ let env =
 
 X.Let (X.Ident "play") (
     X.Fun (X.Ident "number") (
-        let cond = X.App (X.App (X.Var "equals") (X.Var "number")) (X.Lit "42")
+        let cond = X.App (X.App (X.Var "equals") (X.Var "number")) (X.Lit 42)
         X.App (X.App (X.App (X.Var "if") cond) (X.Lit "win")) (X.Lit "lose")
     )
 ) (
-    X.App (X.Var "play") (X.Lit "99")
+    X.App (X.Var "play") (X.Lit 99)
 )
 |> writeInitialAst
 // |> solve env

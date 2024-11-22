@@ -30,7 +30,7 @@ open TypeFighter.Lang
 let [<Test>] ``literal`` () =
 
    
-    X.Lit "10"
+    X.Lit 10
     // |> TypeSystem.generateConstraints Map.empty
     // |> TypeSystem.Helper.printConstraints
     |> solve []
@@ -72,7 +72,7 @@ let [<Test>] ``simple fun app`` () =
 *)
 let [<Test>] ``simple fun app 2`` () =
 
-    X.App (X.Fun (X.Ident "x") (X.Var "x")) (X.Lit "50")
+    X.App (X.Fun (X.Ident "x") (X.Var "x")) (X.Lit 50)
     |> solve []
     |> shouldSolveType (Mono BuiltinTypes.number)
 
@@ -85,7 +85,7 @@ let [<Test>] ``simple fun app 2`` () =
 *)
 let [<Test>] ``add 100 10`` () =
 
-    X.App (X.App (X.Var "add") (X.Lit "100")) (X.Lit "10")
+    X.App (X.App (X.Var "add") (X.Lit 100)) (X.Lit 10)
     |> solve 
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
@@ -101,7 +101,7 @@ let [<Test>] ``add 100 10`` () =
 *)
 let [<Test>] ``partial application`` () =
 
-    X.App (X.Var "add") (X.Lit "100")
+    X.App (X.Var "add") (X.Lit 100)
     |> solve 
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
@@ -120,8 +120,8 @@ let [<Test>] ``partial application`` () =
 *)
 let [<Test>] ``simple let`` () =
 
-    X.Let (X.Ident "x") (X.Lit "10") (
-        X.Let (X.Ident "y") (X.Lit "20") (
+    X.Let (X.Ident "x") (X.Lit 10) (
+        X.Let (X.Ident "y") (X.Lit 20) (
             X.App (X.App (X.Var "add") (X.Var "x")) (X.Var "y")
     ))
     |> solve
@@ -138,7 +138,7 @@ let [<Test>] ``simple let`` () =
 *)
 let [<Test>] ``addDays Now 10`` () =
 
-    X.App (X.App (X.Var "addDays") (X.Var "Now")) (X.Lit "10")
+    X.App (X.App (X.Var "addDays") (X.Var "Now")) (X.Lit 10)
     |> solve
         [
             "addDays", Mono (BuiltinTypes.date ^-> BuiltinTypes.number ^-> BuiltinTypes.date)
@@ -154,7 +154,7 @@ let [<Test>] ``addDays Now 10`` () =
 // ERROR: no implicit conversion from string to number (Can't unify Number and String)
 let [<Test>] ``error - add wrong types`` () =
 
-    X.App (X.App (X.Var "add") (X.Lit "10")) (X.Lit "Hello")
+    X.App (X.App (X.Var "add") (X.Lit 10)) (X.Lit "Hello")
     |> solve 
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)

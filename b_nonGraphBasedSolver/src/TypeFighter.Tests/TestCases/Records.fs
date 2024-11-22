@@ -65,7 +65,7 @@ let [<Test>] ``let bound record`` () =
     let ast =
         X.Let (X.Ident "myRecord") (
             X.MkRecord [
-                X.Field "age" (X.Lit "22")
+                X.Field "age" (X.Lit 22)
                 X.Field "name" (X.Lit "John")
             ]
         ) (X.Var "myRecord")
@@ -95,7 +95,7 @@ let [<Test>] ``let bound record and access prop`` () =
     let ast =
         X.Let (X.Ident "myRecord") (
             X.MkRecord [
-                X.Field "age" (X.Lit "22")
+                X.Field "age" (X.Lit 22)
                 X.Field "name" (X.Lit "John")
             ]
         ) (
@@ -121,7 +121,7 @@ let [<Test>] ``let bound record and access prop 2`` () =
     let ast =
         X.Let (X.Ident "myRecord") (
             X.MkRecord [
-                X.Field "age" (X.Lit "22")
+                X.Field "age" (X.Lit 22)
                 X.Field "name" (X.Lit "John")
             ]
         ) (
@@ -149,7 +149,7 @@ let [<Test>] ``error - let bound record and access non existing prop`` () =
     let ast =
         X.Let (X.Ident "myRecord") (
             X.MkRecord [
-                X.Field "age" (X.Lit "22")
+                X.Field "age" (X.Lit 22)
                 X.Field "name" (X.Lit "John")
             ]
         ) (
@@ -178,8 +178,8 @@ let [<Test>] ``comparing two ununifiable record fields from one record should fa
         X.Let
             (X.Ident "r")
             (X.MkRecord [
-                X.Field "IntField" (X.Lit "3")
-                X.Field "BooleanField" (X.Lit "true")
+                X.Field "IntField" (X.Lit 3)
+                X.Field "BooleanField" (X.Lit true)
             ])
             (X.App
                 (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "BooleanField"))
@@ -216,8 +216,8 @@ let [<Test>] ``accessing two record fields in boolean expression should solve`` 
         X.Let
             (X.Ident "r")
             (X.MkRecord [
-                X.Field "IntField" (X.Lit "3")
-                X.Field "BooleanField" (X.Lit "true")
+                X.Field "IntField" (X.Lit 3)
+                X.Field "BooleanField" (X.Lit true)
             ])
             (X.App
                 (X.App (X.Var "AND") left)
@@ -247,14 +247,14 @@ let [<Test>] ``array with multiple record elements should solve`` () =
         X.MkArray
             [
                 X.MkRecord [
-                    X.Field "myfield" (X.Lit "1")
+                    X.Field "myfield" (X.Lit 1)
                 ]
                 X.MkRecord [
                    X.Field
                         "myfield"
                         (X.App
                           (X.Var "plusOne")
-                          (X.Lit "1")) 
+                          (X.Lit 1)) 
                 ]
             ]
     let plusOneFunc =
@@ -265,7 +265,7 @@ let [<Test>] ``array with multiple record elements should solve`` () =
                   (X.App
                     (X.Var "ADD")
                     (X.Var "x"))
-                  (X.Lit "1")))
+                  (X.Lit 1)))
             body
  
     let ast = plusOneFunc
@@ -299,15 +299,15 @@ let [<Test>] ``function with record argument should solve`` () =
                         (X.Var "AND")
                         (X.App
                             (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "IntField"))
-                            (X.Lit "3")))
+                            (X.Lit 3)))
                     (X.App
                         (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "BooleanField"))
-                        (X.Lit "true"))))
+                        (X.Lit true))))
             (X.App
                 (X.Var "myFunc")
                 (X.MkRecord [
-                    X.Field "IntField" (X.Lit "3")
-                    X.Field "BooleanField" (X.Lit "true")
+                    X.Field "IntField" (X.Lit 3)
+                    X.Field "BooleanField" (X.Lit true)
                 ]))
 
     solve defaultTcEnv ast
@@ -332,7 +332,7 @@ let [<Test>] ``lambda taking record infers correct type`` () =
                 (X.App
                     (X.Var "EQUALS")
                     (X.PropAcc (X.Var "r") "IntField"))
-                (X.Lit "3"))
+                (X.Lit 3))
  
     ast 
     |> solve defaultTcEnv
@@ -362,10 +362,10 @@ let [<Test>] ``anonymous function taking record solves on correct field usage`` 
                     (X.Var "AND")
                     (X.App
                         (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "IntField"))
-                        (X.Lit "3")))
+                        (X.Lit 3)))
                 (X.App
                     (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "BooleanField"))
-                    (X.Lit "true")))
+                    (X.Lit true)))
  
     ast 
     |> solve defaultTcEnv 
@@ -411,8 +411,8 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
             (X.App
                 (X.Var "myFunc")
                 (X.MkRecord [
-                    X.Field "IntField" (X.Lit "3")
-                    X.Field "BooleanField" (X.Lit "true")
+                    X.Field "IntField" (X.Lit 3)
+                    X.Field "BooleanField" (X.Lit true)
                 ]))
 
     ast
@@ -441,10 +441,10 @@ let [<Test>] ``xxxxxxxx`` () =
                     (X.Var "AND")
                     (X.App
                         (X.App (X.Var "EQUALS") (X.Var "a"))
-                        (X.Lit "3")))
+                        (X.Lit 3)))
                 (X.App
                     (X.App (X.Var "EQUALS") (X.Var "a"))
-                    (X.Lit "true")))
+                    (X.Lit true)))
  
     ast
     |> solve defaultTcEnv 
@@ -491,8 +491,8 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
         X.Let
             (X.Ident "inst")
             (X.MkRecord [
-                X.Field "IntField" (X.Lit "3")
-                X.Field "BooleanField" (X.Lit "true")
+                X.Field "IntField" (X.Lit 3)
+                X.Field "BooleanField" (X.Lit true)
             ])
             (X.Let
                 (X.Ident "myFunc")
@@ -502,10 +502,10 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
                             (X.Var "AND")
                             (X.App
                                 (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "IntField"))
-                                (X.Lit "3")))
+                                (X.Lit 3)))
                             (X.App
                                 (X.App (X.Var "EQUALS") (X.PropAcc (X.Var "r") "BooleanField"))
-                                (X.Lit "true"))))
+                                (X.Lit true))))
                 (X.App
                     (X.Var "myFunc")
                     (X.Var "inst")))

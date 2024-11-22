@@ -32,8 +32,8 @@ open TypeFighter.Lang
 let [<Test>] ``polymorphic "log"`` () =
 
     X.Do (X.App (X.Var "log") (X.Lit "Hello")) (
-        X.Do (X.App (X.Var "log") (X.Lit "88")) (
-            X.Lit "42"
+        X.Do (X.App (X.Var "log") (X.Lit 88)) (
+            X.Lit 42
         )
     )
     |> solve
@@ -54,8 +54,8 @@ let [<Test>] ``polymorphic "log"`` () =
 let [<Test>] ``polymorphic "mkPoly" with infered record`` () =
 
     X.MkRecord [
-        X.Field "r1" (X.App (X.Var "mkPoly") (X.Lit "true"))
-        X.Field "r2" (X.App (X.Var "mkPoly") (X.Lit "33"))
+        X.Field "r1" (X.App (X.Var "mkPoly") (X.Lit true))
+        X.Field "r2" (X.App (X.Var "mkPoly") (X.Lit 33))
     ]
     |> solve
         [

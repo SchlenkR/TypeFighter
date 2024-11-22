@@ -93,7 +93,7 @@ window.nodeDataArray = [
   },
   {
     "key": 6,
-    "name": "Lit (\u0022String \u002242\u0022\u0022) ",
+    "name": "Lit (42) ",
     "varNum": "6",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -102,7 +102,7 @@ window.nodeDataArray = [
   },
   {
     "key": 9,
-    "name": "Lit (\u0022String \u0022win\u0022\u0022) ",
+    "name": "Lit (\u0027win\u0027) ",
     "varNum": "9",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -111,7 +111,7 @@ window.nodeDataArray = [
   },
   {
     "key": 11,
-    "name": "Lit (\u0022String \u0022lose\u0022\u0022) ",
+    "name": "Lit (\u0027lose\u0027) ",
     "varNum": "11",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -138,7 +138,7 @@ window.nodeDataArray = [
   },
   {
     "key": 15,
-    "name": "Lit (\u0022String \u002299\u0022\u0022) ",
+    "name": "Lit (99) ",
     "varNum": "15",
     "additionalInfo": "",
     "exprTyp": "???",

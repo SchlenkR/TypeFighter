@@ -42,7 +42,7 @@ The pseudo-code can be translated into an Abstract Syntax Tree (AST) as follows:
 *)
 
 let x = ExprCtx()
-let ast = x.App (x.App (x.Var "add") (x.Lit "100")) (x.Lit "10")
+let ast = x.App (x.App (x.Var "add") (x.Lit 100)) (x.Lit 10)
 ```
 
 The AST can be solved using the Type Fighter solver, and the result can be asserted as follows:
@@ -248,8 +248,8 @@ let ast =
     x.Let
         (x.Ident "inst")
         (x.MkRecord [
-            x.Field "IntField" (x.Lit "3")
-            x.Field "BooleanField" (x.Lit "true")
+            x.Field "IntField" (x.Lit 3)
+            x.Field "BooleanField" (x.Lit true)
         ])
         (x.Let
             (x.Ident "myFunc")
@@ -259,10 +259,10 @@ let ast =
                         (x.Var "AND")
                         (x.App
                             (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "IntField"))
-                            (x.Lit "3")))
+                            (x.Lit 3)))
                         (x.App
                             (x.App (x.Var "EQUALS") (x.PropAcc (x.Var "r") "BooleanField"))
-                            (x.Lit "true"))))
+                            (x.Lit true))))
             (x.App
                 (x.Var "myFunc")
                 (x.Var "inst")))
