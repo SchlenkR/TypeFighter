@@ -63,27 +63,29 @@ function treeLayout() {
           new go.Binding('text', 'additionalInfo'),
           new go.Binding('visible', 'additionalInfo', v => v !== '')
         ),
-        $(
-          go.TextBlock,
-          {
-            row: 2,
-            font: '10pt Consolas',
-            spacingAbove: 4,
-          },
-          new go.Binding('text', 'exprTyp')
-        ),
-        $('PanelExpanderButton', 'INFO', { row: 3 }),
-        $(
-          go.Panel,
-          'Vertical',
-          {
-            name: 'INFO', // identify to the PanelExpanderButton
-            margin: 8,
-            row: 4,
-            defaultAlignment: go.Spot.Left,
-          },
-          $(go.TextBlock, new go.Binding('text', 'env'))
-        )
+
+        // $(
+        //   go.TextBlock,
+        //   {
+        //     row: 2,
+        //     font: '10pt Consolas',
+        //     spacingAbove: 4,
+        //   },
+        //   new go.Binding('text', 'exprTyp')
+        // ),
+        // $('PanelExpanderButton', 'INFO', { row: 3 }),
+        // $(
+        //   go.Panel,
+        //   'Vertical',
+        //   {
+        //     name: 'INFO', // identify to the PanelExpanderButton
+        //     margin: 8,
+        //     row: 4,
+        //     defaultAlignment: go.Spot.Left,
+        //   },
+        //   $(go.TextBlock, new go.Binding('text', 'env'))
+        // )
+
       )
     );
   };
