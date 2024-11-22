@@ -78,7 +78,8 @@ function treeLayout() {
             font: '10pt Consolas',
             spacingAbove: 4,
           },
-          new go.Binding('text', 'exprTyp')
+          new go.Binding('text', 'exprTyp'),
+          new go.Binding('visible', 'exprTyp', v => v !== '')
         )
 
         // $('PanelExpanderButton', 'INFO', { row: 3 }),

@@ -24,7 +24,7 @@ module Visu =
         let rec createNodes (expr: Expr<_>) =
             let getIdentDetails (ident: Ident<_>) = $"{ident.identName} : {ident.tvar}"
             let getExprTyp tvar =
-                let unknown = "???"
+                let unknown = ""
                 match solution with
                 | None -> unknown
                 | Some solution ->
