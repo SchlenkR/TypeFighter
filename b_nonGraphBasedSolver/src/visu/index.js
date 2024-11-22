@@ -1,5 +1,7 @@
 import * as go from 'gojs';
 
+const nonBreakingSpace = '\u00A0';
+
 function treeLayout() {
   var inst = {};
 
@@ -50,9 +52,10 @@ function treeLayout() {
               alignment: go.Spot.Center,
               margin: new go.Margin(0, 0, 0, 10),
             },
-            new go.Binding('text', 'varNum')
+            new go.Binding('text', 'varNum', v => "tv_" + v)
           )
         ),
+
         $(
           go.TextBlock,
           {
@@ -60,19 +63,24 @@ function treeLayout() {
             font: '10pt Consolas',
             spacingAbove: 4,
           },
-          new go.Binding('text', 'additionalInfo'),
+          new go.Binding('text', 'additionalInfo', v => ".           " + v),
+          {
+            stroke: 'gray',
+            font: 'italic 10pt Consolas',
+          },
           new go.Binding('visible', 'additionalInfo', v => v !== '')
         ),
 
-        // $(
-        //   go.TextBlock,
-        //   {
-        //     row: 2,
-        //     font: '10pt Consolas',
-        //     spacingAbove: 4,
-        //   },
-        //   new go.Binding('text', 'exprTyp')
-        // ),
+        $(
+          go.TextBlock,
+          {
+            row: 2,
+            font: '10pt Consolas',
+            spacingAbove: 4,
+          },
+          new go.Binding('text', 'exprTyp')
+        )
+
         // $('PanelExpanderButton', 'INFO', { row: 3 }),
         // $(
         //   go.Panel,
@@ -85,7 +93,6 @@ function treeLayout() {
         //   },
         //   $(go.TextBlock, new go.Binding('text', 'env'))
         // )
-
       )
     );
   };

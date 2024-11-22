@@ -6,7 +6,7 @@ window.nodeDataArray = [
     "name": "Let play = ...",
     "varNum": "17",
     "additionalInfo": "play : tv_0",
-    "exprTyp": "???",
+    "exprTyp": "String",
     "env": "",
     "fig": "Rectangle"
   },
@@ -15,7 +15,7 @@ window.nodeDataArray = [
     "name": "Fun number -\u003E ...",
     "varNum": "13",
     "additionalInfo": "number : tv_1",
-    "exprTyp": "???",
+    "exprTyp": "(Number -\u003E String)",
     "env": "",
     "fig": "Rectangle"
   },
@@ -24,8 +24,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "12",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "String",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -33,8 +33,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "10",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "(String -\u003E String)",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -42,8 +42,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "8",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "(String -\u003E (String -\u003E String))",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -51,8 +51,8 @@ window.nodeDataArray = [
     "name": "Var \u0022if\u0022 ",
     "varNum": "2",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "(Bool -\u003E (String -\u003E (String -\u003E String)))",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -60,8 +60,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "7",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "Bool",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -69,8 +69,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "5",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "(Number -\u003E Bool)",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -78,8 +78,8 @@ window.nodeDataArray = [
     "name": "Var \u0022equals\u0022 ",
     "varNum": "3",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "(Number -\u003E (Number -\u003E Bool))",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -87,8 +87,8 @@ window.nodeDataArray = [
     "name": "Var \u0022number\u0022 ",
     "varNum": "4",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "Number",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -96,8 +96,8 @@ window.nodeDataArray = [
     "name": "Lit (42) ",
     "varNum": "6",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "Number",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -105,8 +105,8 @@ window.nodeDataArray = [
     "name": "Lit (\u0027win\u0027) ",
     "varNum": "9",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "String",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -114,8 +114,8 @@ window.nodeDataArray = [
     "name": "Lit (\u0027lose\u0027) ",
     "varNum": "11",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "String",
+    "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
   {
@@ -123,8 +123,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "16",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "String",
+    "env": "play: tv_0 ((Number -\u003E String))",
     "fig": "Rectangle"
   },
   {
@@ -132,8 +132,8 @@ window.nodeDataArray = [
     "name": "Var \u0022play\u0022 ",
     "varNum": "14",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "(Number -\u003E String)",
+    "env": "play: tv_0 ((Number -\u003E String))",
     "fig": "Rectangle"
   },
   {
@@ -141,8 +141,8 @@ window.nodeDataArray = [
     "name": "Lit (99) ",
     "varNum": "15",
     "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
+    "exprTyp": "Number",
+    "env": "play: tv_0 ((Number -\u003E String))",
     "fig": "Rectangle"
   }
 ];

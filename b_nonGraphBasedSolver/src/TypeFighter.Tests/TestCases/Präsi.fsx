@@ -27,8 +27,7 @@ let env =
 (*
     let play = number =>
         if (equals(number, 42), "win", "lose")
-    let ourChoice = random(0, 10)
-    play(ourChoice)
+    play(99)
 *)
 
 X.Let (X.Ident "play") (
@@ -39,8 +38,11 @@ X.Let (X.Ident "play") (
 ) (
     X.App (X.Var "play") (X.Lit 99)
 )
-|> writeInitialAst
-// |> solve env
+
+// |> writeInitialAst
+
+|> solve env
+
 // |> shouldSolveType (Mono BuiltinTypes.string)
 // |> ignore
 
