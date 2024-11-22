@@ -22,16 +22,18 @@ module Visu =
             ]
 
         let rec createNodes (expr: Expr<_>) =
-            let getIdentDetails (ident: Ident<_>) = $"{ident.identName} : {ident.tvar}"
-            let getExprTyp tvar =
-                let unknown = ""
+            let tryGetExprTyp tvar =
                 match solution with
-                | None -> unknown
+                | None -> None
                 | Some solution ->
                     solution 
                     |> List.tryFind (fun s -> s.tvar = tvar)
                     |> Option.map (_.typ.ToString())
-                    |> Option.defaultValue unknown
+            let getExprTyp tvar =
+                tryGetExprTyp tvar |> Option.defaultValue ""
+            let getIdentDetails (ident: Ident<_>) =
+                let typ = tryGetExprTyp ident.tvar |> Option.defaultValue ""
+                $"IDENT = {ident.identName}   TVAR = {ident.tvar}   TYP = {typ}"
             let env =
                 exprToEnv
                 |> Map.tryFind expr

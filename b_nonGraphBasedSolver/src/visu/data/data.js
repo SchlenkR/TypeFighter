@@ -5,7 +5,7 @@ window.nodeDataArray = [
     "key": 17,
     "name": "Let play = ...",
     "varNum": "17",
-    "additionalInfo": "play : tv_0",
+    "additionalInfo": "IDENT = play   TVAR = tv_0   TYP = ",
     "exprTyp": "",
     "env": "",
     "fig": "Rectangle"
@@ -14,7 +14,7 @@ window.nodeDataArray = [
     "key": 13,
     "name": "Fun number -\u003E ...",
     "varNum": "13",
-    "additionalInfo": "number : tv_1",
+    "additionalInfo": "IDENT = number   TVAR = tv_1   TYP = ",
     "exprTyp": "",
     "env": "",
     "fig": "Rectangle"
@@ -25,7 +25,7 @@ window.nodeDataArray = [
     "varNum": "12",
     "additionalInfo": "",
     "exprTyp": "",
-    "env": "number: tv_1 (Number)",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -34,7 +34,7 @@ window.nodeDataArray = [
     "varNum": "10",
     "additionalInfo": "",
     "exprTyp": "",
-    "env": "number: tv_1 (Number)",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -43,7 +43,7 @@ window.nodeDataArray = [
     "varNum": "8",
     "additionalInfo": "",
     "exprTyp": "",
-    "env": "number: tv_1 (Number)",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -51,8 +51,8 @@ window.nodeDataArray = [
     "name": "Var \u0022if\u0022 ",
     "varNum": "2",
     "additionalInfo": "",
-    "exprTyp": "\u003Ctv_18\u003E.(Bool -\u003E (tv_18 -\u003E (tv_18 -\u003E tv_18)))",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -60,8 +60,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "7",
     "additionalInfo": "",
-    "exprTyp": "Bool",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -69,8 +69,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "5",
     "additionalInfo": "",
-    "exprTyp": "(Number -\u003E Bool)",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -78,8 +78,8 @@ window.nodeDataArray = [
     "name": "Var \u0022equals\u0022 ",
     "varNum": "3",
     "additionalInfo": "",
-    "exprTyp": "(Number -\u003E (Number -\u003E Bool))",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -87,8 +87,8 @@ window.nodeDataArray = [
     "name": "Var \u0022number\u0022 ",
     "varNum": "4",
     "additionalInfo": "",
-    "exprTyp": "Number",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -96,8 +96,8 @@ window.nodeDataArray = [
     "name": "Lit (42) ",
     "varNum": "6",
     "additionalInfo": "",
-    "exprTyp": "Number",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -105,8 +105,8 @@ window.nodeDataArray = [
     "name": "Lit (\u0027win\u0027) ",
     "varNum": "9",
     "additionalInfo": "",
-    "exprTyp": "String",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {
@@ -114,8 +114,8 @@ window.nodeDataArray = [
     "name": "Lit (\u0027lose\u0027) ",
     "varNum": "11",
     "additionalInfo": "",
-    "exprTyp": "String",
-    "env": "number: tv_1 (Number)",
+    "exprTyp": "",
+    "env": "number: tv_1 ()",
     "fig": "Rectangle"
   },
   {

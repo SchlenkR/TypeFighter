@@ -63,7 +63,7 @@ function treeLayout() {
             font: '10pt Consolas',
             spacingAbove: 4,
           },
-          new go.Binding('text', 'additionalInfo', v => '.           ' + v),
+          new go.Binding('text', 'additionalInfo'),
           {
             stroke: 'gray',
             font: 'italic 10pt Consolas',

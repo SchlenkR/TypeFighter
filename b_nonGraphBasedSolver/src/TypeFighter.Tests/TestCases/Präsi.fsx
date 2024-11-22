@@ -39,11 +39,10 @@ let expr =
     ) (
         X.App (X.Var "play") (X.Lit 99)
     )
+    
 
-    // |> writeInitialAst
-    // |> solve env None
-    // |> shouldSolveType (Mono BuiltinTypes.string)
-    // |> ignore
+
+expr |> writeInitialAst
 
 
 for i in 0..30 do
