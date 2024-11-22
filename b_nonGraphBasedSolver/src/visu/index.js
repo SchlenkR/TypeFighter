@@ -52,7 +52,7 @@ function treeLayout() {
               alignment: go.Spot.Center,
               margin: new go.Margin(0, 0, 0, 10),
             },
-            new go.Binding('text', 'varNum', v => "tv_" + v)
+            new go.Binding('text', 'varNum', v => 'tv_' + v)
           )
         ),
 
@@ -63,7 +63,7 @@ function treeLayout() {
             font: '10pt Consolas',
             spacingAbove: 4,
           },
-          new go.Binding('text', 'additionalInfo', v => ".           " + v),
+          new go.Binding('text', 'additionalInfo', v => '.           ' + v),
           {
             stroke: 'gray',
             font: 'italic 10pt Consolas',
@@ -79,6 +79,10 @@ function treeLayout() {
             spacingAbove: 4,
           },
           new go.Binding('text', 'exprTyp'),
+          {
+            stroke: 'green',
+            font: 'bold 14pt Consolas',
+          },
           new go.Binding('visible', 'exprTyp', v => v !== '')
         )
 

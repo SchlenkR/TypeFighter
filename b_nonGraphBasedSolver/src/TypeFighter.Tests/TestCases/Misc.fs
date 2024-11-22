@@ -44,5 +44,6 @@ let [<Test>] ``error - SetField wrong types`` () =
                 ])
             ])
         ]
+        None
     |> shouldFail
 

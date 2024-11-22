@@ -40,7 +40,7 @@ open TypeFighter.Lang
 let [<Test>] ``array literal number`` () =
 
     X.MkArray [ X.Lit 1; X.Lit 2; X.Lit 3 ]
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.number))
 
 
@@ -50,7 +50,7 @@ let [<Test>] ``array literal number`` () =
 let [<Test>] ``array literal string`` () =
 
     X.MkArray [ X.Lit "a"; X.Lit "b"; X.Lit "c" ]
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.string))
 
 
@@ -62,7 +62,7 @@ let [<Test>] ``array literal string`` () =
 let [<Test>] ``error - non-homogeneous arrays`` () =
 
     X.MkArray [ X.Lit "a"; X.Lit "1"; X.Lit "c" ]
-    |> solve []
+    |> solve [] None
     |> shouldFail
 
 
@@ -103,5 +103,6 @@ let [<Test>] ``array with multiple record elements having field value from funct
     // TODO: Comparison of poly types according to poly type params naming/numbering has to be implemented correctly
     //       + apply reindexing of vars (see reindex vars for external envs)
     //       %14 - that's the thing here.
-    solve defaultTcEnv ast
+    ast 
+    |> solve defaultTcEnv None
     |> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %14 ])))

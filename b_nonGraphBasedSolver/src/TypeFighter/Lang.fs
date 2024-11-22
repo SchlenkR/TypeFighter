@@ -733,7 +733,7 @@ module TypeSystem =
                 { tvar = s.tvar; typ = Typ.gen s.monoTyp } 
         ]
                 
-    let solveConstraints (constraints: Constraint list) (recordRefs: RecordRefs) =
+    let solveConstraints (constraints: Constraint list) (recordRefs: RecordRefs) maxSolverRuns =
         let mutable solverRuns = []
    
         let rec solve (constraints: Constraint list) (recordRefs: RecordRefs) (solutionItems: MSolutionItem list) =
@@ -747,168 +747,177 @@ module TypeSystem =
                         solutionItems = solutionItems }
                 ]
 
-            match constraints with
-            | [] -> solutionItems,recordRefs
-            | c :: constraints ->
-                let mutable constraints = constraints
-                let mutable solutionItems = solutionItems
-                let nextConstraints = Mutable.fifo None
-                let recordRefs = Mutable.oneToMany (Some recordRefs)
+            let continueSolve =
+                match maxSolverRuns with
+                | None -> true
+                | Some maxSolverRuns when solverRuns.Length <= maxSolverRuns -> true
+                | _ -> false
 
-                let rec unifyTypes (source: Expr<VarNum>) (t1: MonoTyp) (t2: MonoTyp) =
-                    let throwUniError message = raise (UnificationError(source, t1, t2, Some message))
+            if continueSolve then
+                match constraints with
+                | [] -> solutionItems,recordRefs
+                | c :: constraints ->
+                    let mutable constraints = constraints
+                    let mutable solutionItems = solutionItems
+                    let nextConstraints = Mutable.fifo None
+                    let recordRefs = Mutable.oneToMany (Some recordRefs)
 
-                    let unifyRecordFields (requiredFields: Set<FieldDefinition>) (providedFields: Set<FieldDefinition>) =
-                        let unprovidedFields =
-                            requiredFields
-                            |> Set.filter (fun f -> not (providedFields |> Set.exists (fun pf -> pf.fname = f.fname)))
-                        if unprovidedFields <> Set.empty then
-                            throwUniError $"The following members are required, but missing in the provided record: {unprovidedFields}"
-                        for requiredField in requiredFields do
-                            let providedField =
-                                providedFields
-                                |> Set.toSeq
-                                |> Seq.tryFind (fun f -> f.fname = requiredField.fname)
-                            match providedField with
-                            | None ->
-                                throwUniError $"Member '{requiredField.fname}' is missing in type {providedFields}"
-                            | Some existingField ->
-                                try
-                                    do unifyTypes source requiredField.typ existingField.typ
-                                with
-                                | :? UnificationError as uniErr ->
-                                    let detail = match uniErr.Reason with Some r -> $": {r}" | None -> ""
-                                    raise (UnificationError(
-                                        source, 
-                                        uniErr.T1, 
-                                        uniErr.T2, 
-                                        Some $"Type mismatch in record field '{requiredField.fname}'{detail}"))
+                    let rec unifyTypes (source: Expr<VarNum>) (t1: MonoTyp) (t2: MonoTyp) =
+                        let throwUniError message = raise (UnificationError(source, t1, t2, Some message))
 
-                    match t1,t2 with
-                    | t1,t2 when t1 = t2 -> ()
-                    | t, TVar tvar
-                    | TVar tvar, t -> nextConstraints.Append({ triviaSource = source; t1 = TVar tvar; t2 = t })
-                    | LeafTyp app1, LeafTyp app2 when app1.name = app2.name ->
-                        let rec loop funArgs1 funArgs2 =
-                            match funArgs1, funArgs2 with
-                            | [], [] -> ()
-                            | a1 :: args1, a2 :: args2 ->
-                                do loop args1 args2
-                                do unifyTypes source a1 a2
-                            | [], args
-                            | args, [] -> throwUniError "Type parameters count mismatch."
-                        do loop app1.args app2.args
-                    | FunTyp (ta, tb), FunTyp (tc, td) ->
-                        do unifyTypes source ta tc
-                        do unifyTypes source tb td
-                    | RecordRefTyp recref, RecordTyp providedRecord
-                    | RecordTyp providedRecord, RecordRefTyp recref ->
-                        let requiredFields = recordRefs.Find(recref)
-                        do unifyRecordFields requiredFields providedRecord.fields
-                    | RecordTyp _, IntersectionTyp _
-                    | IntersectionTyp _, RecordTyp _ ->
-                        failwith "TRecord and TIntersection: We need to tweak that, too."
-                        // [
-                        //     for providedRecord in providedRecords do
-                        //         yield! unifyRecordFields requiredFields.fields providedRecord.fields
-                        // ]
-                    | RecordRefTyp recref1, RecordRefTyp recref2 ->
-                        let fields1 = recordRefs.Find(recref1)
-                        let fields2 = recordRefs.Find(recref2)
+                        let unifyRecordFields (requiredFields: Set<FieldDefinition>) (providedFields: Set<FieldDefinition>) =
+                            let unprovidedFields =
+                                requiredFields
+                                |> Set.filter (fun f -> not (providedFields |> Set.exists (fun pf -> pf.fname = f.fname)))
+                            if unprovidedFields <> Set.empty then
+                                throwUniError $"The following members are required, but missing in the provided record: {unprovidedFields}"
+                            for requiredField in requiredFields do
+                                let providedField =
+                                    providedFields
+                                    |> Set.toSeq
+                                    |> Seq.tryFind (fun f -> f.fname = requiredField.fname)
+                                match providedField with
+                                | None ->
+                                    throwUniError $"Member '{requiredField.fname}' is missing in type {providedFields}"
+                                | Some existingField ->
+                                    try
+                                        do unifyTypes source requiredField.typ existingField.typ
+                                    with
+                                    | :? UnificationError as uniErr ->
+                                        let detail = match uniErr.Reason with Some r -> $": {r}" | None -> ""
+                                        raise (UnificationError(
+                                            source, 
+                                            uniErr.T1, 
+                                            uniErr.T2, 
+                                            Some $"Type mismatch in record field '{requiredField.fname}'{detail}"))
 
-                        // unify the fields by name of of both records
-                        let groupedFieldsByName =
-                            [
-                                yield! recordRefs.Find(recref1)
-                                yield! recordRefs.Find(recref2)
-                            ]
-                            |> List.groupBy _.fname
-                        let unifyableFields = groupedFieldsByName |> List.choose (fun (fname, fields) ->
-                            match fields with
-                            | [f1;f2] -> Some (fname, f1, f2)
-                            | _ -> None)
-                        for fname, f1, f2 in unifyableFields do
-                            do unifyTypes source f1.typ f2.typ
+                        match t1,t2 with
+                        | t1,t2 when t1 = t2 -> ()
+                        | t, TVar tvar
+                        | TVar tvar, t -> nextConstraints.Append({ triviaSource = source; t1 = TVar tvar; t2 = t })
+                        | LeafTyp app1, LeafTyp app2 when app1.name = app2.name ->
+                            let rec loop funArgs1 funArgs2 =
+                                match funArgs1, funArgs2 with
+                                | [], [] -> ()
+                                | a1 :: args1, a2 :: args2 ->
+                                    do loop args1 args2
+                                    do unifyTypes source a1 a2
+                                | [], args
+                                | args, [] -> throwUniError "Type parameters count mismatch."
+                            do loop app1.args app2.args
+                        | FunTyp (ta, tb), FunTyp (tc, td) ->
+                            do unifyTypes source ta tc
+                            do unifyTypes source tb td
+                        | RecordRefTyp recref, RecordTyp providedRecord
+                        | RecordTyp providedRecord, RecordRefTyp recref ->
+                            let requiredFields = recordRefs.Find(recref)
+                            do unifyRecordFields requiredFields providedRecord.fields
+                        | RecordTyp _, IntersectionTyp _
+                        | IntersectionTyp _, RecordTyp _ ->
+                            failwith "TRecord and TIntersection: We need to tweak that, too."
+                            // [
+                            //     for providedRecord in providedRecords do
+                            //         yield! unifyRecordFields requiredFields.fields providedRecord.fields
+                            // ]
+                        | RecordRefTyp recref1, RecordRefTyp recref2 ->
+                            let fields1 = recordRefs.Find(recref1)
+                            let fields2 = recordRefs.Find(recref2)
 
-                        // merge the fields of both records
-                        let mergedFields = set [ yield! fields1; yield! fields2 ]
-                        do recordRefs.Remove(recref1)
-                        do recordRefs.Replace(recref2, mergedFields)
+                            // unify the fields by name of of both records
+                            let groupedFieldsByName =
+                                [
+                                    yield! recordRefs.Find(recref1)
+                                    yield! recordRefs.Find(recref2)
+                                ]
+                                |> List.groupBy _.fname
+                            let unifyableFields = groupedFieldsByName |> List.choose (fun (fname, fields) ->
+                                match fields with
+                                | [f1;f2] -> Some (fname, f1, f2)
+                                | _ -> None)
+                            for fname, f1, f2 in unifyableFields do
+                                do unifyTypes source f1.typ f2.typ
 
-                        // Now, we also have to reset all references currently pointing to recref1 so that they point to recref2
-                        // in all constraints and solutions
-                        do constraints <-
-                            [
-                                for c in constraints do
-                                    {
-                                        triviaSource = c.triviaSource
-                                        t1 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t1)
-                                        t2 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t2)
-                                    }
-                            ]
+                            // merge the fields of both records
+                            let mergedFields = set [ yield! fields1; yield! fields2 ]
+                            do recordRefs.Remove(recref1)
+                            do recordRefs.Replace(recref2, mergedFields)
+
+                            // Now, we also have to reset all references currently pointing to recref1 so that they point to recref2
+                            // in all constraints and solutions
+                            do constraints <-
+                                [
+                                    for c in constraints do
+                                        {
+                                            triviaSource = c.triviaSource
+                                            t1 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t1)
+                                            t2 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t2)
+                                        }
+                                ]
+                            do solutionItems <-
+                                [
+                                    for s in solutionItems do
+                                        {
+                                            tvar = s.tvar
+                                            monoTyp = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn s.monoTyp)
+                                        }
+                                ]
+                        | RecordTyp rec1, RecordTyp rec2 ->
+                            unifyRecordFields rec1.fields rec2.fields
+                        | t1, t2 ->
+                            let getCaseLabel (du: 'T) =
+                                let case, _ = Reflection.FSharpValue.GetUnionFields(du, typeof<'T>)
+                                case.Name
+                            throwUniError $"Unification cases are not handled. T1: {getCaseLabel t1}, T2: {getCaseLabel t2}"
+
+                    // we try to keep only the constraints mutable, because we could otherwise easily forget
+                    // adding elements in all branches (this happened right now, and it was a pain to find out).
+                    match c.t1, c.t2 with
+                    | TVar left, right ->
+                        // replace tvar with t in all other constraints
+                        // replace tvar with t in all solutions
+                        // add a new solution to solutions
+                        // continue to solve
+                        for c in constraints do
+                            do nextConstraints.Append
+                                {
+                                    triviaSource = c.triviaSource //if c.t1 = otherC.t1 then otherC.source else c.source
+                                    t1 = substVarWithTypInTyp left (SubstWith right) (SubstIn c.t1)
+                                    t2 = substVarWithTypInTyp left (SubstWith right) (SubstIn c.t2)
+                                }
+
+                        for r in recordRefs.Values do
+                            let newFields =
+                                [ 
+                                    for f in r.Value do
+                                        { f with typ = substVarWithTypInTyp left (SubstWith right) (SubstIn f.typ) }
+                                ]
+                            do recordRefs.Replace(r.Key, newFields)
+
                         do solutionItems <-
                             [
+                                { tvar = left; monoTyp = right }
                                 for s in solutionItems do
                                     {
                                         tvar = s.tvar
-                                        monoTyp = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn s.monoTyp)
+                                        monoTyp = substVarWithTypInTyp left (SubstWith right) (SubstIn s.monoTyp)
                                     }
                             ]
-                    | RecordTyp rec1, RecordTyp rec2 ->
-                        unifyRecordFields rec1.fields rec2.fields
-                    | t1, t2 ->
-                        let getCaseLabel (du: 'T) =
-                            let case, _ = Reflection.FSharpValue.GetUnionFields(du, typeof<'T>)
-                            case.Name
-                        throwUniError $"Unification cases are not handled. T1: {getCaseLabel t1}, T2: {getCaseLabel t2}"
 
-                // we try to keep only the constraints mutable, because we could otherwise easily forget
-                // adding elements in all branches (this happened right now, and it was a pain to find out).
-                match c.t1, c.t2 with
-                | TVar left, right ->
-                    // replace tvar with t in all other constraints
-                    // replace tvar with t in all solutions
-                    // add a new solution to solutions
-                    // continue to solve
-                    for c in constraints do
-                        do nextConstraints.Append
-                            {
-                                triviaSource = c.triviaSource //if c.t1 = otherC.t1 then otherC.source else c.source
-                                t1 = substVarWithTypInTyp left (SubstWith right) (SubstIn c.t1)
-                                t2 = substVarWithTypInTyp left (SubstWith right) (SubstIn c.t2)
-                            }
+                    | left, right ->
+                        // unify left and right
+                        // add new constraints to constraints
+                        // continue to solve
+                        do unifyTypes c.triviaSource left right
+                        for c in constraints do
+                            do nextConstraints.Append(c)
+                        for r in recordRefs.Values do
+                            do recordRefs.Replace(r.Key, r.Value)
+                        do solutionItems <- solutionItems
 
-                    for r in recordRefs.Values do
-                        let newFields =
-                            [ 
-                                for f in r.Value do
-                                    { f with typ = substVarWithTypInTyp left (SubstWith right) (SubstIn f.typ) }
-                            ]
-                        do recordRefs.Replace(r.Key, newFields)
-
-                    do solutionItems <-
-                        [
-                            { tvar = left; monoTyp = right }
-                            for s in solutionItems do
-                                {
-                                    tvar = s.tvar
-                                    monoTyp = substVarWithTypInTyp left (SubstWith right) (SubstIn s.monoTyp)
-                                }
-                        ]
-
-                | left, right ->
-                    // unify left and right
-                    // add new constraints to constraints
-                    // continue to solve
-                    do unifyTypes c.triviaSource left right
-                    for c in constraints do
-                        do nextConstraints.Append(c)
-                    for r in recordRefs.Values do
-                        do recordRefs.Replace(r.Key, r.Value)
-                    do solutionItems <- solutionItems
-
-                solve nextConstraints.Values recordRefs.Values solutionItems
-
+                    solve nextConstraints.Values recordRefs.Values solutionItems
+            else
+                solutionItems,recordRefs
+    
         let solution =
             try 
                 let solutionItems,recordRefs = solve constraints recordRefs []
@@ -930,7 +939,7 @@ module Services =
                 Result<
                     {|
                         solution: TypeSystem.SolutionItem list
-                        finalTyp: Typ
+                        finalTyp: Typ option
                     |},
                     string
                 >
@@ -938,7 +947,7 @@ module Services =
             exprToEnv: Map<Expr<VarNum>, Env>
         }
 
-    let solve (env: (string * Typ) list) (expr: Expr<Unit>) =
+    let solve (env: (string * Typ) list) maxSolverRuns (expr: Expr<Unit>) =
         let newVar = NumGen.mkGenerator()
 
         let expr = Expr.toNumberedExpr expr newVar
@@ -984,7 +993,7 @@ module Services =
             |> Map.ofList
 
         let constraints,exprToEnv,recordRefs = TypeSystem.generateConstraints env expr newVar
-        let sr = TypeSystem.solveConstraints constraints recordRefs
+        let sr = TypeSystem.solveConstraints constraints recordRefs maxSolverRuns
 
         {
             numberedExpr = expr
@@ -993,7 +1002,11 @@ module Services =
                 | Ok solution ->
                     Ok {|
                         solution = solution
-                        finalTyp = solution |> List.find (fun s -> s.tvar = expr.TVar) |> (_.typ)
+                        // we can have limited solver runs; so the result is partial
+                        finalTyp = 
+                            solution 
+                            |> List.tryFind (fun s -> s.tvar = expr.TVar) 
+                            |> Option.map (fun x -> x.typ)
                     |}
                 | Error message -> Error message
             solverRuns = sr.solverRuns

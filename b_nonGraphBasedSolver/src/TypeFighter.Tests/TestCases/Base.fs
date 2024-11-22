@@ -33,7 +33,7 @@ let [<Test>] ``literal`` () =
     X.Lit 10
     // |> TypeSystem.generateConstraints Map.empty
     // |> TypeSystem.Helper.printConstraints
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 
@@ -47,7 +47,7 @@ let [<Test>] ``simple fun`` () =
     // TODO: Re-Number when generalizing
 
     X.Fun (X.Ident "x") (X.Var "x")
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (TDef.Generalize (%1 ^-> %1))
 
 
@@ -60,7 +60,7 @@ let [<Test>] ``simple fun`` () =
 *)
 let [<Test>] ``simple fun app`` () =
     X.App (X.Fun (X.Ident "x") (X.Var "x")) (X.Lit "xxx")
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono BuiltinTypes.string)
 
 
@@ -73,7 +73,7 @@ let [<Test>] ``simple fun app`` () =
 let [<Test>] ``simple fun app 2`` () =
 
     X.App (X.Fun (X.Ident "x") (X.Var "x")) (X.Lit 50)
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 
@@ -90,6 +90,7 @@ let [<Test>] ``add 100 10`` () =
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
         ]
+        None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 
@@ -106,6 +107,7 @@ let [<Test>] ``partial application`` () =
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
         ]
+        None
     |> shouldSolveType (Mono (BuiltinTypes.number ^-> BuiltinTypes.number))
 
 
@@ -128,6 +130,7 @@ let [<Test>] ``simple let`` () =
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
         ]
+        None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 
@@ -144,6 +147,7 @@ let [<Test>] ``addDays Now 10`` () =
             "addDays", Mono (BuiltinTypes.date ^-> BuiltinTypes.number ^-> BuiltinTypes.date)
             "Now", Mono BuiltinTypes.date
         ]
+        None
     |> shouldSolveType (Mono BuiltinTypes.date)
 
 
@@ -159,5 +163,6 @@ let [<Test>] ``error - add wrong types`` () =
         [
             "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
         ]
+        None        
     |> shouldFail
 

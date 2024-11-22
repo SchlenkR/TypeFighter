@@ -13,12 +13,12 @@ open TypeFighter.Lang.Services
 type InitMsgUtils() =
     inherit FSharpCustomMessageFormatter()
 
-let solve (env: (string * Typ) list) (expr: Expr<_>) =
-    solve env expr
+let solve (env: (string * Typ) list) maxSolverRuns (expr: Expr<_>) =
+    solve env maxSolverRuns expr
 
 let shouldSolveType (typ: Typ) (solution: SolveResult) =
     match solution.result with
-    | Ok res when res.finalTyp <> typ -> failwithf $"Expected typ '{typ}', but got '{res.finalTyp}'"
+    | Ok res when res.finalTyp <> Some typ -> failwithf $"Expected typ '{typ}', but got '{res.finalTyp}'"
     | Ok _ -> ()
     | Error err -> failwithf $"{err}"
 

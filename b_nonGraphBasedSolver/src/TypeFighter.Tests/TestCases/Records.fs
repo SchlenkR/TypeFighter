@@ -47,6 +47,7 @@ let [<Test>] ``app with property access`` () =
             yield! envWithAdd
             yield "order", Mono (TDef.NamedRecordWith (NameHint.Given "Order") [ "quantity", BuiltinTypes.number ])
         ]
+        None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 
@@ -71,7 +72,7 @@ let [<Test>] ``let bound record`` () =
         ) (X.Var "myRecord")
     
     ast
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (
             Mono (TDef.NamedRecordWith (NameHint.Given "Person") [
                 "age", BuiltinTypes.number
@@ -103,7 +104,7 @@ let [<Test>] ``let bound record and access prop`` () =
         )
     
     ast
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono BuiltinTypes.string)
 
 
@@ -129,7 +130,7 @@ let [<Test>] ``let bound record and access prop 2`` () =
         )
     
     ast
-    |> solve []
+    |> solve [] None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 
@@ -157,7 +158,7 @@ let [<Test>] ``error - let bound record and access non existing prop`` () =
         )
     
     ast
-    |> solve []
+    |> solve [] None
     |> shouldFail
 
 
@@ -186,7 +187,7 @@ let [<Test>] ``comparing two ununifiable record fields from one record should fa
                 (X.PropAcc (X.Var "r") "IntField"))
  
     ast
-    |> solve defaultTcEnv 
+    |> solve defaultTcEnv None
     |> shouldFail
 
 
@@ -223,7 +224,8 @@ let [<Test>] ``accessing two record fields in boolean expression should solve`` 
                 (X.App (X.Var "AND") left)
                 right)
 
-    solve defaultTcEnv ast 
+    ast
+    |> solve defaultTcEnv None
     |> shouldSolveType (Mono(BuiltinTypes.boolean))
 
 
@@ -270,7 +272,8 @@ let [<Test>] ``array with multiple record elements should solve`` () =
  
     let ast = plusOneFunc
  
-    solve defaultTcEnv ast
+    ast
+    |> solve defaultTcEnv None
     |> shouldSolveType (Mono (
         BuiltinTypes.array (TDef.RecordWith [ "myfield", BuiltinTypes.number ])))
 
@@ -310,7 +313,8 @@ let [<Test>] ``function with record argument should solve`` () =
                     X.Field "BooleanField" (X.Lit true)
                 ]))
 
-    solve defaultTcEnv ast
+    ast
+    |> solve defaultTcEnv None
     |> shouldSolveType (Mono BuiltinTypes.boolean)
 
 
@@ -335,7 +339,7 @@ let [<Test>] ``lambda taking record infers correct type`` () =
                 (X.Lit 3))
  
     ast 
-    |> solve defaultTcEnv
+    |> solve defaultTcEnv None
     |> shouldSolveType (
         Mono (TDef.RecordWith [ "IntField", BuiltinTypes.number ] ^-> BuiltinTypes.boolean))
 
@@ -368,7 +372,7 @@ let [<Test>] ``anonymous function taking record solves on correct field usage`` 
                     (X.Lit true)))
  
     ast 
-    |> solve defaultTcEnv 
+    |> solve defaultTcEnv None
     |> shouldSolveType (
         Mono (
             (
@@ -416,7 +420,7 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
                 ]))
 
     ast
-    |> solve defaultTcEnv 
+    |> solve defaultTcEnv None
     |> shouldFail
 
 
@@ -447,7 +451,7 @@ let [<Test>] ``xxxxxxxx`` () =
                     (X.Lit true)))
  
     ast
-    |> solve defaultTcEnv 
+    |> solve defaultTcEnv None
     |> shouldFail
 
 
@@ -511,7 +515,7 @@ let [<Test>] ``function with record argument comparing 2 different typed fields 
                     (X.Var "inst")))
 
     ast
-    |> solve defaultTcEnv
+    |> solve defaultTcEnv None
     |> shouldSolveType (Mono BuiltinTypes.boolean)
 
   

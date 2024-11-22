@@ -8,9 +8,9 @@ open System.IO
 open TypeFighter.Lang
 open TypeFighter.Tools
 
-let solve (externalEnv: (string * Typ) list) (expr: Expr<unit>) =
+let solve (externalEnv: (string * Typ) list) maxSolverRuns (expr: Expr<unit>) =
     do Visu.writeAst expr None Map.empty
-    let solution = TypeFighter.Tests.TestHelper.solve externalEnv expr
+    let solution = TypeFighter.Tests.TestHelper.solve externalEnv maxSolverRuns expr 
     
     do
         printfn "SOLVER RUNS"

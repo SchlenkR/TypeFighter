@@ -40,6 +40,7 @@ let [<Test>] ``error - match branches unification error`` () =
         [
             yield "isValid", Mono (BuiltinTypes.number ^-> BuiltinTypes.boolean)
         ]
+        None
     |> shouldFail
 
 
@@ -60,6 +61,7 @@ let [<Test>] ``match branches ok`` () =
         [
             yield "isValid", Mono (BuiltinTypes.number ^-> BuiltinTypes.boolean)
         ]
+        None
     |> shouldSolveType (Mono BuiltinTypes.string)
 
 
@@ -80,6 +82,7 @@ let [<Test>] ``match branches ok 2`` () =
         [
             "isValid", Mono (BuiltinTypes.number ^-> BuiltinTypes.boolean)
         ]
+        None
     |> shouldSolveType (Mono BuiltinTypes.number)
 
 

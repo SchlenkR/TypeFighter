@@ -6,7 +6,7 @@ window.nodeDataArray = [
     "name": "Let play = ...",
     "varNum": "17",
     "additionalInfo": "play : tv_0",
-    "exprTyp": "String",
+    "exprTyp": "",
     "env": "",
     "fig": "Rectangle"
   },
@@ -15,7 +15,7 @@ window.nodeDataArray = [
     "name": "Fun number -\u003E ...",
     "varNum": "13",
     "additionalInfo": "number : tv_1",
-    "exprTyp": "(Number -\u003E String)",
+    "exprTyp": "",
     "env": "",
     "fig": "Rectangle"
   },
@@ -24,7 +24,7 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "12",
     "additionalInfo": "",
-    "exprTyp": "String",
+    "exprTyp": "",
     "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
@@ -33,7 +33,7 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "10",
     "additionalInfo": "",
-    "exprTyp": "(String -\u003E String)",
+    "exprTyp": "",
     "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
@@ -42,7 +42,7 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "8",
     "additionalInfo": "",
-    "exprTyp": "(String -\u003E (String -\u003E String))",
+    "exprTyp": "",
     "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
@@ -51,7 +51,7 @@ window.nodeDataArray = [
     "name": "Var \u0022if\u0022 ",
     "varNum": "2",
     "additionalInfo": "",
-    "exprTyp": "(Bool -\u003E (String -\u003E (String -\u003E String)))",
+    "exprTyp": "\u003Ctv_18\u003E.(Bool -\u003E (tv_18 -\u003E (tv_18 -\u003E tv_18)))",
     "env": "number: tv_1 (Number)",
     "fig": "Rectangle"
   },
@@ -123,8 +123,8 @@ window.nodeDataArray = [
     "name": "App",
     "varNum": "16",
     "additionalInfo": "",
-    "exprTyp": "String",
-    "env": "play: tv_0 ((Number -\u003E String))",
+    "exprTyp": "",
+    "env": "play: tv_0 ()",
     "fig": "Rectangle"
   },
   {
@@ -132,8 +132,8 @@ window.nodeDataArray = [
     "name": "Var \u0022play\u0022 ",
     "varNum": "14",
     "additionalInfo": "",
-    "exprTyp": "(Number -\u003E String)",
-    "env": "play: tv_0 ((Number -\u003E String))",
+    "exprTyp": "",
+    "env": "play: tv_0 ()",
     "fig": "Rectangle"
   },
   {
@@ -141,8 +141,8 @@ window.nodeDataArray = [
     "name": "Lit (99) ",
     "varNum": "15",
     "additionalInfo": "",
-    "exprTyp": "Number",
-    "env": "play: tv_0 ((Number -\u003E String))",
+    "exprTyp": "",
+    "env": "play: tv_0 ()",
     "fig": "Rectangle"
   }
 ];
