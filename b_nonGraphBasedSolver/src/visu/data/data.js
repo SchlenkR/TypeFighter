@@ -2,9 +2,9 @@
 window.layout = "tree";
 window.nodeDataArray = [
   {
-    "key": 24,
+    "key": 17,
     "name": "Let play = ...",
-    "varNum": "24",
+    "varNum": "17",
     "additionalInfo": "play : tv_0",
     "exprTyp": "???",
     "env": "",
@@ -93,7 +93,7 @@ window.nodeDataArray = [
   },
   {
     "key": 6,
-    "name": "Lit (\u002242\u0022) ",
+    "name": "Lit (\u0022String \u002242\u0022\u0022) ",
     "varNum": "6",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -102,7 +102,7 @@ window.nodeDataArray = [
   },
   {
     "key": 9,
-    "name": "Lit (\u0022win\u0022) ",
+    "name": "Lit (\u0022String \u0022win\u0022\u0022) ",
     "varNum": "9",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -111,7 +111,7 @@ window.nodeDataArray = [
   },
   {
     "key": 11,
-    "name": "Lit (\u0022lose\u0022) ",
+    "name": "Lit (\u0022String \u0022lose\u0022\u0022) ",
     "varNum": "11",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -119,44 +119,8 @@ window.nodeDataArray = [
     "fig": "Rectangle"
   },
   {
-    "key": 23,
-    "name": "Let ourChoice = ...",
-    "varNum": "23",
-    "additionalInfo": "ourChoice : tv_14",
-    "exprTyp": "???",
-    "env": "",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 19,
-    "name": "App",
-    "varNum": "19",
-    "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 17,
-    "name": "App",
-    "varNum": "17",
-    "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 15,
-    "name": "Var \u0022random\u0022 ",
-    "varNum": "15",
-    "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
-    "fig": "Rectangle"
-  },
-  {
     "key": 16,
-    "name": "Lit (\u00220\u0022) ",
+    "name": "App",
     "varNum": "16",
     "additionalInfo": "",
     "exprTyp": "???",
@@ -164,36 +128,18 @@ window.nodeDataArray = [
     "fig": "Rectangle"
   },
   {
-    "key": 18,
-    "name": "Lit (\u002210\u0022) ",
-    "varNum": "18",
-    "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 22,
-    "name": "App",
-    "varNum": "22",
-    "additionalInfo": "",
-    "exprTyp": "???",
-    "env": "",
-    "fig": "Rectangle"
-  },
-  {
-    "key": 20,
+    "key": 14,
     "name": "Var \u0022play\u0022 ",
-    "varNum": "20",
+    "varNum": "14",
     "additionalInfo": "",
     "exprTyp": "???",
     "env": "",
     "fig": "Rectangle"
   },
   {
-    "key": 21,
-    "name": "Var \u0022ourChoice\u0022 ",
-    "varNum": "21",
+    "key": 15,
+    "name": "Lit (\u0022String \u002299\u0022\u0022) ",
+    "varNum": "15",
     "additionalInfo": "",
     "exprTyp": "???",
     "env": "",
@@ -202,12 +148,12 @@ window.nodeDataArray = [
 ];
 window.linkDataArray = [
   {
-    "from": 24,
+    "from": 17,
     "to": 13
   },
   {
-    "from": 24,
-    "to": 23
+    "from": 17,
+    "to": 16
   },
   {
     "from": 13,
@@ -254,36 +200,12 @@ window.linkDataArray = [
     "to": 4
   },
   {
-    "from": 23,
-    "to": 19
+    "from": 16,
+    "to": 14
   },
   {
-    "from": 23,
-    "to": 22
-  },
-  {
-    "from": 19,
-    "to": 17
-  },
-  {
-    "from": 19,
-    "to": 18
-  },
-  {
-    "from": 17,
+    "from": 16,
     "to": 15
-  },
-  {
-    "from": 17,
-    "to": 16
-  },
-  {
-    "from": 22,
-    "to": 20
-  },
-  {
-    "from": 22,
-    "to": 21
   }
 ];
         

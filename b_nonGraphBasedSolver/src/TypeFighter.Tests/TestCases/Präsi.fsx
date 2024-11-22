@@ -27,7 +27,6 @@ let env =
 (*
     let play = number =>
         if (equals(number, 42), "win", "lose")
-
     let ourChoice = random(0, 10)
     play(ourChoice)
 *)
@@ -38,9 +37,7 @@ X.Let (X.Ident "play") (
         X.App (X.App (X.App (X.Var "if") cond) (X.Lit "win")) (X.Lit "lose")
     )
 ) (
-    X.Let (X.Ident "ourChoice") (X.App (X.App (X.Var "random") (X.Lit "0")) (X.Lit "10")) (
-        X.App (X.Var "play") (X.Var "ourChoice")
-    )
+    X.App (X.Var "play") (X.Lit "99")
 )
 |> writeInitialAst
 // |> solve env

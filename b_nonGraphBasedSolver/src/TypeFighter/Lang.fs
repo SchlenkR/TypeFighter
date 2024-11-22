@@ -132,12 +132,17 @@ and [<RequireQualifiedAccess>] EnvItem =
     | Internal of VarNum 
     | External of Typ
 
+type Literal = 
+    | Number of float 
+    | String of string 
+    | Boolean of bool
+
 [<RequireQualifiedAccess>]
 type Expr<'noneOrVarnum> =
     // many exprs are non-elementary, but we don't care about that here,
     // since we aim for expressiveness when working with the AST
     internal
-    | Lit of {| value: string; tvar: 'noneOrVarnum |}                                                                             // "foo" oder 2323
+    | Lit of {| value: Literal; tvar: 'noneOrVarnum |}                                                                             // "foo" oder 2323
     | Var of {| ident: string; tvar: 'noneOrVarnum |}                                                                             // ident
     | App of {| func: Expr<'noneOrVarnum>; arg: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                       // func arg
     | Fun of {| ident: Ident<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                    // fun ident -> body
@@ -201,7 +206,10 @@ and ShowExpr =
 
 type X =
     static member Ident value = { identName = value; tvar = () }
-    static member Lit value = Expr.Lit {| value = value; tvar = () |}
+    static member Lit(value: string) = Expr.Lit {| value = String value; tvar = () |}
+    static member Lit(value: int) = Expr.Lit {| value = Number value; tvar = () |}
+    static member Lit(value: float) = Expr.Lit {| value = Number value; tvar = () |}
+    static member Lit(value: bool) = Expr.Lit {| value = Boolean value; tvar = () |}
     static member Var ident = Expr.Var {| ident = ident; tvar = () |}
     static member App func arg = Expr.App {| func = func; arg = arg; tvar = () |}
     static member Fun ident body = Expr.Fun {| ident = ident; body = body; tvar = () |}
@@ -485,7 +493,6 @@ module BuiltinTypes =
     let boolean = TDef.DiscriminatedUnionWith (NameHint.Given Names.bool) [ "True", None; "False", None ]
     let number = TDef.LeafWith Names.number []
     let string = TDef.LeafWith Names.string []
-    let date = TDef.LeafWith Names.date []
     
     let array elemTyp = TDef.LeafWith Names.array [ elemTyp ]
 
@@ -580,26 +587,12 @@ module TypeSystem =
             do addEnv expr env
             match expr with
             | Expr.Lit x ->
-                let guessedTyp =
-                    let ci = System.Globalization.CultureInfo.InvariantCulture
-                    let (|Boolean|_|) (input: string) =
-                        match System.Boolean.TryParse(input) with
-                        | true, result -> Some result
-                        | _ -> None
-                    let (|Number|_|) (input: string) =
-                        match System.Double.TryParse(input, ci) with
-                        | true, result -> Some result
-                        | _ -> None
-                    let (|Date|_|) (input: string) =
-                        match System.DateTime.TryParse(input, ci) with
-                        | true, result -> Some result
-                        | _ -> None
+                let litTyp =
                     match x.value with
                     | Boolean _ -> BuiltinTypes.boolean
                     | Number _ -> BuiltinTypes.number
-                    | Date _ -> BuiltinTypes.date
-                    | _ -> BuiltinTypes.string
-                appendConstraint expr x.tvar guessedTyp
+                    | String _ -> BuiltinTypes.string
+                appendConstraint expr x.tvar litTyp
             | Expr.Var x ->
                 (*
                     S: ident
