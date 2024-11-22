@@ -452,6 +452,24 @@ let [<Test>] ``xxxxxxxx`` () =
 
 
 
+type T = { IntField: int; BooleanField: bool }
+let AND a b = a && b
+let EQUALS a b = a = b
+
+
+let test () =
+    let myRec = { IntField = 3; BooleanField = true }
+    let myFunc = 
+        fun r ->
+            AND (EQUALS r.IntField 3) (EQUALS r.BooleanField true)
+    myFunc myRec
+
+let test2 () =
+    let myRec = { IntField = 3; BooleanField = true }
+    let myFunc = 
+        fun r ->
+            AND (EQUALS r.IntField 3) (EQUALS r.BooleanField true)
+    myFunc myRec
 
 
 (*
