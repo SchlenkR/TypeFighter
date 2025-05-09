@@ -137,22 +137,6 @@ let [<Test>] ``simple let`` () =
 
 
 (*
-    addDays Now 10
-*)
-let [<Test>] ``addDays Now 10`` () =
-
-    X.App (X.App (X.Var "addDays") (X.Var "Now")) (X.Lit 10)
-    |> solve
-        [
-            "addDays", Mono (BuiltinTypes.date ^-> BuiltinTypes.number ^-> BuiltinTypes.date)
-            "Now", Mono BuiltinTypes.date
-        ]
-        None
-    |> shouldSolveType (Mono BuiltinTypes.date)
-
-
-
-(*
     add 10 "Hello"
 *)
 // ERROR: no implicit conversion from string to number (Can't unify Number and String)

@@ -30,7 +30,7 @@ let TOneAndTwo =
     IntersectionTyp [
         TDef.RecordDefWith (NameHint.Given "One") [
             "sharedProp", BuiltinTypes.number
-            "sharedPropDiffType", BuiltinTypes.date
+            "sharedPropDiffType", BuiltinTypes.boolean
             "oneProp", BuiltinTypes.string
         ]
         TDef.RecordDefWith (NameHint.Given "Two") [

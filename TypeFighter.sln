@@ -1,10 +1,7 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D03F538B-B68F-470C-993D-25F2A3BD462D}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TypeFighter", "src\TypeFighter\TypeFighter.fsproj", "{908BCCEB-50CE-44ED-9C1B-E699557775C0}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TypeFighter.Tests", "src\TypeFighter.Tests\TypeFighter.Tests.fsproj", "{63D9FDF6-4312-428F-8204-AF6A83874FA2}"
@@ -32,10 +29,5 @@ Global
 		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{908BCCEB-50CE-44ED-9C1B-E699557775C0} = {D03F538B-B68F-470C-993D-25F2A3BD462D}
-		{63D9FDF6-4312-428F-8204-AF6A83874FA2} = {D03F538B-B68F-470C-993D-25F2A3BD462D}
-		{C1A4E3D5-ED59-4E50-87A5-322A78E0F5B4} = {D03F538B-B68F-470C-993D-25F2A3BD462D}
 	EndGlobalSection
 EndGlobal

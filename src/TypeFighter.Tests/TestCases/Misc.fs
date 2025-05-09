@@ -21,29 +21,3 @@ open TypeFighter.Lang
 // via dotnet test (this project), but also via FSI.
 // ------------------------------------------
 
-
-
-(*
-    SetField Object.ShouldBeComboxVariable Environment.AuthUser.Username
-*)
-// ERROR Date != String
-let [<Test>] ``error - SetField wrong types`` () =
-
-    X.App
-        (X.App (X.Var "SetField") (X.PropAccN [ "Object"; "ShouldBeComboxVariable" ]))
-        (X.PropAccN [ "Environment"; "AuthUser"; "Username" ])
-    |> solve
-        [
-            "SetField", Mono (%1 ^-> %1 ^-> BuiltinTypes.unit)
-            "Object", Mono (TDef.NamedRecordWith (NameHint.Given "ContextObject") [
-                "ShouldBeComboxVariable", BuiltinTypes.date
-            ])
-            "Environment", Mono (TDef.NamedRecordWith (NameHint.Given "Environment") [ 
-                "AuthUser", (TDef.NamedRecordWith (NameHint.Given "User") [ 
-                    "Username", BuiltinTypes.string 
-                ])
-            ])
-        ]
-        None
-    |> shouldFail
-
