@@ -39,12 +39,12 @@ let expr =
     ) (
         X.App (X.Var "play") (X.Lit 99)
     )
-    
 
-
-expr |> writeInitialAst
 
 
 for i in 0..30 do
     expr |> solve env (Some i)
     System.Console.ReadLine() |> ignore
+
+
+expr |> writeInitialAst
