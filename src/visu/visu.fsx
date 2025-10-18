@@ -7,6 +7,7 @@ open System.IO
 open System.Text.Json
 open System.Text.Json.Serialization
 
+
 type JsNode =
     { 
         key: int
@@ -15,7 +16,14 @@ type JsNode =
         varNum: string
         additionalInfo: string
         exprTyp: string
-        env: string
+        env: EnvItem list
+    }
+
+and EnvItem =
+    {
+        ident: string
+        varNum: int
+        solvedTyp: string
     }
 
 type JsLink =
@@ -49,7 +57,7 @@ module Tree =
             varNum: int
             additionalInfo: string
             exprTyp: string
-            env: string
+            env: EnvItem list
             children: ResizeArray<Node> 
         }
     

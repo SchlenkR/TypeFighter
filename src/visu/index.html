@@ -6,17 +6,15 @@
     <style>
         body {
             margin: 0;
-            padding: 20px;
+            padding: 50px;
             font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            background-color: white;
         }
 
         #container {
             width: 100%;
             height: 100vh;
             overflow: auto;
-            background-color: white;
-            border: 1px solid #ccc;
         }
 
         #tree-container {
@@ -43,11 +41,32 @@
             transition: all 0.2s ease;
             word-wrap: break-word;
             overflow-wrap: break-word;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         .node:hover {
             box-shadow: 4px 4px 8px rgba(0,0,0,0.2);
             transform: scale(1.02);
+        }
+
+        .node.selected {
+            border-color: #ff9f1c;
+            box-shadow: 0 0 0 3px rgba(255, 159, 28, 0.25);
+        }
+
+        .node.node-preview {
+            position: relative;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            pointer-events: none;
+            cursor: default;
+            transform: none;
+            transition: none;
         }
 
         .node-header {
@@ -78,7 +97,7 @@
         }
 
         .node-code {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: normal;
             color: #333;
             overflow: hidden;
@@ -88,34 +107,18 @@
             margin-left: 3px;
         }
 
-        .node-var {
+        .tvar {
             font-size: 10px;
-            font-weight: bold;
-            color: #666;
-            background: #f0f0f0;
-            padding: 2px 6px;
+            font-weight: 600;
+            color: #4a6fa5;
+            background: #e6ecff;
+            padding: 1px 6px;
             border-radius: 3px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
             flex-shrink: 0;
         }
 
-        .node-additional {
-            font-size: 10px;
-            color: gray;
-            font-style: italic;
-            font-family: Consolas, monospace;
-            margin: 4px 0;
-            line-height: 1.2;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-left: 8px;
-        }
-
         .node-type {
-            font-size: 14px;
+            font-size: 12px;
             color: green;
             font-weight: bolder;
             font-family: Consolas, monospace;
@@ -123,20 +126,143 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-left: 8px;
         }
 
-        .node-env {
-            font-size: 9px;
-            color: #555;
+        .tree-content-layer {
+            position: relative;
+            min-width: 1200px;
+            min-height: 800px;
+        }
+
+        .env-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            box-sizing: border-box;
+            background: #ffffff;
+            border: 2px solid #99aacc;
+            border-radius: 4px;
+            padding: 16px 18px;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            color: #1a1a1a;
+            z-index: 5;
+        }
+
+        .env-panel-body {
+            margin-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .env-panel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .env-panel-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #4a6fa5;
+        }
+
+        .env-panel-expression-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .env-panel-expression-title-group {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .env-panel-additional {
+            font-size: 11px;
+            font-style: italic;
+            color: #666;
+            margin: 0;
+        }
+
+        .env-panel-box {
+            /* border: 1px solid darkblue;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            border-radius: 4px; */
+            padding: 10px;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .env-panel-type-text {
+            margin: 0;
+        }
+
+        .env-panel-placeholder-text {
+            font-style: italic;
+            color: #666;
+        }
+
+        .env-panel-hidden {
+            display: none !important;
+        }
+
+        .env-panel-content {
             font-family: Consolas, monospace;
-            margin-top: 4px;
-            padding: 4px;
-            background: #f9f9f9;
-            border-radius: 2px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 11px;
+            background: #f7f7fb;
+            border: 1px solid #d6d9e2;
+            border-radius: 4px;
+            padding: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.4;
+            color: #222;
+            max-height: 240px;
+            overflow-y: auto;
+            user-select: text;
+        }
+
+        .env-panel-env-row {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .env-panel-env-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .env-panel-env-ident {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .env-panel-env-type {
+            font-weight: 700;
+            color: green;
+            font-family: Consolas, monospace;
+        }
+
+        .env-panel-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .env-panel-content::-webkit-scrollbar-thumb {
+            background: #c3c7d3;
+            border-radius: 4px;
         }
 
         .connection-line {
@@ -154,44 +280,10 @@
             border-top: 8px solid #333;
             z-index: 2;
         }
-
-        .controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            z-index: 1000;
-        }
-
-        .control-button {
-            margin: 2px;
-            padding: 5px 10px;
-            background: #007acc;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .control-button:hover {
-            background: #005a99;
-        }
     </style>
     <script src="./data/data.js"></script>
 </head>
 <body>
-    <div class="controls">
-        <button class="control-button" onclick="zoomIn()">Zoom In</button>
-        <button class="control-button" onclick="zoomOut()">Zoom Out</button>
-        <button class="control-button" onclick="resetZoom()">Reset</button>
-        <button class="control-button" onclick="toggleEnv()">Toggle Env</button>
-        <button class="control-button" onclick="increaseLevelSpacing()">Level Space +</button>
-        <button class="control-button" onclick="decreaseLevelSpacing()">Level Space -</button>
-    </div>
-    
     <div id="container">
         <div id="tree-container"></div>
     </div>
@@ -204,10 +296,13 @@
                 this.maxNodeWidth = 550;
                 this.minNodeSpacing = 50; // Minimum spacing between adjacent nodes
                 this.subtreeSpacing = 50; // Spacing between child subtrees
-                this.minLevelHeight = 80;
+                this.minLevelHeight = 40;
                 this.maxLevelHeight = 320;
 
-                this.showEnv = false;
+                this.envPanelWidth = 350;
+                this.envPanelSpacing = 80;
+                this.envPanelDefaultText = 'Hover or select a node to inspect the environment';
+                this.envPanelNodePlaceholderText = '\u00a0';
                 this.minZoom = 0.25;
                 this.maxZoom = 4;
                 this.zoomLevel = 1;
@@ -223,11 +318,23 @@
                 this.nodeWidths = new Map(); // Store calculated widths for each node
                 this.nodeHeights = new Map(); // Store calculated heights for each node
                 this.container = document.getElementById('tree-container');
+                this.envPanel = this.createEnvPanel();
+                this.contentLayer = this.createContentLayer();
+                this.container.appendChild(this.envPanel);
+                this.container.appendChild(this.contentLayer);
+                this.hoveredNodeKey = null;
+                this.selectedNodeKey = null;
+                this.didPan = false;
+                this.handleEnvPanelMouseLeave = this.handleEnvPanelMouseLeave.bind(this);
+                this.envPanel.addEventListener('mouseleave', this.handleEnvPanelMouseLeave);
                 this.measurementContainer = this.createMeasurementContainer();
                 this.handlePointerDown = this.handlePointerDown.bind(this);
                 this.handlePointerMove = this.handlePointerMove.bind(this);
                 this.handlePointerUp = this.handlePointerUp.bind(this);
+                this.handleContainerClick = this.handleContainerClick.bind(this);
 
+                this.refreshEnvPanel();
+                this.updateEnvPanelLayout();
                 this.setupInteraction();
                 this.init();
                 this.applyTransform();
@@ -244,6 +351,359 @@
                 measurementHost.style.height = 'auto';
                 document.body.appendChild(measurementHost);
                 return measurementHost;
+            }
+
+            createEnvPanel() {
+                const panel = document.createElement('div');
+                panel.className = 'env-panel';
+
+                const body = document.createElement('div');
+                body.className = 'env-panel-body';
+                panel.appendChild(body);
+
+                const expressionSection = document.createElement('div');
+                expressionSection.className = 'env-panel-section';
+                body.appendChild(expressionSection);
+
+                const expressionTitle = document.createElement('div');
+                expressionTitle.className = 'env-panel-section-title';
+                expressionTitle.textContent = 'EXPRESSION:';
+                expressionSection.appendChild(expressionTitle);
+
+                const expressionBox = document.createElement('div');
+                expressionBox.className = 'env-panel-box env-panel-content';
+                expressionSection.appendChild(expressionBox);
+
+                const expressionHeader = document.createElement('div');
+                expressionHeader.className = 'node-header env-panel-expression-header';
+                expressionBox.appendChild(expressionHeader);
+
+                const expressionTitleGroup = document.createElement('div');
+                expressionTitleGroup.className = 'node-title-group env-panel-expression-title-group';
+                expressionHeader.appendChild(expressionTitleGroup);
+
+                const expressionName = document.createElement('div');
+                expressionName.className = 'node-name env-panel-expression-name';
+                expressionTitleGroup.appendChild(expressionName);
+
+                const expressionCode = document.createElement('div');
+                expressionCode.className = 'node-code env-panel-expression-code';
+                expressionTitleGroup.appendChild(expressionCode);
+
+                const expressionVar = document.createElement('div');
+                expressionVar.className = 'tvar env-panel-expression-var';
+                expressionHeader.appendChild(expressionVar);
+
+                const expressionAdditional = document.createElement('div');
+                expressionAdditional.className = 'node-code env-panel-additional env-panel-placeholder-text';
+                expressionAdditional.textContent = '\u00a0';
+                expressionBox.appendChild(expressionAdditional);
+
+                const typeSection = document.createElement('div');
+                typeSection.className = 'env-panel-section';
+                body.appendChild(typeSection);
+
+                const typeTitle = document.createElement('div');
+                typeTitle.className = 'env-panel-section-title';
+                typeTitle.textContent = 'TYPE';
+                typeSection.appendChild(typeTitle);
+
+                const typeBox = document.createElement('div');
+                typeBox.className = 'env-panel-box env-panel-content';
+                typeSection.appendChild(typeBox);
+
+                const typeText = document.createElement('div');
+                typeText.className = 'node-type env-panel-type-text';
+                typeBox.appendChild(typeText);
+
+                const envSection = document.createElement('div');
+                envSection.className = 'env-panel-section';
+                body.appendChild(envSection);
+
+                const envSectionTitle = document.createElement('div');
+                envSectionTitle.className = 'env-panel-section-title';
+                envSectionTitle.textContent = 'ENVIRONMENT';
+                envSection.appendChild(envSectionTitle);
+
+                const envContent = document.createElement('div');
+                envContent.className = 'env-panel-content';
+                envSection.appendChild(envContent);
+
+                this.envPanelExpressionNameEl = expressionName;
+                this.envPanelExpressionCodeEl = expressionCode;
+                this.envPanelExpressionVarEl = expressionVar;
+                this.envPanelAdditionalEl = expressionAdditional;
+                this.envPanelTypeTextEl = typeText;
+                this.envPanelEnvContent = envContent;
+
+                return panel;
+            }
+
+            createContentLayer() {
+                const layer = document.createElement('div');
+                layer.className = 'tree-content-layer';
+                layer.style.paddingTop = '0px';
+                layer.style.paddingRight = '0px';
+                layer.style.paddingBottom = '0px';
+                return layer;
+            }
+
+            setEnvPanelText(text) {
+                const content = this.envPanelEnvContent;
+                if (!content) {
+                    return;
+                }
+                const trimmed = (text && text.trim().length > 0) ? text : '\u00a0';
+                content.textContent = trimmed;
+                if (trimmed === this.envPanelDefaultText || trimmed === '\u00a0') {
+                    content.classList.add('env-panel-placeholder-text');
+                } else {
+                    content.classList.remove('env-panel-placeholder-text');
+                }
+                content.scrollTop = 0;
+            }
+
+            updateEnvPanelNodePreview(node) {
+                const nameEl = this.envPanelExpressionNameEl;
+                const codeEl = this.envPanelExpressionCodeEl;
+                const varEl = this.envPanelExpressionVarEl;
+                const additionalEl = this.envPanelAdditionalEl;
+                const typeEl = this.envPanelTypeTextEl;
+
+                if (!nameEl || !codeEl || !varEl || !additionalEl || !typeEl) {
+                    return;
+                }
+
+                const placeholderText = this.envPanelNodePlaceholderText;
+
+                if (!node) {
+                    nameEl.textContent = placeholderText;
+                    nameEl.title = placeholderText;
+                    nameEl.classList.add('env-panel-placeholder-text');
+
+                    codeEl.textContent = '';
+                    codeEl.removeAttribute('title');
+                    codeEl.classList.add('env-panel-hidden');
+
+                    varEl.textContent = '';
+                    varEl.removeAttribute('title');
+                    varEl.classList.add('env-panel-hidden');
+
+                    additionalEl.textContent = '\u00a0';
+                    additionalEl.removeAttribute('title');
+                    additionalEl.classList.remove('env-panel-hidden');
+                    additionalEl.classList.add('env-panel-placeholder-text');
+
+                    typeEl.textContent = '\u00a0';
+                    typeEl.removeAttribute('title');
+                    typeEl.classList.add('env-panel-placeholder-text');
+                    return;
+                }
+
+                const nameText = node.name && node.name.trim().length ? node.name : '(unnamed expression)';
+                nameEl.textContent = nameText;
+                nameEl.title = nameText;
+                nameEl.classList.remove('env-panel-placeholder-text');
+
+                if (node.code && node.code.trim()) {
+                    codeEl.textContent = node.code;
+                    codeEl.title = node.code;
+                    codeEl.classList.remove('env-panel-hidden');
+                } else {
+                    codeEl.textContent = '';
+                    codeEl.removeAttribute('title');
+                    codeEl.classList.add('env-panel-hidden');
+                }
+
+                const varLabel = typeof node.varNum !== 'undefined' ? 'tv_' + node.varNum : '';
+                if (varLabel) {
+                    varEl.textContent = varLabel;
+                    varEl.title = varLabel;
+                    varEl.classList.remove('env-panel-hidden');
+                } else {
+                    varEl.textContent = '';
+                    varEl.removeAttribute('title');
+                    varEl.classList.add('env-panel-hidden');
+                }
+
+                if (node.additionalInfo && node.additionalInfo.trim()) {
+                    additionalEl.textContent = node.additionalInfo;
+                    additionalEl.title = node.additionalInfo;
+                    additionalEl.classList.remove('env-panel-hidden');
+                    additionalEl.classList.remove('env-panel-placeholder-text');
+                } else {
+                    additionalEl.textContent = '\u00a0';
+                    additionalEl.removeAttribute('title');
+                    additionalEl.classList.remove('env-panel-hidden');
+                    additionalEl.classList.add('env-panel-placeholder-text');
+                }
+
+                if (node.exprTyp && node.exprTyp.trim()) {
+                    typeEl.textContent = node.exprTyp;
+                    typeEl.title = node.exprTyp;
+                    typeEl.classList.remove('env-panel-placeholder-text');
+                } else {
+                    typeEl.textContent = '\u00a0';
+                    typeEl.removeAttribute('title');
+                    typeEl.classList.add('env-panel-placeholder-text');
+                }
+            }
+
+            normalizeEnvironmentEntry(entry) {
+                if (!entry || typeof entry !== 'object') {
+                    return null;
+                }
+
+                const ident = (typeof entry.ident === 'string' && entry.ident.trim().length)
+                    ? entry.ident.trim()
+                    : '(anonymous)';
+
+                const hasVarNum = entry.varNum !== undefined && entry.varNum !== null;
+                const varLabel = hasVarNum ? `tv_${String(entry.varNum)}` : null;
+
+                const typeLabel = (typeof entry.solvedTyp === 'string' && entry.solvedTyp.trim().length)
+                    ? entry.solvedTyp.trim()
+                    : null;
+
+                return { ident, varLabel, typeLabel };
+            }
+
+            renderEnvironmentEntries(rawEnv) {
+                const content = this.envPanelEnvContent;
+                if (!content) {
+                    return false;
+                }
+
+                let entries = [];
+
+                if (Array.isArray(rawEnv)) {
+                    entries = rawEnv
+                        .map(entry => this.normalizeEnvironmentEntry(entry))
+                        .filter(entry => entry !== null);
+                } else if (rawEnv && typeof rawEnv === 'object') {
+                    const single = this.normalizeEnvironmentEntry(rawEnv);
+                    if (single) {
+                        entries = [single];
+                    }
+                }
+
+                if (entries.length === 0) {
+                    return false;
+                }
+
+                content.classList.remove('env-panel-placeholder-text');
+                content.innerHTML = '';
+
+                entries.forEach(entry => {
+                    const row = document.createElement('div');
+                    row.className = 'env-panel-env-row';
+
+                    const identSpan = document.createElement('span');
+                    identSpan.className = 'env-panel-env-ident';
+                    identSpan.textContent = entry.ident;
+                    row.appendChild(identSpan);
+
+                    if (entry.varLabel) {
+                        const varSpan = document.createElement('span');
+                        varSpan.className = 'tvar';
+                        varSpan.textContent = entry.varLabel;
+                        row.appendChild(varSpan);
+                    }
+
+                    if (entry.typeLabel) {
+                        const typeSpan = document.createElement('span');
+                        typeSpan.className = 'env-panel-env-type';
+                        typeSpan.textContent = entry.typeLabel;
+                        row.appendChild(typeSpan);
+                    }
+
+                    content.appendChild(row);
+                });
+
+                return true;
+            }
+
+            resolveEnvText(rawEnv) {
+                if (Array.isArray(rawEnv)) {
+                    const lines = rawEnv
+                        .map(entry => this.normalizeEnvironmentEntry(entry))
+                        .filter(entry => entry !== null)
+                        .map(entry => {
+                            if (entry.varLabel && entry.typeLabel) {
+                                return `${entry.ident}: ${entry.varLabel} (${entry.typeLabel})`;
+                            }
+                            if (entry.varLabel) {
+                                return `${entry.ident}: ${entry.varLabel}`;
+                            }
+                            if (entry.typeLabel) {
+                                return `${entry.ident}: ${entry.typeLabel}`;
+                            }
+                            return entry.ident;
+                        });
+
+                    if (lines.length === 0) {
+                        return '\u00a0';
+                    }
+
+                    return lines.join('\n');
+                }
+
+                if (rawEnv === null || rawEnv === undefined) {
+                    return '\u00a0';
+                }
+
+                if (typeof rawEnv === 'string') {
+                    const trimmed = rawEnv.trim();
+                    return trimmed.length > 0 ? trimmed : '\u00a0';
+                }
+
+                if (typeof rawEnv === 'object') {
+                    const rendered = this.normalizeEnvironmentEntry(rawEnv);
+                    if (!rendered) {
+                        return '\u00a0';
+                    }
+
+                    if (rendered.varLabel && rendered.typeLabel) {
+                        return `${rendered.ident}: ${rendered.varLabel} (${rendered.typeLabel})`;
+                    }
+
+                    if (rendered.varLabel) {
+                        return `${rendered.ident}: ${rendered.varLabel}`;
+                    }
+
+                    if (rendered.typeLabel) {
+                        return `${rendered.ident}: ${rendered.typeLabel}`;
+                    }
+
+                    return rendered.ident;
+                }
+
+                const fallback = String(rawEnv).trim();
+                return fallback.length > 0 ? fallback : '\u00a0';
+            }
+
+            setEnvPanelEnvironment(rawEnv) {
+                if (this.renderEnvironmentEntries(rawEnv)) {
+                    return;
+                }
+
+                const text = this.resolveEnvText(rawEnv);
+                this.setEnvPanelText(text);
+            }
+
+            updateEnvPanelLayout() {
+                if (!this.envPanel || !this.contentLayer) {
+                    return;
+                }
+
+                const scale = this.zoomLevel;
+
+                this.envPanel.style.width = this.envPanelWidth + 'px';
+                this.envPanel.style.transformOrigin = 'top left';
+                this.envPanel.style.transform = `scale(${scale})`;
+
+                const basePadding = this.envPanelWidth + this.envPanelSpacing;
+                this.contentLayer.style.paddingLeft = basePadding + 'px';
             }
 
             init() {
@@ -450,8 +910,9 @@
             }
 
             render() {
-                this.container.innerHTML = '';
-                
+                this.contentLayer.innerHTML = '';
+                this.hoveredNodeKey = null;
+
                 // Render nodes first
                 this.nodes.forEach(node => {
                     this.renderNode(node);
@@ -460,13 +921,15 @@
                 // Now that nodes are rendered, measure their actual heights and render connections
                 this.updateActualNodeHeights();
                 this.renderConnections();
+                this.updateSelectionHighlight();
+                this.refreshEnvPanel();
                 this.applyTransform();
             }
 
             updateActualNodeHeights() {
                 // Get actual rendered heights from the DOM
                 this.nodes.forEach(node => {
-                    const nodeElement = this.container.querySelector(`.node[data-key="${node.key}"]`);
+                    const nodeElement = this.contentLayer.querySelector(`.node[data-key="${node.key}"]`);
                     if (nodeElement) {
                         const actualHeight = nodeElement.offsetHeight;
                         this.nodeHeights.set(node.key, actualHeight);
@@ -487,7 +950,7 @@
                 
                 // Render connections for each parent and its children
                 parentToChildren.forEach((children, parentKey) => {
-                    const parentElement = this.container.querySelector(`.node[data-key="${parentKey}"]`);
+                    const parentElement = this.contentLayer.querySelector(`.node[data-key="${parentKey}"]`);
                     if (!parentElement) return;
 
                     const parentCenterX = parentElement.offsetLeft + parentElement.offsetWidth / 2;
@@ -495,7 +958,7 @@
                     
                     // Calculate the span of children
                     const childDetails = children.map(child => {
-                        const childElement = this.container.querySelector(`.node[data-key="${child.key}"]`);
+                        const childElement = this.contentLayer.querySelector(`.node[data-key="${child.key}"]`);
                         if (!childElement) {
                             return null;
                         }
@@ -519,7 +982,7 @@
                     parentVerticalLine.style.top = parentBottomY + 'px';
                     parentVerticalLine.style.width = '2px';
                     parentVerticalLine.style.height = verticalDropDistance + 'px';
-                    this.container.appendChild(parentVerticalLine);
+                    this.contentLayer.appendChild(parentVerticalLine);
 
                     const minChildX = Math.min(...childDetails.map(detail => detail.centerX));
                     const maxChildX = Math.max(...childDetails.map(detail => detail.centerX));
@@ -531,7 +994,7 @@
                     horizontalLine.style.top = horizontalLineY + 'px';
                     horizontalLine.style.width = (maxChildX - minChildX) + 'px';
                     horizontalLine.style.height = '2px';
-                    this.container.appendChild(horizontalLine);
+                    this.contentLayer.appendChild(horizontalLine);
                     
                     // Draw vertical lines to each child
                     childDetails.forEach(detail => {
@@ -544,14 +1007,14 @@
                         childVerticalLine.style.top = horizontalLineY + 'px';
                         childVerticalLine.style.width = '2px';
                         childVerticalLine.style.height = (topY - horizontalLineY) + 'px';
-                        this.container.appendChild(childVerticalLine);
+                        this.contentLayer.appendChild(childVerticalLine);
                         
                         // Arrow at child
                         const arrow = document.createElement('div');
                         arrow.className = 'connection-arrow';
                         arrow.style.left = (centerX - 6) + 'px';
                         arrow.style.top = (topY - 8) + 'px';
-                        this.container.appendChild(arrow);
+                        this.contentLayer.appendChild(arrow);
                     });
                 });
             }
@@ -561,7 +1024,12 @@
                 window.addEventListener('pointermove', this.handlePointerMove);
                 window.addEventListener('pointerup', this.handlePointerUp);
                 window.addEventListener('pointercancel', this.handlePointerUp);
+                this.container.addEventListener('click', this.handleContainerClick);
                 this.container.addEventListener('wheel', event => {
+                    if (this.envPanel && this.envPanel.contains(event.target)) {
+                        return;
+                    }
+
                     const wheelDelta = event.deltaY;
                     if (wheelDelta === 0) {
                         return;
@@ -575,6 +1043,16 @@
 
             handlePointerDown(event) {
                 if (event.button !== 0) {
+                    return;
+                }
+
+                this.didPan = false;
+
+                if (this.envPanel && this.envPanel.contains(event.target)) {
+                    return;
+                }
+
+                if (event.target && event.target.closest && event.target.closest('.node')) {
                     return;
                 }
 
@@ -605,6 +1083,9 @@
 
                 this.panX += deltaX;
                 this.panY += deltaY;
+                if (deltaX !== 0 || deltaY !== 0) {
+                    this.didPan = true;
+                }
                 this.applyTransform();
 
                 event.preventDefault();
@@ -628,9 +1109,52 @@
                 }
             }
 
+            handleContainerClick(event) {
+                if (this.didPan) {
+                    this.didPan = false;
+                    return;
+                }
+
+                if (this.envPanel && this.envPanel.contains(event.target)) {
+                    return;
+                }
+
+                if (event.target && event.target.closest && event.target.closest('.node')) {
+                    return;
+                }
+
+                if (this.selectedNodeKey !== null) {
+                    this.selectedNodeKey = null;
+                    this.updateSelectionHighlight();
+                    this.refreshEnvPanel();
+                }
+            }
+
+            handleEnvPanelMouseLeave(event) {
+                const nextTarget = event.relatedTarget;
+                if (nextTarget && nextTarget.closest && nextTarget.closest('.node')) {
+                    return;
+                }
+
+                if (this.envPanel && nextTarget && this.envPanel.contains(nextTarget)) {
+                    return;
+                }
+
+                if (this.hoveredNodeKey !== null) {
+                    this.hoveredNodeKey = null;
+                }
+
+                this.refreshEnvPanel();
+            }
+
             applyTransform() {
-                this.container.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
-                this.container.style.transformOrigin = 'top left';
+                if (!this.contentLayer) {
+                    return;
+                }
+
+                this.contentLayer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
+                this.contentLayer.style.transformOrigin = 'top left';
+                this.updateEnvPanelLayout();
             }
 
             buildNodeElement(node) {
@@ -659,7 +1183,7 @@
                 }
 
                 const varEl = document.createElement('div');
-                varEl.className = 'node-var';
+                varEl.className = 'tvar';
                 varEl.textContent = 'tv_' + node.varNum;
                 varEl.title = 'tv_' + node.varNum;
 
@@ -667,28 +1191,12 @@
                 header.appendChild(varEl);
                 nodeElement.appendChild(header);
 
-                if (node.additionalInfo && node.additionalInfo.trim()) {
-                    const additionalEl = document.createElement('div');
-                    additionalEl.className = 'node-additional';
-                    additionalEl.textContent = node.additionalInfo;
-                    additionalEl.title = node.additionalInfo;
-                    nodeElement.appendChild(additionalEl);
-                }
-
                 if (node.exprTyp && node.exprTyp.trim()) {
                     const typeEl = document.createElement('div');
                     typeEl.className = 'node-type';
                     typeEl.textContent = node.exprTyp;
                     typeEl.title = node.exprTyp;
                     nodeElement.appendChild(typeEl);
-                }
-
-                if (node.env && node.env.trim() && this.showEnv) {
-                    const envEl = document.createElement('div');
-                    envEl.className = 'node-env';
-                    envEl.textContent = node.env;
-                    envEl.title = node.env;
-                    nodeElement.appendChild(envEl);
                 }
 
                 return nodeElement;
@@ -703,7 +1211,68 @@
                 nodeElement.style.left = position.x + 'px';
                 nodeElement.style.top = position.y + 'px';
                 nodeElement.style.width = nodeWidth + 'px';
-                this.container.appendChild(nodeElement);
+                this.attachNodeEvents(node, nodeElement);
+                this.contentLayer.appendChild(nodeElement);
+            }
+
+            attachNodeEvents(node, nodeElement) {
+                if (!nodeElement) {
+                    return;
+                }
+
+                nodeElement.addEventListener('mouseenter', () => {
+                    this.hoveredNodeKey = node.key;
+                    this.refreshEnvPanel();
+                });
+
+                nodeElement.addEventListener('mouseleave', event => {
+                    const nextTarget = event.relatedTarget;
+                    if (nextTarget && nextTarget.closest && nextTarget.closest('.node')) {
+                        return;
+                    }
+                    if (this.envPanel && nextTarget && this.envPanel.contains(nextTarget)) {
+                        return;
+                    }
+                    this.hoveredNodeKey = null;
+                    this.refreshEnvPanel();
+                });
+
+                nodeElement.addEventListener('click', event => {
+                    event.stopPropagation();
+                    this.selectedNodeKey = node.key;
+                    this.updateSelectionHighlight();
+                    this.refreshEnvPanel();
+                });
+            }
+
+            updateSelectionHighlight() {
+                if (!this.contentLayer) {
+                    return;
+                }
+
+                const nodeElements = this.contentLayer.querySelectorAll('.node');
+                const selectedKeyString = this.selectedNodeKey !== null ? String(this.selectedNodeKey) : null;
+                nodeElements.forEach(nodeElement => {
+                    const elementKey = nodeElement.dataset.key ?? '';
+                    if (selectedKeyString !== null && elementKey === selectedKeyString) {
+                        nodeElement.classList.add('selected');
+                    } else {
+                        nodeElement.classList.remove('selected');
+                    }
+                });
+            }
+
+            refreshEnvPanel() {
+                const activeKey = this.hoveredNodeKey !== null ? this.hoveredNodeKey : this.selectedNodeKey;
+                const node = (activeKey !== null) ? (this.nodes.get(activeKey) || null) : null;
+
+                this.updateEnvPanelNodePreview(node);
+
+                if (node) {
+                    this.setEnvPanelEnvironment(node.env);
+                } else {
+                    this.setEnvPanelEnvironment(null);
+                }
             }
 
             adjustLevelSpacing(delta) {
@@ -717,23 +1286,15 @@
                 this.render();
             }
 
-            toggleEnvironment() {
-                this.showEnv = !this.showEnv;
-                // Recalculate dimensions since environment text affects both width and height
-                this.calculateNodeDimensions();
-                this.calculateLayout();
-                this.render();
-            }
-
             zoom(factor, focalPoint = null) {
                 const oldZoom = this.zoomLevel;
                 const newZoom = Math.min(this.maxZoom, Math.max(this.minZoom, oldZoom * factor));
                 const zoomChange = newZoom / oldZoom;
 
-                if (focalPoint && zoomChange !== 1) {
-                    const containerRect = this.container.getBoundingClientRect();
-                    const offsetX = focalPoint.x - containerRect.left;
-                    const offsetY = focalPoint.y - containerRect.top;
+                if (focalPoint && zoomChange !== 1 && this.contentLayer) {
+                    const layerRect = this.contentLayer.getBoundingClientRect();
+                    const offsetX = focalPoint.x - layerRect.left;
+                    const offsetY = focalPoint.y - layerRect.top;
 
                     this.panX = (offsetX - (offsetX - this.panX) * zoomChange);
                     this.panY = (offsetY - (offsetY - this.panY) * zoomChange);
@@ -759,30 +1320,6 @@
             treeViz = new TreeVisualizer();
         });
 
-        // Control functions
-        function zoomIn() {
-            if (treeViz) treeViz.zoom(1.2);
-        }
-
-        function zoomOut() {
-            if (treeViz) treeViz.zoom(0.8);
-        }
-
-        function resetZoom() {
-            if (treeViz) treeViz.resetZoom();
-        }
-
-        function toggleEnv() {
-            if (treeViz) treeViz.toggleEnvironment();
-        }
-
-        function increaseLevelSpacing() {
-            if (treeViz) treeViz.adjustLevelSpacing(20);
-        }
-
-        function decreaseLevelSpacing() {
-            if (treeViz) treeViz.adjustLevelSpacing(-20);
-        }
     </script>
 </body>
 </html>

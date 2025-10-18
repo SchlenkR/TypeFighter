@@ -41,15 +41,17 @@ module Visu =
                     env
                     |> Seq.map (fun kvp -> 
                         match kvp.Value with 
-                        | EnvItem.External _ -> None 
+                        | EnvItem.External _ -> None
                         | EnvItem.Internal t -> Some (kvp.Key, t))
                     |> Seq.choose id
-                    |> Seq.map (fun (ident, varNum) ->
-                        let solvedTyp = getExprTyp varNum
-                        $"{ident}: {varNum} ({solvedTyp})")
-                    |> String.concat "; "
-                )
-                |> Option.defaultValue ""
+                    |> Seq.map (fun (ident, VarNum varNum) ->
+                        {
+                            ident = ident
+                            varNum = varNum
+                            solvedTyp = getExprTyp (VarNum varNum)
+                        })
+                    |> Seq.toList)
+                |> Option.defaultValue []
             let createExprNode name code additionalInfo children =
                 Tree.expr (let (VarNum x) = expr.TVar in x) code (getExprTyp expr.TVar) name env additionalInfo children
             match expr with

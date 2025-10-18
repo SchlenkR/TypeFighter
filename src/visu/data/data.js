@@ -1,67 +1,186 @@
 
 window.nodeDataArray = [
   {
-    "key": 7,
+    "key": 10,
     "name": "LET",
-    "code": "myRecord = ...",
-    "varNum": "7",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
-    "exprTyp": "{ age: Number; name: String }",
-    "env": ""
-  },
-  {
-    "key": 5,
-    "name": "MK-RECORD",
-    "code": "",
-    "varNum": "5",
-    "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-    "exprTyp": "{ age: Number; name: String }",
-    "env": ""
+    "code": "x = ...",
+    "varNum": "10",
+    "additionalInfo": "IDENT = x   TVAR = tv_0   TYP = Number",
+    "exprTyp": "Number",
+    "env": []
   },
   {
     "key": 1,
     "name": "LIT",
-    "code": "22",
+    "code": "10",
     "varNum": "1",
     "additionalInfo": "",
     "exprTyp": "Number",
-    "env": ""
+    "env": []
+  },
+  {
+    "key": 9,
+    "name": "LET",
+    "code": "y = ...",
+    "varNum": "9",
+    "additionalInfo": "IDENT = y   TVAR = tv_2   TYP = Number",
+    "exprTyp": "Number",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      }
+    ]
   },
   {
     "key": 3,
     "name": "LIT",
-    "code": "\u0027John\u0027",
+    "code": "20",
     "varNum": "3",
     "additionalInfo": "",
-    "exprTyp": "String",
-    "env": ""
+    "exprTyp": "Number",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      }
+    ]
+  },
+  {
+    "key": 8,
+    "name": "APP",
+    "code": "",
+    "varNum": "8",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      },
+      {
+        "ident": "y",
+        "varNum": 2,
+        "solvedTyp": "Number"
+      }
+    ]
   },
   {
     "key": 6,
-    "name": "VAR",
-    "code": "myRecord",
+    "name": "APP",
+    "code": "",
     "varNum": "6",
     "additionalInfo": "",
-    "exprTyp": "{ age: Number; name: String }",
-    "env": "myRecord: tv_0 ({ age: Number; name: String })"
+    "exprTyp": "(Number -\u003E Number)",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      },
+      {
+        "ident": "y",
+        "varNum": 2,
+        "solvedTyp": "Number"
+      }
+    ]
+  },
+  {
+    "key": 4,
+    "name": "VAR",
+    "code": "add",
+    "varNum": "4",
+    "additionalInfo": "",
+    "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      },
+      {
+        "ident": "y",
+        "varNum": 2,
+        "solvedTyp": "Number"
+      }
+    ]
+  },
+  {
+    "key": 5,
+    "name": "VAR",
+    "code": "x",
+    "varNum": "5",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      },
+      {
+        "ident": "y",
+        "varNum": 2,
+        "solvedTyp": "Number"
+      }
+    ]
+  },
+  {
+    "key": 7,
+    "name": "VAR",
+    "code": "y",
+    "varNum": "7",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": [
+      {
+        "ident": "x",
+        "varNum": 0,
+        "solvedTyp": "Number"
+      },
+      {
+        "ident": "y",
+        "varNum": 2,
+        "solvedTyp": "Number"
+      }
+    ]
   }
 ];
 window.linkDataArray = [
   {
-    "from": 7,
-    "to": 5
-  },
-  {
-    "from": 7,
-    "to": 6
-  },
-  {
-    "from": 5,
+    "from": 10,
     "to": 1
   },
   {
-    "from": 5,
+    "from": 10,
+    "to": 9
+  },
+  {
+    "from": 9,
     "to": 3
+  },
+  {
+    "from": 9,
+    "to": 8
+  },
+  {
+    "from": 8,
+    "to": 6
+  },
+  {
+    "from": 8,
+    "to": 7
+  },
+  {
+    "from": 6,
+    "to": 4
+  },
+  {
+    "from": 6,
+    "to": 5
   }
 ];
         
