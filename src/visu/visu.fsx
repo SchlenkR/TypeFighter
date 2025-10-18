@@ -11,6 +11,7 @@ type JsNode =
     { 
         key: int
         name: string
+        code: string
         varNum: string
         additionalInfo: string
         exprTyp: string
@@ -44,6 +45,7 @@ module Tree =
         { 
             mutable key: int
             name: string
+            code: string
             varNum: int
             additionalInfo: string
             exprTyp: string
@@ -51,10 +53,11 @@ module Tree =
             children: ResizeArray<Node> 
         }
     
-    let expr varNum exprTyp name env additionalInfo (children: Node list) =
+    let expr varNum code exprTyp name env additionalInfo (children: Node list) =
         { 
             key = varNum
             name = name
+            code = code
             varNum = varNum
             additionalInfo = additionalInfo
             exprTyp = exprTyp
@@ -69,6 +72,7 @@ module Tree =
                 { 
                     key = n.key
                     name = n.name
+                    code = n.code
                     varNum = $"{n.key}"
                     additionalInfo = n.additionalInfo
                     exprTyp = n.exprTyp

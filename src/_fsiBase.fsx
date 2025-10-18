@@ -50,8 +50,8 @@ module Visu =
                     |> String.concat "; "
                 )
                 |> Option.defaultValue ""
-            let createExprNode name additionalInfo children =
-                Tree.expr (let (VarNum x) = expr.TVar in x) (getExprTyp expr.TVar) name env additionalInfo children
+            let createExprNode name code additionalInfo children =
+                Tree.expr (let (VarNum x) = expr.TVar in x) code (getExprTyp expr.TVar) name env additionalInfo children
             match expr with
             | Expr.Lit x ->
                 let litTyp,litValue = 
@@ -59,19 +59,19 @@ module Visu =
                     | Number value -> "number", (value.ToString())
                     | String value -> "string", "'" + value + "'"
                     | Boolean value -> "boolean", (value.ToString())
-                createExprNode $"""Lit ({litValue}) """ "" []
+                createExprNode "LIT" $"{litValue}" "" []
             | Expr.Var x ->
-                createExprNode $"""Var "{x.ident}" """ "" []
+                createExprNode "VAR" $"{x.ident}" "" []
             | Expr.App x ->
-                createExprNode "App" "" [ createNodes x.func; createNodes x.arg ]
+                createExprNode "APP" "" "" [ createNodes x.func; createNodes x.arg ]
             | Expr.Fun x ->
                 let details = getIdentDetails x.ident
-                createExprNode $"Fun {x.ident.identName} -> ..." details [ createNodes x.body ]
+                createExprNode "FUN" $"{x.ident.identName} -> ..." details [ createNodes x.body ]
             | Expr.Let x ->
                 let details = getIdentDetails x.ident
-                createExprNode $"Let {x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
+                createExprNode "LET" $"{x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
             | Expr.Do x ->
-                createExprNode $"Do ..." "" [ createNodes x.action; createNodes x.body ]
+                createExprNode "DO" "..." "" [ createNodes x.action; createNodes x.body ]
             | Expr.Match x ->
                 let caseNames = 
                     [
@@ -83,18 +83,18 @@ module Visu =
                             $"    | {x.disc} {binding}-> ... ({x.body.TVar})"
                     ]
                     |> String.concat "\n"
-                createExprNode $"MatchDU ..." $"cases =\n{caseNames}\n" [ createNodes x.expr; for c in x.cases do createNodes c.body ]
+                createExprNode "MATCH-DU" "..." $"cases =\n{caseNames}\n" [ createNodes x.expr; for c in x.cases do createNodes c.body ]
             | Expr.PropAcc x ->
-                createExprNode $"""PropAcc "{x.ident.identName}" """ $"var(ident) = {x.ident.tvar}" [ createNodes x.source ]
+                createExprNode "PROP-ACC" $"_.{x.ident.identName}" $"var(ident) = {x.ident.tvar}" [ createNodes x.source ]
             | Expr.MkArray x ->
-                createExprNode $"MkArray []" "" [ for e in x.values do createNodes e ]
+                createExprNode "MK-ARRAY" "[]" "" [ for e in x.values do createNodes e ]
             | Expr.MkRecord x ->
                 let fieldNames = 
                     x.fields 
                     |> List.map (fun f -> $"{f.fname}: {f.value.TVar}")
                     |> String.concat "; " 
                     |> sprintf "{ %s }"
-                createExprNode $"Record" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
+                createExprNode "MK-RECORD" "" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
         
         do createNodes root |> flatten |> Tree.write
 

@@ -41,7 +41,7 @@ let envWithAdd =
 *)
 let [<Test>] ``app with property access`` () =
 
-    X.App (X.App (X.Var "add") (X.Lit "10")) (X.PropAcc (X.Var "order") "quantity")
+    X.App (X.App (X.Var "add") (X.Lit 10)) (X.PropAcc (X.Var "order") "quantity")
     |> solve
         [
             yield! envWithAdd

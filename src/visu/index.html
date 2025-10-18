@@ -1,35 +1,788 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Graph</title>
-
-    <meta
-      name="description"
-      content="A family tree diagram of British royalty."
-    />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-
+<head>
+    <title>TypeFighter Tree Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-      body {
-        margin: 2.5vh;
-      }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
 
-      #diagramDiv {
-        min-width: 95vh;
-        min-height: 95vh;
-        border: none;
-        background-color: white;
-      }
+        #container {
+            width: 100%;
+            height: 100vh;
+            overflow: auto;
+            background-color: white;
+            border: 1px solid #ccc;
+        }
 
-      #diagramDiv canvas {
-        outline: none;
-      }
+        #tree-container {
+            position: relative;
+            min-width: 1200px;
+            min-height: 800px;
+            padding: 50px;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        #tree-container.panning {
+            cursor: grabbing;
+        }
+
+        .node {
+            position: absolute;
+            background: white;
+            border: 2px solid darkblue;
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .node:hover {
+            box-shadow: 4px 4px 8px rgba(0,0,0,0.2);
+            transform: scale(1.02);
+        }
+
+        .node-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .node-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #000;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .node-title-group {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .node-code {
+            font-size: 12px;
+            font-weight: normal;
+            color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+            margin-left: 3px;
+        }
+
+        .node-var {
+            font-size: 10px;
+            font-weight: bold;
+            color: #666;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .node-additional {
+            font-size: 10px;
+            color: gray;
+            font-style: italic;
+            font-family: Consolas, monospace;
+            margin: 4px 0;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        .node-type {
+            font-size: 14px;
+            color: green;
+            font-weight: bolder;
+            font-family: Consolas, monospace;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        .node-env {
+            font-size: 9px;
+            color: #555;
+            font-family: Consolas, monospace;
+            margin-top: 4px;
+            padding: 4px;
+            background: #f9f9f9;
+            border-radius: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .connection-line {
+            position: absolute;
+            background: #333;
+            z-index: 1;
+        }
+
+        .connection-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid #333;
+            z-index: 2;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        .control-button {
+            margin: 2px;
+            padding: 5px 10px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .control-button:hover {
+            background: #005a99;
+        }
     </style>
-
     <script src="./data/data.js"></script>
-  </head>
-  <body>
-    <div id="diagramDiv"></div>
-    <script type="module" src="./index.js"></script>
-  </body>
+</head>
+<body>
+    <div class="controls">
+        <button class="control-button" onclick="zoomIn()">Zoom In</button>
+        <button class="control-button" onclick="zoomOut()">Zoom Out</button>
+        <button class="control-button" onclick="resetZoom()">Reset</button>
+        <button class="control-button" onclick="toggleEnv()">Toggle Env</button>
+        <button class="control-button" onclick="increaseLevelSpacing()">Level Space +</button>
+        <button class="control-button" onclick="decreaseLevelSpacing()">Level Space -</button>
+    </div>
+    
+    <div id="container">
+        <div id="tree-container"></div>
+    </div>
+
+    <script>
+        class TreeVisualizer {
+            constructor() {
+                this.levelHeight = 140;
+                this.minNodeWidth = 90;
+                this.maxNodeWidth = 550;
+                this.minNodeSpacing = 50; // Minimum spacing between adjacent nodes
+                this.subtreeSpacing = 50; // Spacing between child subtrees
+                this.minLevelHeight = 80;
+                this.maxLevelHeight = 320;
+
+                this.showEnv = false;
+                this.minZoom = 0.25;
+                this.maxZoom = 4;
+                this.zoomLevel = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.isPanning = false;
+                this.activePointerId = null;
+                this.lastPanPosition = { x: 0, y: 0 };
+
+                this.nodes = new Map();
+                this.links = [];
+                this.nodePositions = new Map();
+                this.nodeWidths = new Map(); // Store calculated widths for each node
+                this.nodeHeights = new Map(); // Store calculated heights for each node
+                this.container = document.getElementById('tree-container');
+                this.measurementContainer = this.createMeasurementContainer();
+                this.handlePointerDown = this.handlePointerDown.bind(this);
+                this.handlePointerMove = this.handlePointerMove.bind(this);
+                this.handlePointerUp = this.handlePointerUp.bind(this);
+
+                this.setupInteraction();
+                this.init();
+                this.applyTransform();
+            }
+
+            createMeasurementContainer() {
+                const measurementHost = document.createElement('div');
+                measurementHost.style.position = 'absolute';
+                measurementHost.style.visibility = 'hidden';
+                measurementHost.style.pointerEvents = 'none';
+                measurementHost.style.left = '-10000px';
+                measurementHost.style.top = '-10000px';
+                measurementHost.style.width = 'auto';
+                measurementHost.style.height = 'auto';
+                document.body.appendChild(measurementHost);
+                return measurementHost;
+            }
+
+            init() {
+                // Parse data
+                this.parseData();
+                // Calculate node widths and heights based on content
+                this.calculateNodeDimensions();
+                // Calculate layout
+                this.calculateLayout();
+                // Render tree
+                this.render();
+            }
+
+            parseData() {
+                // Create nodes map
+                window.nodeDataArray.forEach(nodeData => {
+                    this.nodes.set(nodeData.key, {
+                        ...nodeData,
+                        children: [],
+                        parents: []
+                    });
+                });
+
+                // Create links and establish parent-child relationships
+                window.linkDataArray.forEach(link => {
+                    const parent = this.nodes.get(link.from);
+                    const child = this.nodes.get(link.to);
+                    
+                    if (parent && child) {
+                        parent.children.push(child);
+                        child.parents.push(parent);
+                        this.links.push({ parent, child });
+                    }
+                });
+            }
+
+            calculateNodeDimensions() {
+                this.measurementContainer.innerHTML = '';
+
+                this.nodes.forEach(node => {
+                    const measurementElement = this.buildNodeElement(node);
+                    // Let the browser lay out the node exactly as it will appear.
+                    measurementElement.style.position = 'static';
+                    measurementElement.style.left = 'auto';
+                    measurementElement.style.top = 'auto';
+                    measurementElement.style.width = 'auto';
+
+                    this.measurementContainer.appendChild(measurementElement);
+
+                    const naturalWidth = measurementElement.offsetWidth;
+                    const clampedWidth = Math.max(this.minNodeWidth, Math.min(this.maxNodeWidth, naturalWidth));
+
+                    if (clampedWidth !== naturalWidth) {
+                        measurementElement.style.width = clampedWidth + 'px';
+                    }
+
+                    const finalHeight = measurementElement.offsetHeight;
+
+                    this.nodeWidths.set(node.key, clampedWidth);
+                    this.nodeHeights.set(node.key, finalHeight);
+
+                    this.measurementContainer.removeChild(measurementElement);
+                });
+            }
+
+            calculateLayout() {
+                // Find root nodes (nodes with no parents)
+                const roots = Array.from(this.nodes.values()).filter(node => node.parents.length === 0);
+                
+                // Calculate positions using a bottom-up approach first to determine subtree widths
+                const subtreeWidths = new Map();
+                roots.forEach(root => {
+                    this.calculateSubtreeWidth(root, subtreeWidths, new Set());
+                });
+                
+                // Now position nodes from left to right
+                let currentX = 50;
+                roots.forEach(root => {
+                    currentX = this.positionSubtree(root, 0, currentX, subtreeWidths, new Set());
+                    currentX += 50; // Add spacing between root subtrees
+                });
+            }
+
+            calculateSubtreeWidth(node, subtreeWidths, visited) {
+                if (visited.has(node.key)) {
+                    return subtreeWidths.get(node.key) || 0;
+                }
+                visited.add(node.key);
+
+                const nodeWidth = this.nodeWidths.get(node.key);
+                
+                if (node.children.length === 0) {
+                    // Leaf node - width is just the node width
+                    subtreeWidths.set(node.key, nodeWidth);
+                    return nodeWidth;
+                } else {
+                    // Internal node - width is the sum of children widths plus spacing
+                    let childrenTotalWidth = 0;
+                    node.children.forEach((child, index) => {
+                        const childSubtreeWidth = this.calculateSubtreeWidth(child, subtreeWidths, visited);
+                        childrenTotalWidth += childSubtreeWidth;
+                        if (index < node.children.length - 1) {
+                            const spacing = Math.max(this.subtreeSpacing, this.minNodeSpacing);
+                            childrenTotalWidth += spacing; // Spacing between child subtrees
+                        }
+                    });
+                    
+                    // Subtree width is the maximum of node width and children total width
+                    const subtreeWidth = Math.max(nodeWidth, childrenTotalWidth);
+                    subtreeWidths.set(node.key, subtreeWidth);
+                    return subtreeWidth;
+                }
+            }
+
+            positionSubtree(node, level, startX, subtreeWidths, visited) {
+                if (visited.has(node.key)) {
+                    return startX;
+                }
+                visited.add(node.key);
+
+                const y = level * this.levelHeight + 50;
+                const nodeWidth = this.nodeWidths.get(node.key);
+                const subtreeWidth = subtreeWidths.get(node.key);
+                
+                if (node.children.length === 0) {
+                    // Leaf node - just position it
+                    this.nodePositions.set(node.key, { x: startX, y });
+                    return startX + subtreeWidth;
+                } else {
+                    // Position children first
+                    let currentChildX = startX;
+                    const childPositions = [];
+                    
+                    node.children.forEach((child, index) => {
+                        const childStartX = currentChildX;
+                        currentChildX = this.positionSubtree(child, level + 1, childStartX, subtreeWidths, visited);
+                        childPositions.push(this.nodePositions.get(child.key));
+                        
+                        if (index < node.children.length - 1) {
+                            currentChildX += this.subtreeSpacing; // Spacing between child subtrees
+                        }
+                    });
+                    
+                    // Ensure minimum spacing between adjacent child nodes
+                    this.enforceMinimumSpacing(node.children, level + 1);
+                    
+                    // Center parent over children (recalculate positions after spacing adjustment)
+                    const updatedChildPositions = node.children.map(child => this.nodePositions.get(child.key));
+                    if (updatedChildPositions.length > 0) {
+                        const leftmostChild = Math.min(...updatedChildPositions.map(pos => pos.x));
+                        const rightmostChild = Math.max(...updatedChildPositions.map((pos, index) => 
+                            pos.x + this.nodeWidths.get(node.children[index].key)));
+                        const childrenCenter = (leftmostChild + rightmostChild) / 2;
+                        const parentX = childrenCenter - nodeWidth / 2;
+                        
+                        // Ensure parent doesn't go outside the subtree bounds
+                        const minParentX = startX;
+                        const maxParentX = startX + subtreeWidth - nodeWidth;
+                        const finalParentX = Math.max(minParentX, Math.min(maxParentX, parentX));
+                        
+                        this.nodePositions.set(node.key, { x: finalParentX, y });
+                    } else {
+                        this.nodePositions.set(node.key, { x: startX, y });
+                    }
+                    
+                    return startX + subtreeWidth;
+                }
+            }
+
+            enforceMinimumSpacing(children, level) {
+                if (children.length <= 1) return;
+                
+                // Sort children by their current x position
+                const sortedChildren = [...children].sort((a, b) => {
+                    const posA = this.nodePositions.get(a.key);
+                    const posB = this.nodePositions.get(b.key);
+                    return posA.x - posB.x;
+                });
+                
+                // Adjust positions to maintain minimum spacing
+                for (let i = 1; i < sortedChildren.length; i++) {
+                    const prevChild = sortedChildren[i - 1];
+                    const currentChild = sortedChildren[i];
+                    
+                    const prevPos = this.nodePositions.get(prevChild.key);
+                    const currentPos = this.nodePositions.get(currentChild.key);
+                    const prevWidth = this.nodeWidths.get(prevChild.key);
+                    
+                    const minX = prevPos.x + prevWidth + this.minNodeSpacing;
+                    
+                    if (currentPos.x < minX) {
+                        // Need to move this node and all subsequent nodes to the right
+                        const shift = minX - currentPos.x;
+                        for (let j = i; j < sortedChildren.length; j++) {
+                            const nodeToShift = sortedChildren[j];
+                            const posToShift = this.nodePositions.get(nodeToShift.key);
+                            this.nodePositions.set(nodeToShift.key, {
+                                x: posToShift.x + shift,
+                                y: posToShift.y
+                            });
+                        }
+                    }
+                }
+            }
+
+            render() {
+                this.container.innerHTML = '';
+                
+                // Render nodes first
+                this.nodes.forEach(node => {
+                    this.renderNode(node);
+                });
+                
+                // Now that nodes are rendered, measure their actual heights and render connections
+                this.updateActualNodeHeights();
+                this.renderConnections();
+                this.applyTransform();
+            }
+
+            updateActualNodeHeights() {
+                // Get actual rendered heights from the DOM
+                this.nodes.forEach(node => {
+                    const nodeElement = this.container.querySelector(`.node[data-key="${node.key}"]`);
+                    if (nodeElement) {
+                        const actualHeight = nodeElement.offsetHeight;
+                        this.nodeHeights.set(node.key, actualHeight);
+                    }
+                });
+            }
+
+            renderConnections() {
+                // Group children by parent to draw connections properly
+                const parentToChildren = new Map();
+                
+                this.links.forEach(link => {
+                    if (!parentToChildren.has(link.parent.key)) {
+                        parentToChildren.set(link.parent.key, []);
+                    }
+                    parentToChildren.get(link.parent.key).push(link.child);
+                });
+                
+                // Render connections for each parent and its children
+                parentToChildren.forEach((children, parentKey) => {
+                    const parentElement = this.container.querySelector(`.node[data-key="${parentKey}"]`);
+                    if (!parentElement) return;
+
+                    const parentCenterX = parentElement.offsetLeft + parentElement.offsetWidth / 2;
+                    const parentBottomY = parentElement.offsetTop + parentElement.offsetHeight;
+                    
+                    // Calculate the span of children
+                    const childDetails = children.map(child => {
+                        const childElement = this.container.querySelector(`.node[data-key="${child.key}"]`);
+                        if (!childElement) {
+                            return null;
+                        }
+                        return {
+                            centerX: childElement.offsetLeft + childElement.offsetWidth / 2,
+                            topY: childElement.offsetTop
+                        };
+                    }).filter(detail => detail !== null);
+
+                    if (childDetails.length === 0) return;
+
+                    const minChildTop = Math.min(...childDetails.map(detail => detail.topY));
+                    const gapBetweenLevels = Math.max(0, minChildTop - parentBottomY);
+                    const verticalDropDistance = gapBetweenLevels / 2;
+                    const horizontalLineY = parentBottomY + verticalDropDistance;
+
+                    // Draw single vertical line from parent (same height as child drop)
+                    const parentVerticalLine = document.createElement('div');
+                    parentVerticalLine.className = 'connection-line';
+                    parentVerticalLine.style.left = parentCenterX + 'px';
+                    parentVerticalLine.style.top = parentBottomY + 'px';
+                    parentVerticalLine.style.width = '2px';
+                    parentVerticalLine.style.height = verticalDropDistance + 'px';
+                    this.container.appendChild(parentVerticalLine);
+
+                    const minChildX = Math.min(...childDetails.map(detail => detail.centerX));
+                    const maxChildX = Math.max(...childDetails.map(detail => detail.centerX));
+                    
+                    // Draw horizontal line spanning all children
+                    const horizontalLine = document.createElement('div');
+                    horizontalLine.className = 'connection-line';
+                    horizontalLine.style.left = minChildX + 'px';
+                    horizontalLine.style.top = horizontalLineY + 'px';
+                    horizontalLine.style.width = (maxChildX - minChildX) + 'px';
+                    horizontalLine.style.height = '2px';
+                    this.container.appendChild(horizontalLine);
+                    
+                    // Draw vertical lines to each child
+                    childDetails.forEach(detail => {
+                        const { centerX, topY } = detail;
+
+                        // Vertical line to child
+                        const childVerticalLine = document.createElement('div');
+                        childVerticalLine.className = 'connection-line';
+                        childVerticalLine.style.left = centerX + 'px';
+                        childVerticalLine.style.top = horizontalLineY + 'px';
+                        childVerticalLine.style.width = '2px';
+                        childVerticalLine.style.height = (topY - horizontalLineY) + 'px';
+                        this.container.appendChild(childVerticalLine);
+                        
+                        // Arrow at child
+                        const arrow = document.createElement('div');
+                        arrow.className = 'connection-arrow';
+                        arrow.style.left = (centerX - 6) + 'px';
+                        arrow.style.top = (topY - 8) + 'px';
+                        this.container.appendChild(arrow);
+                    });
+                });
+            }
+
+            setupInteraction() {
+                this.container.addEventListener('pointerdown', this.handlePointerDown);
+                window.addEventListener('pointermove', this.handlePointerMove);
+                window.addEventListener('pointerup', this.handlePointerUp);
+                window.addEventListener('pointercancel', this.handlePointerUp);
+                this.container.addEventListener('wheel', event => {
+                    const wheelDelta = event.deltaY;
+                    if (wheelDelta === 0) {
+                        return;
+                    }
+
+                    const zoomFactor = wheelDelta > 0 ? 0.9 : 1.1;
+                    this.zoom(zoomFactor, { x: event.clientX, y: event.clientY });
+                    event.preventDefault();
+                }, { passive: false });
+            }
+
+            handlePointerDown(event) {
+                if (event.button !== 0) {
+                    return;
+                }
+
+                this.isPanning = true;
+                this.activePointerId = event.pointerId;
+                this.lastPanPosition = { x: event.clientX, y: event.clientY };
+                this.container.classList.add('panning');
+
+                if (this.container.setPointerCapture) {
+                    try {
+                        this.container.setPointerCapture(event.pointerId);
+                    } catch (_) {
+                        // Ignore cases where pointer capture is not available
+                    }
+                }
+
+                event.preventDefault();
+            }
+
+            handlePointerMove(event) {
+                if (!this.isPanning || event.pointerId !== this.activePointerId) {
+                    return;
+                }
+
+                const deltaX = event.clientX - this.lastPanPosition.x;
+                const deltaY = event.clientY - this.lastPanPosition.y;
+                this.lastPanPosition = { x: event.clientX, y: event.clientY };
+
+                this.panX += deltaX;
+                this.panY += deltaY;
+                this.applyTransform();
+
+                event.preventDefault();
+            }
+
+            handlePointerUp(event) {
+                if (event.pointerId !== this.activePointerId) {
+                    return;
+                }
+
+                this.isPanning = false;
+                this.activePointerId = null;
+                this.container.classList.remove('panning');
+
+                if (this.container.releasePointerCapture) {
+                    try {
+                        this.container.releasePointerCapture(event.pointerId);
+                    } catch (_) {
+                        // Ignore cases where release fails
+                    }
+                }
+            }
+
+            applyTransform() {
+                this.container.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
+                this.container.style.transformOrigin = 'top left';
+            }
+
+            buildNodeElement(node) {
+                const nodeElement = document.createElement('div');
+                nodeElement.className = 'node';
+                nodeElement.dataset.key = node.key;
+
+                const header = document.createElement('div');
+                header.className = 'node-header';
+
+                const titleGroup = document.createElement('div');
+                titleGroup.className = 'node-title-group';
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'node-name';
+                nameEl.textContent = node.name;
+                nameEl.title = node.name;
+                titleGroup.appendChild(nameEl);
+
+                if (node.code && node.code.trim()) {
+                    const codeEl = document.createElement('div');
+                    codeEl.className = 'node-code';
+                    codeEl.textContent = node.code;
+                    codeEl.title = node.code;
+                    titleGroup.appendChild(codeEl);
+                }
+
+                const varEl = document.createElement('div');
+                varEl.className = 'node-var';
+                varEl.textContent = 'tv_' + node.varNum;
+                varEl.title = 'tv_' + node.varNum;
+
+                header.appendChild(titleGroup);
+                header.appendChild(varEl);
+                nodeElement.appendChild(header);
+
+                if (node.additionalInfo && node.additionalInfo.trim()) {
+                    const additionalEl = document.createElement('div');
+                    additionalEl.className = 'node-additional';
+                    additionalEl.textContent = node.additionalInfo;
+                    additionalEl.title = node.additionalInfo;
+                    nodeElement.appendChild(additionalEl);
+                }
+
+                if (node.exprTyp && node.exprTyp.trim()) {
+                    const typeEl = document.createElement('div');
+                    typeEl.className = 'node-type';
+                    typeEl.textContent = node.exprTyp;
+                    typeEl.title = node.exprTyp;
+                    nodeElement.appendChild(typeEl);
+                }
+
+                if (node.env && node.env.trim() && this.showEnv) {
+                    const envEl = document.createElement('div');
+                    envEl.className = 'node-env';
+                    envEl.textContent = node.env;
+                    envEl.title = node.env;
+                    nodeElement.appendChild(envEl);
+                }
+
+                return nodeElement;
+            }
+
+            renderNode(node) {
+                const position = this.nodePositions.get(node.key);
+                if (!position) return;
+
+                const nodeWidth = this.nodeWidths.get(node.key);
+                const nodeElement = this.buildNodeElement(node);
+                nodeElement.style.left = position.x + 'px';
+                nodeElement.style.top = position.y + 'px';
+                nodeElement.style.width = nodeWidth + 'px';
+                this.container.appendChild(nodeElement);
+            }
+
+            adjustLevelSpacing(delta) {
+                const bounded = Math.min(this.maxLevelHeight, Math.max(this.minLevelHeight, this.levelHeight + delta));
+                if (bounded === this.levelHeight) {
+                    return;
+                }
+
+                this.levelHeight = bounded;
+                this.calculateLayout();
+                this.render();
+            }
+
+            toggleEnvironment() {
+                this.showEnv = !this.showEnv;
+                // Recalculate dimensions since environment text affects both width and height
+                this.calculateNodeDimensions();
+                this.calculateLayout();
+                this.render();
+            }
+
+            zoom(factor, focalPoint = null) {
+                const oldZoom = this.zoomLevel;
+                const newZoom = Math.min(this.maxZoom, Math.max(this.minZoom, oldZoom * factor));
+                const zoomChange = newZoom / oldZoom;
+
+                if (focalPoint && zoomChange !== 1) {
+                    const containerRect = this.container.getBoundingClientRect();
+                    const offsetX = focalPoint.x - containerRect.left;
+                    const offsetY = focalPoint.y - containerRect.top;
+
+                    this.panX = (offsetX - (offsetX - this.panX) * zoomChange);
+                    this.panY = (offsetY - (offsetY - this.panY) * zoomChange);
+                }
+
+                this.zoomLevel = newZoom;
+                this.applyTransform();
+            }
+
+            resetZoom() {
+                this.zoomLevel = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.applyTransform();
+            }
+        }
+
+        // Global instance
+        let treeViz;
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            treeViz = new TreeVisualizer();
+        });
+
+        // Control functions
+        function zoomIn() {
+            if (treeViz) treeViz.zoom(1.2);
+        }
+
+        function zoomOut() {
+            if (treeViz) treeViz.zoom(0.8);
+        }
+
+        function resetZoom() {
+            if (treeViz) treeViz.resetZoom();
+        }
+
+        function toggleEnv() {
+            if (treeViz) treeViz.toggleEnvironment();
+        }
+
+        function increaseLevelSpacing() {
+            if (treeViz) treeViz.adjustLevelSpacing(20);
+        }
+
+        function decreaseLevelSpacing() {
+            if (treeViz) treeViz.adjustLevelSpacing(-20);
+        }
+    </script>
+</body>
 </html>

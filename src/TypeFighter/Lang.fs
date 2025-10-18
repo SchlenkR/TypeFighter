@@ -69,7 +69,7 @@ and ShowTyp =
     static let getNameHint nameHint =
         match nameHint with
         | NameHint.Anonymous -> ""
-        | NameHint.Given name -> $" (name={name})"
+        | NameHint.Given name -> $" (type '{name}')"
     static let printOrShow (typ: MonoTyp) defaultShow =
         match 
             printers 
