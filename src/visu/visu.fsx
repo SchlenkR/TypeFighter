@@ -15,7 +15,6 @@ type JsNode =
         additionalInfo: string
         exprTyp: string
         env: string
-        [<JsonPropertyName("fig")>] layout: string
     }
 
 type JsLink =
@@ -26,15 +25,8 @@ type JsLink =
 
 [<AutoOpen>]
 module internal Internal =
-    module Layouts =
-        let tree = "tree"
-
-    module NodeTypes =
-        let expr = "Rectangle"
-
-    let writeData (nodesJson: string) (linksJson: string) (layout: string) =
+    let writeData (nodesJson: string) (linksJson: string) =
         let json = $"
-window.layout = \"{layout}\";
 window.nodeDataArray = {nodesJson};
 window.linkDataArray = {linksJson};
         "
@@ -46,6 +38,7 @@ window.linkDataArray = {linksJson};
     let serialize (v: obj) =
         JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
 
+[<RequireQualifiedAccess>]
 module Tree =
     type Node =
         { 
@@ -54,7 +47,6 @@ module Tree =
             varNum: int
             additionalInfo: string
             exprTyp: string
-            typ: string
             env: string
             children: ResizeArray<Node> 
         }
@@ -66,7 +58,6 @@ module Tree =
             varNum = varNum
             additionalInfo = additionalInfo
             exprTyp = exprTyp
-            typ = NodeTypes.expr
             env = env
             children = ResizeArray(children) 
         }
@@ -82,7 +73,6 @@ module Tree =
                     additionalInfo = n.additionalInfo
                     exprTyp = n.exprTyp
                     env = n.env
-                    layout = n.typ 
                 })
         let jsLinks =
             [
@@ -91,4 +81,4 @@ module Tree =
                         { fromNode = n.key; toNode = c.key }
             ]
 
-        writeData (serialize jsNodes) (serialize jsLinks) Layouts.tree
+        writeData (serialize jsNodes) (serialize jsLinks)

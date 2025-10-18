@@ -108,12 +108,7 @@ function treeLayout() {
 function init() {
   var $ = go.GraphObject.make; // for conciseness in defining templates
 
-  var inst;
-  if (window.layout === 'graph') {
-    inst = graphLayout($);
-  } else {
-    inst = treeLayout($);
-  }
+  const inst = treeLayout($);
 
   var myDiagram = $(
     go.Diagram,

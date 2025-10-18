@@ -48,7 +48,7 @@ let [<Test>] ``simple fun`` () =
 
     X.Fun (X.Ident "x") (X.Var "x")
     |> solve [] None
-    |> shouldSolveType (TDef.Generalize (%1 ^-> %1))
+    |> shouldSolveType (TDef.Generalize (%0 ^-> %0))
 
 
 
