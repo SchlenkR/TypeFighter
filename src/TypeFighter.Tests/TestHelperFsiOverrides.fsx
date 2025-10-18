@@ -8,8 +8,14 @@ open System.IO
 open TypeFighter.Lang
 open TypeFighter.Tools
 
-let solve (externalEnv: (string * Typ) list) maxSolverRuns (expr: Expr<unit>) =
-    do Visu.writeAst expr None Map.empty
+let solve
+    (externalEnv: (string * Typ) list) 
+    maxSolverRuns
+
+    (expr: Expr<unit>)
+    =
+
+    do Visu.writeAst expr [] Map.empty
     let solution = TypeFighter.Tests.TestHelper.solve externalEnv maxSolverRuns expr 
     
     do
@@ -24,7 +30,7 @@ let solve (externalEnv: (string * Typ) list) maxSolverRuns (expr: Expr<unit>) =
             printfn $"Final type:\n    {res.finalTyp}"
             printfn ""
 
-            do Visu.writeNumberedAst solution.numberedExpr (Some res.solution) solution.exprToEnv
+            do Visu.writeNumberedAst solution.numberedExpr res.solution solution.exprToEnv
         | Error err ->
             printfn $"Error:\n    {err}"
             printfn ""
@@ -36,11 +42,11 @@ let solve (externalEnv: (string * Typ) list) maxSolverRuns (expr: Expr<unit>) =
                     | None -> { cycle = 0; constraints = []; solutionItems = []; recordRefs = Map.empty }
                 TypeSystem.finalizeSolution s.solutionItems s.recordRefs
 
-            do Visu.writeAst expr (Some finalSolution) solution.exprToEnv
+            do Visu.writeAst expr finalSolution solution.exprToEnv
     solution
 
 let writeInitialAst (expr: Expr<unit>) =
-    do Visu.writeAst expr None Map.empty
+    do Visu.writeAst expr [] Map.empty
 
 let resolveDataPath (path: string) =
     let up = ".."

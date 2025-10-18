@@ -69,7 +69,8 @@ and ShowTyp =
     static let getNameHint nameHint =
         match nameHint with
         | NameHint.Anonymous -> ""
-        | NameHint.Given name -> $" (type '{name}')"
+        | NameHint.Given name -> ""
+        // | NameHint.Given name -> $"type '{name}'"
     static let printOrShow (typ: MonoTyp) defaultShow =
         match 
             printers 
@@ -86,7 +87,7 @@ and ShowTyp =
         fields
         |> Set.map ShowTyp.Show
         |> String.concat "; "
-        |> fun s -> $"{{{nameHint} {s} }}"
+        |> fun s -> $"{nameHint} {{ {s} }}"
     static member Show (record: RecordDefinition) =
         ShowTyp.Show(getNameHint record.nameHint, record.fields)
     static member Show (typ: MonoTyp) =
@@ -114,8 +115,8 @@ and ShowTyp =
                         $"{c.disc}: {payload}"
                 ]
                 |> String.concat "; "
-                |> fun s -> 
-                    $"{{{getNameHint union.nameHint} {s} }}"
+                |> fun s ->
+                    $"{getNameHint union.nameHint} {{ {s} }}"
         )
     
     static member Show (typ: PolyTyp) =
@@ -736,7 +737,11 @@ module TypeSystem =
     let solveConstraints (constraints: Constraint list) (recordRefs: RecordRefs) maxSolverRuns =
         let mutable solverRuns = []
    
-        let rec solve (constraints: Constraint list) (recordRefs: RecordRefs) (solutionItems: MSolutionItem list) =
+        let rec solve
+            (constraints: Constraint list)
+            (recordRefs: RecordRefs)
+            (solutionItems: MSolutionItem list)
+            =
             do solverRuns <- 
                 [
                     yield! solverRuns

@@ -11,7 +11,7 @@ module Visu =
 
     let writeNumberedAst
         (root: Expr<VarNum>)
-        (solution: option<TypeSystem.SolutionItem list>) 
+        (solution: TypeSystem.SolutionItem list) 
         (exprToEnv: Map<Expr<VarNum>, Env>)
         = 
         let rec flatten (node: Tree.Node) =
@@ -23,12 +23,9 @@ module Visu =
 
         let rec createNodes (expr: Expr<_>) =
             let tryGetExprTyp tvar =
-                match solution with
-                | None -> None
-                | Some solution ->
-                    solution 
-                    |> List.tryFind (fun s -> s.tvar = tvar)
-                    |> Option.map (_.typ.ToString())
+                solution 
+                |> List.tryFind (fun s -> s.tvar = tvar)
+                |> Option.map (_.typ.ToString())
             let getExprTyp tvar =
                 tryGetExprTyp tvar |> Option.defaultValue ""
             let getIdentDetails (ident: Ident<_>) =
@@ -97,9 +94,9 @@ module Visu =
                     |> String.concat "; " 
                     |> sprintf "{ %s }"
                 createExprNode "MK-RECORD" "" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
-        
+
         do createNodes root |> flatten |> Tree.write
 
-    let writeAst (root: Expr<unit>) = 
+    let writeAst (root: Expr<unit>) solution exprToEnvMap= 
         let numGen = NumGen.mkGenerator ()
-        writeNumberedAst (Expr.toNumberedExpr root numGen)
+        writeNumberedAst (Expr.toNumberedExpr root numGen) solution exprToEnvMap
