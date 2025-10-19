@@ -44,24 +44,42 @@ type MonoTyp =
     | IntersectionTyp of RecordDefinition list
     | RecordRefTyp of int
     | DiscriminatedUnionTyp of DiscriminatedUnionDefinition
-        override this.ToString() = ShowTyp.Show(this)
+    override this.ToString() = ShowTyp.Show(this)
+
 and PolyTyp =
-    { vars: Set<VarNum>; monoTyp: MonoTyp }
-        override this.ToString() = ShowTyp.Show(this)
+    { 
+        vars: Set<VarNum>
+        monoTyp: MonoTyp
+    }
+    override this.ToString() = ShowTyp.Show(this)
+
 and Typ =
     | Mono of MonoTyp
     | Poly of PolyTyp
-        override this.ToString() = ShowTyp.Show(this)
+    override this.ToString() = ShowTyp.Show(this)
+
 and RecordDefinition = 
-    { nameHint: NameHint; fields: Set<FieldDefinition> }
-        override this.ToString() = ShowTyp.Show(this)
+    { 
+        nameHint: NameHint
+        fields: Set<FieldDefinition>
+    }
+    override this.ToString() = ShowTyp.Show(this)
+
 and FieldDefinition =
-    { fname: string; typ: MonoTyp }
-        override this.ToString() = ShowTyp.Show(this)
+    { 
+        fname: string
+        typ: MonoTyp
+    }
+    override this.ToString() = ShowTyp.Show(this)
+
 and DiscriminatedUnionDefinition = 
     {
         nameHint: NameHint
-        cases: Set<{| disc: string; payloadTyp: MonoTyp option |}>
+        cases: Set<
+            {| 
+                disc: string
+                payloadTyp: MonoTyp option
+            |}>
     }
 
 and ShowTyp =
@@ -742,7 +760,11 @@ module TypeSystem =
             (solutionItems: MSolutionItem list)
             =
             do
-                let solution = finalizeSolution solutionItems recordRefs
+                let solution =
+                    [
+                        for msi in solutionItems do
+                            { tvar = msi.tvar; typ = Mono msi.monoTyp }
+                    ]
                 let solverRun = 
                     {
                         cycle = solverRuns.Count
@@ -925,11 +947,11 @@ module TypeSystem =
                 solutionItems,recordRefs
     
         let solution =
-            try 
+            try
                 let solutionItems,recordRefs = solve constraints recordRefs []
-                let finalizedSolution = finalizeSolution solutionItems recordRefs
-                Ok finalizedSolution
-            with ex -> Error ex.Message
+                Ok (finalizeSolution solutionItems recordRefs)
+            with ex ->
+                Error ex.Message
 
         {|
             solution = solution

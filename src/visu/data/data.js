@@ -56,7 +56,7 @@ window.treesForSolverRuns = [
         "varNum": 0,
         "code": "\u0027a\u0027",
         "additionalInfo": "",
-        "exprTyp": "\u003Ctv_4\u003E.tv_4",
+        "exprTyp": "tv_4",
         "env": [],
         "children": []
       },
@@ -199,7 +199,7 @@ window.solverRuns = [
     ],
     "solutions": [],
     "recordRefs": [],
-    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource TVar: tv_1\n"
   },
   {
     "constraints": [
@@ -231,11 +231,11 @@ window.solverRuns = [
     "solutions": [
       {
         "t1": "tv_0",
-        "t2": "\u003Ctv_4\u003E.tv_4"
+        "t2": "tv_4"
       }
     ],
     "recordRefs": [],
-    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource TVar: tv_1\n"
   },
   {
     "constraints": [
@@ -271,7 +271,7 @@ window.solverRuns = [
       }
     ],
     "recordRefs": [],
-    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource TVar: tv_1\n"
   },
   {
     "constraints": [
@@ -307,7 +307,7 @@ window.solverRuns = [
       }
     ],
     "recordRefs": [],
-    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource TVar: tv_1\n"
   }
 ];
         

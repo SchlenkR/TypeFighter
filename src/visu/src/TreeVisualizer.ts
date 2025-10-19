@@ -304,12 +304,6 @@ export class TreeVisualizer {
     return layer;
   }
 
-  private setEnvPanelText(text: string): void {
-    this.envPanelEnvContent.textContent = text || '\u00a0';
-    this.envPanelEnvContent.classList.toggle('env-panel-placeholder-text', !text || text === '\u00a0');
-    this.envPanelEnvContent.scrollTop = 0;
-  }
-
   private updateEnvPanelNodePreview(node: TreeNode | null): void {
     const nameEl = this.envPanelExpressionNameEl;
     const codeEl = this.envPanelExpressionCodeEl;
@@ -404,7 +398,7 @@ export class TreeVisualizer {
     this.solverRunPanel.style.width = this.envPanelWidth + 'px';
     this.solverRunPanel.style.transformOrigin = 'top left';
     this.solverRunPanel.style.transform = `scale(${this.zoomLevel})`;
-    
+
     this.envPanel.style.width = this.envPanelWidth + 'px';
     this.envPanel.style.transformOrigin = 'top left';
     this.envPanel.style.transform = `scale(${this.zoomLevel})`;
@@ -414,20 +408,20 @@ export class TreeVisualizer {
   toggleSelectFirstTVar(checked: boolean): void {
     // Clear previous highlights
     document.querySelectorAll('.tvar.highlight').forEach(el => {
-        el.classList.remove('highlight');
+      el.classList.remove('highlight');
     });
 
     if (checked) {
-        this.selectFirstTVar();
+      this.selectFirstTVar();
     } else {
-        this.selectedTVarName = null;
+      this.selectedTVarName = null;
     }
   }
 
   private selectFirstTVar(): void {
     const constraintsPanel = this.envPanelConstraintsEl;
     const firstConstraintRow = constraintsPanel.querySelector('div'); // First row
-    
+
     if (!firstConstraintRow) {
       this.selectedTVarName = null;
       return;
@@ -435,10 +429,10 @@ export class TreeVisualizer {
 
     // The first child of the row is the t1Container (left side of '=')
     const t1Container = firstConstraintRow.children[0] as HTMLElement;
-    
+
     if (t1Container && t1Container.children.length === 1) {
       const singleElement = t1Container.children[0] as HTMLElement;
-      
+
       // Check if the single element is a tvar
       if (singleElement && singleElement.classList.contains('tvar')) {
         const varName = singleElement.textContent;
@@ -477,18 +471,18 @@ export class TreeVisualizer {
 
     // Convert hierarchical tree to flat nodes and links
     const { nodes, links } = this.flattenHierarchicalTree(jsNode);
-    
+
     if (this.isFirstLoad) {
       // First load: do full layout calculation
       this.nodeDataArray = nodes;
       this.linkDataArray = links;
-      
+
       this.parseData();
       this.calculateNodeDimensions();
       this.calculateLayout();
       this.updateEnvPanelLayout();
       this.render();
-      
+
       this.isFirstLoad = false;
     } else {
       // Subsequent loads: just update node data without recalculating layout
@@ -500,15 +494,15 @@ export class TreeVisualizer {
 
   private updateSolverRunDisplay(): void {
     this.envPanelSolverRunEl.textContent = `${this.currentRunIndex + 1}`;
-    
+
     // Get solver run data if available
     const solverRuns = window.solverRuns;
     if (solverRuns && solverRuns[this.currentRunIndex]) {
       const runData = solverRuns[this.currentRunIndex];
-      
+
       // Calculate max widths across all solver runs
-  const { maxT1Width, maxT2Width } = this.calculateMaxWidths(solverRuns);
-      
+      const { maxT1Width, maxT2Width } = this.calculateMaxWidths(solverRuns);
+
       // Update constraints
       if (runData.constraints && runData.constraints.length > 0) {
         this.envPanelConstraintsEl.innerHTML = '';
@@ -519,13 +513,13 @@ export class TreeVisualizer {
           line.style.columnGap = '1ch';
           line.style.alignItems = 'baseline';
           line.style.fontFamily = 'Consolas, monospace';
-          
+
           const t1Container = document.createElement('span');
           t1Container.style.justifySelf = 'end';
           t1Container.style.textAlign = 'right';
           t1Container.style.alignSelf = 'baseline';
           t1Container.appendChild(this.tokenizeAndStyleText(c.t1));
-          
+
           const separator = document.createElement('span');
           separator.className = 'node-type';
           separator.style.fontWeight = '700';
@@ -535,12 +529,12 @@ export class TreeVisualizer {
           separator.style.marginTop = '0';
           separator.style.alignSelf = 'baseline';
           separator.textContent = '=';
-          
+
           const t2Container = document.createElement('span');
           t2Container.style.justifySelf = 'start';
           t2Container.style.alignSelf = 'baseline';
           t2Container.appendChild(this.tokenizeAndStyleText(c.t2));
-          
+
           line.appendChild(t1Container);
           line.appendChild(separator);
           line.appendChild(t2Container);
@@ -551,7 +545,7 @@ export class TreeVisualizer {
         this.envPanelConstraintsEl.textContent = '\u00a0';
         this.envPanelConstraintsEl.classList.add('env-panel-placeholder-text');
       }
-      
+
       // Update solutions
       if (runData.solutions && runData.solutions.length > 0) {
         this.envPanelSolutionsEl.innerHTML = '';
@@ -562,13 +556,13 @@ export class TreeVisualizer {
           line.style.columnGap = '1ch';
           line.style.alignItems = 'baseline';
           line.style.fontFamily = 'Consolas, monospace';
-          
+
           const t1Container = document.createElement('span');
           t1Container.style.justifySelf = 'end';
           t1Container.style.textAlign = 'right';
           t1Container.style.alignSelf = 'baseline';
           t1Container.appendChild(this.tokenizeAndStyleText(s.t1));
-          
+
           const separator = document.createElement('span');
           separator.className = 'node-type';
           separator.style.fontWeight = '700';
@@ -578,12 +572,12 @@ export class TreeVisualizer {
           separator.style.marginTop = '0';
           separator.style.alignSelf = 'baseline';
           separator.textContent = '=';
-          
+
           const t2Container = document.createElement('span');
           t2Container.style.justifySelf = 'start';
           t2Container.style.alignSelf = 'baseline';
           t2Container.appendChild(this.tokenizeAndStyleText(s.t2));
-          
+
           line.appendChild(t1Container);
           line.appendChild(separator);
           line.appendChild(t2Container);
@@ -594,7 +588,7 @@ export class TreeVisualizer {
         this.envPanelSolutionsEl.textContent = '\u00a0';
         this.envPanelSolutionsEl.classList.add('env-panel-placeholder-text');
       }
-      
+
       // Update records
       if (runData.recordRefs && runData.recordRefs.length > 0) {
         this.envPanelRecordsEl.innerHTML = '';
@@ -617,7 +611,7 @@ export class TreeVisualizer {
         const errorLine = document.createElement('div');
         errorLine.className = 'solver-error-box';
         errorLine.textContent = runData.error;
-        
+
         if (this.envPanelConstraintsEl.firstChild) {
           // Insert after the first constraint line
           this.envPanelConstraintsEl.insertBefore(errorLine, this.envPanelConstraintsEl.children[1]);
@@ -663,7 +657,7 @@ export class TreeVisualizer {
           if (c.t2) maxT2Width = Math.max(maxT2Width, this.measureTokenizedWidth(c.t2));
         });
       }
-      
+
       // Check solutions
       if (run.solutions) {
         run.solutions.forEach((s: any) => {
@@ -671,7 +665,7 @@ export class TreeVisualizer {
           if (s.t2) maxT2Width = Math.max(maxT2Width, this.measureTokenizedWidth(s.t2));
         });
       }
-      
+
       // Check records
       if (run.recordRefs) {
         run.recordRefs.forEach((r: any) => {
@@ -702,7 +696,7 @@ export class TreeVisualizer {
         const span = document.createElement('span');
         span.className = 'node-type';
         span.style.whiteSpace = 'pre';
-  span.style.marginTop = '0';
+        span.style.marginTop = '0';
         span.textContent = beforeText;
         fragment.appendChild(span);
       }
@@ -722,7 +716,7 @@ export class TreeVisualizer {
       const span = document.createElement('span');
       span.className = 'node-type';
       span.style.whiteSpace = 'pre';
-  span.style.marginTop = '0';
+      span.style.marginTop = '0';
       span.textContent = remainingText;
       fragment.appendChild(span);
     }
@@ -755,7 +749,7 @@ export class TreeVisualizer {
         // Update the node header
         const nameEl = nodeElement.querySelector('.node-name');
         if (nameEl) nameEl.textContent = node.name;
-        
+
         const codeEl = nodeElement.querySelector('.node-code');
         if (codeEl) {
           if (node.code) {
@@ -766,10 +760,10 @@ export class TreeVisualizer {
             codeEl.classList.add('env-panel-hidden');
           }
         }
-        
+
         const varEl = nodeElement.querySelector('.tvar');
         if (varEl) varEl.textContent = 'tv_' + node.varNum;
-        
+
         // Update the type
         const typeEl = nodeElement.querySelector('.node-type');
         if (typeEl) {
@@ -843,7 +837,7 @@ export class TreeVisualizer {
     // Use the last solver run for measurements if available
     const lastRun = this.allRuns.length > 0 ? this.allRuns[this.allRuns.length - 1] : null;
     let lastRunNodes: Map<number, JsNode> | null = null;
-    
+
     if (lastRun) {
       const { nodes } = this.flattenHierarchicalTree(lastRun);
       lastRunNodes = new Map(nodes.map(n => [n.key, n]));
@@ -851,10 +845,10 @@ export class TreeVisualizer {
 
     this.nodes.forEach(node => {
       // Create a temporary node with data from the last run for measurement
-      const measurementNode = lastRunNodes?.get(node.key) 
-        ? { ...node, ...lastRunNodes.get(node.key) } 
+      const measurementNode = lastRunNodes?.get(node.key)
+        ? { ...node, ...lastRunNodes.get(node.key) }
         : node;
-      
+
       const measurementElement = this.buildNodeElement(measurementNode as TreeNode);
       measurementElement.style.position = 'static';
       measurementElement.style.left = 'auto';
@@ -986,7 +980,7 @@ export class TreeVisualizer {
       const updatedChildPositions = node.children.map(child =>
         this.nodePositions.get(child.key)!
       );
-      
+
       if (updatedChildPositions.length > 0) {
         const leftmostChild = Math.min(
           ...updatedChildPositions.map(pos => pos.x)
@@ -1406,13 +1400,6 @@ export class TreeVisualizer {
     }
 
     this.zoomLevel = newZoom;
-    this.applyTransform();
-  }
-
-  resetZoom(): void {
-    this.zoomLevel = 1;
-    this.panX = 0;
-    this.panY = 0;
     this.applyTransform();
   }
 }
