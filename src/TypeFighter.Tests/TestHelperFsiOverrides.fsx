@@ -6,7 +6,6 @@ open FsiBase
 
 open System.IO
 open TypeFighter.Lang
-open TypeFighter.Tools
 
 let solve
     (externalEnv: (string * Typ) list) 

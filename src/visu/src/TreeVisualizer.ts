@@ -148,12 +148,11 @@ export class TreeVisualizer {
     solverRunTitle.textContent = 'SOLVER RUN:';
     solverRunSection.appendChild(solverRunTitle);
 
-    const solverRunText = document.createElement('div');
-    solverRunText.className = 'env-panel-solver-run';
-    solverRunText.textContent = '-';
-    solverRunSection.appendChild(solverRunText);
+    const solverRunButtonsContainer = document.createElement('div');
+    solverRunButtonsContainer.className = 'solver-run-buttons';
+    solverRunSection.appendChild(solverRunButtonsContainer);
 
-    this.envPanelSolverRunEl = solverRunText;
+    this.envPanelSolverRunEl = solverRunButtonsContainer;
 
     // Constraints section
     const constraintsSection = document.createElement('div');
@@ -493,10 +492,34 @@ export class TreeVisualizer {
   }
 
   private updateSolverRunDisplay(): void {
-    this.envPanelSolverRunEl.textContent = `${this.currentRunIndex + 1}`;
-
     // Get solver run data if available
     const solverRuns = window.solverRuns;
+    
+    // Create buttons for all solver runs
+    if (solverRuns && solverRuns.length > 0) {
+      this.envPanelSolverRunEl.innerHTML = '';
+      
+      solverRuns.forEach((run: any, index: number) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'run-button';
+        button.textContent = `${index + 1}`;
+        
+        if (index === this.currentRunIndex) {
+          button.classList.add('active');
+        }
+        
+        button.addEventListener('click', () => {
+          // Call the global selectRun function from main.ts
+          if ((window as any).selectRunFromPanel) {
+            (window as any).selectRunFromPanel(index);
+          }
+        });
+        
+        this.envPanelSolverRunEl.appendChild(button);
+      });
+    }
+
     if (solverRuns && solverRuns[this.currentRunIndex]) {
       const runData = solverRuns[this.currentRunIndex];
 

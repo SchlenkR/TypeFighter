@@ -91,6 +91,9 @@ window.addEventListener('load', () => {
   setupGifCreation(treesForSolverRuns);
   setupControlPanel();
 
+  // Expose selectRun globally for solver panel buttons
+  (window as any).selectRunFromPanel = selectRun;
+
   // Add keyboard navigation for solver runs
   window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {

@@ -192,14 +192,14 @@ let [<Test>] ``comparing two ununifiable record fields from one record should fa
 
 
 
-
+// TODO:
 (*
     let r = { IntField = 3, BooleanField = true }
     AND (EQUALS r.IntField 3) (EQUALS r.BooleanField true)
 *)
 let [<Test>] ``accessing two record fields in boolean expression should solve`` () =
 
-    let defaultTcEnv =
+    let env =
         [
             "AND", Mono(BuiltinTypes.boolean ^-> BuiltinTypes.boolean ^-> BuiltinTypes.boolean)
             "EQUALS", TDef.Generalize (%1 ^-> %1 ^-> BuiltinTypes.boolean)
@@ -208,11 +208,11 @@ let [<Test>] ``accessing two record fields in boolean expression should solve`` 
     let left =
         X.App
             (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "IntField"))
-            (X.Lit("3"))
+            (X.Lit 3)
     let right =
         X.App
             (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "BooleanField"))
-            (X.Lit("true"))
+            (X.Lit true)
     let ast =
         X.Let
             (X.Ident "r")
@@ -225,7 +225,7 @@ let [<Test>] ``accessing two record fields in boolean expression should solve`` 
                 right)
 
     ast
-    |> solve defaultTcEnv None
+    |> solve env None
     |> shouldSolveType (Mono(BuiltinTypes.boolean))
 
 
