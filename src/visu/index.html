@@ -93,14 +93,21 @@
 
       .tvar {
         cursor: none;
+        display: inline-block;
+        border: 2px solid transparent;
+        border-radius: 3px;
       }
 
       .tvar.highlight,
       .env-panel .tvar.highlight,
       .solver-run-panel .tvar.highlight {
-        background-color: #ffdd57;
-        transform: scale(1.1);
-        transition: transform 0.1s ease-in-out, background-color 0.1s ease-in-out;
+        border: 2px dotted #4a6fa5;
+        background-color: #e0e0e0;
+      }
+
+      .first-constraint-left .tvar {
+        background-color: #37f188 !important;
+        border: 2px solid #4a6fa5 !important;
       }
 
       .run-buttons-empty {
@@ -128,7 +135,7 @@
         margin-bottom: 8px;
       }
 
-      .control-item input[type="checkbox"] {
+      .control-item input[type='checkbox'] {
         width: 16px;
         height: 16px;
         cursor: pointer;
@@ -550,7 +557,7 @@
       <aside id="sidebar">
         <h2>Solver Runs</h2>
         <div id="run-buttons"></div>
-        
+
         <div class="control-section">
           <h2>Control</h2>
           <div class="control-item">
@@ -562,23 +569,23 @@
             <label for="select-first-tvar">Select 1st tvar</label>
           </div>
         </div>
-        
+
         <div class="gif-section">
           <h2>GIF Creation</h2>
           <div class="gif-controls">
             <div class="gif-control-group">
               <label for="gif-runs-input">Run Numbers (space-separated):</label>
-              <input 
-                type="text" 
-                id="gif-runs-input" 
+              <input
+                type="text"
+                id="gif-runs-input"
                 placeholder="e.g., 1 3 5 7 (empty = all)"
               />
             </div>
             <div class="gif-control-group">
               <label for="gif-duration-input">Frame Duration (ms):</label>
-              <input 
-                type="number" 
-                id="gif-duration-input" 
+              <input
+                type="number"
+                id="gif-duration-input"
                 value="500"
                 min="100"
                 step="100"

@@ -506,7 +506,7 @@ export class TreeVisualizer {
       // Update constraints
       if (runData.constraints && runData.constraints.length > 0) {
         this.envPanelConstraintsEl.innerHTML = '';
-        runData.constraints.forEach((c: any) => {
+        runData.constraints.forEach((c: any, index: number) => {
           const line = document.createElement('div');
           line.style.display = 'grid';
           line.style.gridTemplateColumns = `${maxT1Width}px auto 1fr`;
@@ -518,6 +518,9 @@ export class TreeVisualizer {
           t1Container.style.justifySelf = 'end';
           t1Container.style.textAlign = 'right';
           t1Container.style.alignSelf = 'baseline';
+          if (index === 0) {
+            t1Container.classList.add('first-constraint-left');
+          }
           t1Container.appendChild(this.tokenizeAndStyleText(c.t1));
 
           const separator = document.createElement('span');
