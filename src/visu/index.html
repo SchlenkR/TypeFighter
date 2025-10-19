@@ -59,22 +59,26 @@
       }
 
       #run-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        flex: 1 1 auto;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        align-content: start;
       }
 
       .run-button {
         border: 1px solid #b6beca;
         background: #ffffff;
-        border-radius: 6px;
-        padding: 10px 12px;
-        font-size: 14px;
-        text-align: left;
+        border-radius: 4px;
+        padding: 4px 6px;
+        font-size: 12px;
+        text-align: center;
         cursor: pointer;
         transition: background-color 0.2s ease, border-color 0.2s ease,
           color 0.2s ease;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .run-button:hover {

@@ -3,6 +3,7 @@ import type { JsNode } from './types';
 
 let treeViz: TreeVisualizer;
 let runButtons: HTMLButtonElement[] = [];
+let currentRunIndex = 0;
 
 function getRunLabel(jsNode: JsNode, index: number): string {
   // Just use the number (1-indexed)
@@ -13,14 +14,31 @@ function selectRun(index: number): void {
   if (!treeViz) return;
 
   const runs = window.solverRuns;
+  if (index < 0 || index >= runs.length) return;
+  
   const nextRun = runs[index];
   if (!nextRun) return;
+
+  currentRunIndex = index;
 
   runButtons.forEach((button, buttonIndex) => {
     button.classList.toggle('active', buttonIndex === index);
   });
 
   treeViz.loadRun(nextRun);
+}
+
+function nextRun(): void {
+  const runs = window.solverRuns;
+  if (currentRunIndex < runs.length - 1) {
+    selectRun(currentRunIndex + 1);
+  }
+}
+
+function previousRun(): void {
+  if (currentRunIndex > 0) {
+    selectRun(currentRunIndex - 1);
+  }
 }
 
 function setupRunButtons(runs: JsNode[]): void {
@@ -54,4 +72,15 @@ window.addEventListener('load', () => {
   const runs = window.solverRuns || [];
   treeViz = new TreeVisualizer(runs, 0);
   setupRunButtons(runs);
+
+  // Add keyboard navigation for solver runs
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') {
+      previousRun();
+      event.preventDefault();
+    } else if (event.key === 'ArrowRight') {
+      nextRun();
+      event.preventDefault();
+    }
+  });
 });

@@ -795,6 +795,15 @@ export class TreeVisualizer {
     window.addEventListener('pointercancel', this.handlePointerUp);
     this.container.addEventListener('click', this.handleContainerClick);
 
+    // Handle Escape key to deselect nodes
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && this.selectedNodeKey !== null) {
+        this.selectedNodeKey = null;
+        this.updateSelectionHighlight();
+        this.refreshEnvPanel();
+      }
+    });
+
     this.container.addEventListener('wheel', (event) => {
       if (this.envPanel.contains(event.target as Node)) return;
       if (event.deltaY === 0) return;
