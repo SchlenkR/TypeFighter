@@ -237,7 +237,6 @@ type X =
 type UnificationError(source: Expr<_>, t1: MonoTyp, t2: MonoTyp, reason: string option) =
     inherit System.Exception(
         [
-            $"-----------------"
             $"Can't unify"
             $"    {t1}"
             $"  and"
@@ -798,7 +797,7 @@ module TypeSystem =
                                             Some $"Type mismatch in record field '{requiredField.fname}'{detail}"))
 
                         match t1,t2 with
-                        | t1,t2 when t1 = t2 -> ()
+                        | t1, t2 when t1 = t2 -> ()
                         | t, TVar tvar
                         | TVar tvar, t -> nextConstraints.Append({ triviaSource = source; t1 = TVar tvar; t2 = t })
                         | LeafTyp app1, LeafTyp app2 when app1.name = app2.name ->
@@ -873,7 +872,8 @@ module TypeSystem =
                             let getCaseLabel (du: 'T) =
                                 let case, _ = Reflection.FSharpValue.GetUnionFields(du, typeof<'T>)
                                 case.Name
-                            throwUniError $"Unification cases are not handled. T1: {getCaseLabel t1}, T2: {getCaseLabel t2}"
+                            throwUniError $"Can't unify types '{t1}' and '{t2}'"
+                            // throwUniError $"Can't unify types: '{t1}' ({getCaseLabel t1}) and '{t2}' ({getCaseLabel t2})"
 
                     // we try to keep only the constraints mutable, because we could otherwise easily forget
                     // adding elements in all branches (this happened right now, and it was a pain to find out).

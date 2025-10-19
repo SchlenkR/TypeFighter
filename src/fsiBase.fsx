@@ -109,6 +109,7 @@ module Visu =
             constraints: JsEquation list
             solutions: JsEquation list
             recordRefs: JsRecordRef list
+            error: string option
         }
 
     let createJsNode
@@ -227,7 +228,7 @@ window.solverRuns = {solverRuns};
         (exprToEnv: Map<Expr<VarNum>, Env>)
         = 
         createJsNode root solution exprToEnv
-        |> fun node -> node, { constraints = []; solutions = []; recordRefs = [] }
+        |> fun node -> node, { constraints = []; solutions = []; recordRefs = []; error = None }
         |> List.singleton
         |> writeVisuData
 
@@ -266,6 +267,10 @@ window.solverRuns = {solverRuns};
                                             typ = field.typ.ToString()
                                         |})
                             })
+                    error =
+                        match solverResult.finalResult with
+                        | Ok _ -> None
+                        | Error err -> Some err
                 }
             node, jsSolverRun)
         |> writeVisuData

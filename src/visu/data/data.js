@@ -198,7 +198,8 @@ window.solverRuns = [
       }
     ],
     "solutions": [],
-    "recordRefs": []
+    "recordRefs": [],
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
   },
   {
     "constraints": [
@@ -233,7 +234,8 @@ window.solverRuns = [
         "t2": "\u003Ctv_4\u003E.tv_4"
       }
     ],
-    "recordRefs": []
+    "recordRefs": [],
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
   },
   {
     "constraints": [
@@ -268,7 +270,8 @@ window.solverRuns = [
         "t2": "String"
       }
     ],
-    "recordRefs": []
+    "recordRefs": [],
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
   },
   {
     "constraints": [
@@ -303,7 +306,8 @@ window.solverRuns = [
         "t2": "String"
       }
     ],
-    "recordRefs": []
+    "recordRefs": [],
+    "error": "Can\u0027t unify\n    String\n  and\n    Number\nReason: Can\u0027t unify types \u0027String\u0027 and \u0027Number\u0027\nSource Expression: Lit Number 1.0\nSource hint: tv_1\n"
   }
 ];
         

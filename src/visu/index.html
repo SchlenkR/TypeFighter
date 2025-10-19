@@ -95,7 +95,9 @@
         cursor: none;
       }
 
-      .tvar.highlight {
+      .tvar.highlight,
+      .env-panel .tvar.highlight,
+      .solver-run-panel .tvar.highlight {
         background-color: #ffdd57;
         transform: scale(1.1);
         transition: transform 0.1s ease-in-out, background-color 0.1s ease-in-out;
@@ -437,7 +439,7 @@
       .env-panel-content {
         font-family: Consolas, monospace;
         font-size: 11px;
-        background: #f7f7fb;
+        background: #fafafa;
         border: 1px solid #d6d9e2;
         border-radius: 4px;
         padding: 10px;
@@ -448,6 +450,35 @@
         max-height: none;
         overflow: visible;
         user-select: text;
+      }
+
+      /* Keep the expression preview visually identical to AST nodes
+         (use the same UI font + sizes) so labels like "MK-ARRAY" match */
+      .env-panel .node-name,
+      .env-panel .node-code,
+      .env-panel .tvar {
+        font-family: Arial, sans-serif;
+      }
+
+      .env-panel .node-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #000;
+      }
+
+      .env-panel .node-code {
+        font-size: 12px;
+        font-weight: 400;
+        color: #333;
+      }
+
+      .env-panel .tvar {
+        font-size: 12px;
+        font-weight: 600;
+        color: #4a6fa5;
+        background: #e6ecff;
+        padding: 1px 6px;
+        border-radius: 3px;
       }
 
       .env-panel-env-row {
@@ -496,6 +527,16 @@
         border-right: 6px solid transparent;
         border-top: 8px solid #333;
         z-index: 2;
+      }
+
+      .solver-error-box {
+        color: red;
+        font-family: Consolas, monospace;
+        margin-top: 0px;
+        margin-bottom: 16px;
+        padding: 5px;
+        border: 1px solid red;
+        border-radius: 4px;
       }
     </style>
     <script src="./data/data.js"></script>

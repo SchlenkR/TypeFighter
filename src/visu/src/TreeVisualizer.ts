@@ -51,6 +51,7 @@ export class TreeVisualizer {
   private isFirstLoad = true;
   private allRuns: JsNode[] = [];
   private currentRunIndex: number = 0;
+  private selectedTVarName: string | null = null;
 
   private addTVarHighlighting(element: HTMLElement) {
     element.addEventListener('mouseover', (event) => {
@@ -71,7 +72,8 @@ export class TreeVisualizer {
       const target = event.target as HTMLElement;
       if (target.classList.contains('tvar')) {
         const varName = target.textContent;
-        if (varName) {
+        // Only remove highlight if this is not the selected TVar
+        if (varName && varName !== this.selectedTVarName) {
           document.querySelectorAll('.tvar').forEach(el => {
             if (el.textContent === varName) {
               el.classList.remove('highlight');
@@ -417,6 +419,8 @@ export class TreeVisualizer {
 
     if (checked) {
         this.selectFirstTVar();
+    } else {
+        this.selectedTVarName = null;
     }
   }
 
@@ -425,6 +429,7 @@ export class TreeVisualizer {
     const firstConstraintRow = constraintsPanel.querySelector('div'); // First row
     
     if (!firstConstraintRow) {
+      this.selectedTVarName = null;
       return;
     }
 
@@ -438,13 +443,18 @@ export class TreeVisualizer {
       if (singleElement && singleElement.classList.contains('tvar')) {
         const varName = singleElement.textContent;
         if (varName) {
+          this.selectedTVarName = varName;
           document.querySelectorAll('.tvar').forEach(el => {
             if (el.textContent === varName) {
               el.classList.add('highlight');
             }
           });
         }
+      } else {
+        this.selectedTVarName = null;
       }
+    } else {
+      this.selectedTVarName = null;
     }
   }
 
@@ -599,6 +609,22 @@ export class TreeVisualizer {
       } else {
         this.envPanelRecordsEl.textContent = '\u00a0';
         this.envPanelRecordsEl.classList.add('env-panel-placeholder-text');
+      }
+
+      // Update error display
+      const isLastRun = this.currentRunIndex === solverRuns.length - 1;
+      if (isLastRun && runData.error) {
+        const errorLine = document.createElement('div');
+        errorLine.className = 'solver-error-box';
+        errorLine.textContent = runData.error;
+        
+        if (this.envPanelConstraintsEl.firstChild) {
+          // Insert after the first constraint line
+          this.envPanelConstraintsEl.insertBefore(errorLine, this.envPanelConstraintsEl.children[1]);
+        } else {
+          this.envPanelConstraintsEl.appendChild(errorLine);
+          this.envPanelConstraintsEl.classList.remove('env-panel-placeholder-text');
+        }
       }
     } else {
       // No data available
