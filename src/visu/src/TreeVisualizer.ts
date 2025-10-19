@@ -3,18 +3,18 @@ import type { JsNode, LinkData, TreeNode, Link, Position, EnvEntry } from './typ
 export class TreeVisualizer {
   private readonly levelHeight = 140;
   private readonly minNodeWidth = 90;
-  private readonly maxNodeWidth = 550;
+  private readonly maxNodeWidth = 850;
   private readonly minNodeSpacing = 50;
   private readonly subtreeSpacing = 50;
   private readonly minLevelHeight = 40;
   private readonly maxLevelHeight = 320;
-  private readonly envPanelWidth = 500;
+  private readonly envPanelWidth = 550;
   private readonly envPanelSpacing = 80;
   private readonly minZoom = 0.25;
   private readonly maxZoom = 4;
 
   private zoomLevel = 1;
-  private panX = 500;
+  private panX = this.envPanelWidth;
   private panY = 0;
   private isPanning = false;
   private activePointerId: number | null = null;
@@ -52,7 +52,37 @@ export class TreeVisualizer {
   private allRuns: JsNode[] = [];
   private currentRunIndex: number = 0;
 
-    constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
+  private addTVarHighlighting(element: HTMLElement) {
+    element.addEventListener('mouseover', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.classList.contains('tvar')) {
+        const varName = target.textContent;
+        if (varName) {
+          document.querySelectorAll('.tvar').forEach(el => {
+            if (el.textContent === varName) {
+              el.classList.add('highlight');
+            }
+          });
+        }
+      }
+    });
+
+    element.addEventListener('mouseout', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.classList.contains('tvar')) {
+        const varName = target.textContent;
+        if (varName) {
+          document.querySelectorAll('.tvar').forEach(el => {
+            if (el.textContent === varName) {
+              el.classList.remove('highlight');
+            }
+          });
+        }
+      }
+    });
+  }
+
+  constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
     this.container = document.getElementById('tree-container')!;
     this.solverRunPanel = this.createSolverRunPanel();
     this.envPanel = this.createEnvPanel();
@@ -61,6 +91,10 @@ export class TreeVisualizer {
     this.container.appendChild(this.envPanel);
     this.container.appendChild(this.contentLayer);
     this.measurementContainer = this.createMeasurementContainer();
+
+    this.addTVarHighlighting(this.solverRunPanel);
+    this.addTVarHighlighting(this.envPanel);
+    this.addTVarHighlighting(this.contentLayer);
 
     this.handleEnvPanelMouseLeave = this.handleEnvPanelMouseLeave.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -375,6 +409,45 @@ export class TreeVisualizer {
     this.contentLayer.style.paddingLeft = (this.envPanelWidth + this.envPanelSpacing) + 'px';
   }
 
+  toggleSelectFirstTVar(checked: boolean): void {
+    // Clear previous highlights
+    document.querySelectorAll('.tvar.highlight').forEach(el => {
+        el.classList.remove('highlight');
+    });
+
+    if (checked) {
+        this.selectFirstTVar();
+    }
+  }
+
+  private selectFirstTVar(): void {
+    const constraintsPanel = this.envPanelConstraintsEl;
+    const firstConstraintRow = constraintsPanel.querySelector('div'); // First row
+    
+    if (!firstConstraintRow) {
+      return;
+    }
+
+    // The first child of the row is the t1Container (left side of '=')
+    const t1Container = firstConstraintRow.children[0] as HTMLElement;
+    
+    if (t1Container && t1Container.children.length === 1) {
+      const singleElement = t1Container.children[0] as HTMLElement;
+      
+      // Check if the single element is a tvar
+      if (singleElement && singleElement.classList.contains('tvar')) {
+        const varName = singleElement.textContent;
+        if (varName) {
+          document.querySelectorAll('.tvar').forEach(el => {
+            if (el.textContent === varName) {
+              el.classList.add('highlight');
+            }
+          });
+        }
+      }
+    }
+  }
+
   toggleEnvPanel(visible: boolean): void {
     if (visible) {
       this.envPanel.classList.remove('collapsed');
@@ -424,14 +497,45 @@ export class TreeVisualizer {
       const runData = solverRuns[this.currentRunIndex];
       
       // Calculate max widths across all solver runs
-      const { maxT1Width, maxT2Width } = this.calculateMaxWidths(solverRuns);
+  const { maxT1Width, maxT2Width } = this.calculateMaxWidths(solverRuns);
       
       // Update constraints
       if (runData.constraints && runData.constraints.length > 0) {
-        const formatted = runData.constraints.map((c: any) => 
-          `${c.t1.padEnd(maxT1Width)} = ${c.t2.padEnd(maxT2Width)}`
-        ).join('\n');
-        this.envPanelConstraintsEl.textContent = formatted;
+        this.envPanelConstraintsEl.innerHTML = '';
+        runData.constraints.forEach((c: any) => {
+          const line = document.createElement('div');
+          line.style.display = 'grid';
+          line.style.gridTemplateColumns = `${maxT1Width}px auto 1fr`;
+          line.style.columnGap = '1ch';
+          line.style.alignItems = 'baseline';
+          line.style.fontFamily = 'Consolas, monospace';
+          
+          const t1Container = document.createElement('span');
+          t1Container.style.justifySelf = 'end';
+          t1Container.style.textAlign = 'right';
+          t1Container.style.alignSelf = 'baseline';
+          t1Container.appendChild(this.tokenizeAndStyleText(c.t1));
+          
+          const separator = document.createElement('span');
+          separator.className = 'node-type';
+          separator.style.fontWeight = '700';
+          separator.style.display = 'inline-block';
+          separator.style.lineHeight = '1';
+          separator.style.padding = '0 0.25ch';
+          separator.style.marginTop = '0';
+          separator.style.alignSelf = 'baseline';
+          separator.textContent = '=';
+          
+          const t2Container = document.createElement('span');
+          t2Container.style.justifySelf = 'start';
+          t2Container.style.alignSelf = 'baseline';
+          t2Container.appendChild(this.tokenizeAndStyleText(c.t2));
+          
+          line.appendChild(t1Container);
+          line.appendChild(separator);
+          line.appendChild(t2Container);
+          this.envPanelConstraintsEl.appendChild(line);
+        });
         this.envPanelConstraintsEl.classList.remove('env-panel-placeholder-text');
       } else {
         this.envPanelConstraintsEl.textContent = '\u00a0';
@@ -440,10 +544,41 @@ export class TreeVisualizer {
       
       // Update solutions
       if (runData.solutions && runData.solutions.length > 0) {
-        const formatted = runData.solutions.map((s: any) => 
-          `${s.t1.padEnd(maxT1Width)} = ${s.t2.padEnd(maxT2Width)}`
-        ).join('\n');
-        this.envPanelSolutionsEl.textContent = formatted;
+        this.envPanelSolutionsEl.innerHTML = '';
+        runData.solutions.forEach((s: any) => {
+          const line = document.createElement('div');
+          line.style.display = 'grid';
+          line.style.gridTemplateColumns = `${maxT1Width}px auto 1fr`;
+          line.style.columnGap = '1ch';
+          line.style.alignItems = 'baseline';
+          line.style.fontFamily = 'Consolas, monospace';
+          
+          const t1Container = document.createElement('span');
+          t1Container.style.justifySelf = 'end';
+          t1Container.style.textAlign = 'right';
+          t1Container.style.alignSelf = 'baseline';
+          t1Container.appendChild(this.tokenizeAndStyleText(s.t1));
+          
+          const separator = document.createElement('span');
+          separator.className = 'node-type';
+          separator.style.fontWeight = '700';
+          separator.style.display = 'inline-block';
+          separator.style.lineHeight = '1';
+          separator.style.padding = '0 0.25ch';
+          separator.style.marginTop = '0';
+          separator.style.alignSelf = 'baseline';
+          separator.textContent = '=';
+          
+          const t2Container = document.createElement('span');
+          t2Container.style.justifySelf = 'start';
+          t2Container.style.alignSelf = 'baseline';
+          t2Container.appendChild(this.tokenizeAndStyleText(s.t2));
+          
+          line.appendChild(t1Container);
+          line.appendChild(separator);
+          line.appendChild(t2Container);
+          this.envPanelSolutionsEl.appendChild(line);
+        });
         this.envPanelSolutionsEl.classList.remove('env-panel-placeholder-text');
       } else {
         this.envPanelSolutionsEl.textContent = '\u00a0';
@@ -452,11 +587,14 @@ export class TreeVisualizer {
       
       // Update records
       if (runData.recordRefs && runData.recordRefs.length > 0) {
-        const formatted = runData.recordRefs.map((r: any) => {
+        this.envPanelRecordsEl.innerHTML = '';
+        runData.recordRefs.forEach((r: any) => {
+          const line = document.createElement('div');
           const fields = r.fields.map((f: any) => `${f.name}: ${f.typ}`).join(', ');
-          return `recordRef_(${r.key})  = { ${fields} }`;
-        }).join('\n');
-        this.envPanelRecordsEl.textContent = formatted;
+          const recordText = `recordRef_(${r.key})  = { ${fields} }`;
+          line.appendChild(this.tokenizeAndStyleText(recordText));
+          this.envPanelRecordsEl.appendChild(line);
+        });
         this.envPanelRecordsEl.classList.remove('env-panel-placeholder-text');
       } else {
         this.envPanelRecordsEl.textContent = '\u00a0';
@@ -473,6 +611,20 @@ export class TreeVisualizer {
     }
   }
 
+  private measureTokenizedWidth(text: string): number {
+    const wrapper = document.createElement('div');
+    wrapper.style.whiteSpace = 'pre';
+    wrapper.style.fontFamily = 'Consolas, monospace';
+    wrapper.style.display = 'inline-block';
+
+    wrapper.appendChild(this.tokenizeAndStyleText(text));
+    this.measurementContainer.appendChild(wrapper);
+    const width = wrapper.offsetWidth;
+    this.measurementContainer.removeChild(wrapper);
+
+    return width;
+  }
+
   private calculateMaxWidths(solverRuns: any[]): { maxT1Width: number, maxT2Width: number } {
     let maxT1Width = 0;
     let maxT2Width = 0;
@@ -481,16 +633,16 @@ export class TreeVisualizer {
       // Check constraints
       if (run.constraints) {
         run.constraints.forEach((c: any) => {
-          if (c.t1) maxT1Width = Math.max(maxT1Width, c.t1.length);
-          if (c.t2) maxT2Width = Math.max(maxT2Width, c.t2.length);
+          if (c.t1) maxT1Width = Math.max(maxT1Width, this.measureTokenizedWidth(c.t1));
+          if (c.t2) maxT2Width = Math.max(maxT2Width, this.measureTokenizedWidth(c.t2));
         });
       }
       
       // Check solutions
       if (run.solutions) {
         run.solutions.forEach((s: any) => {
-          if (s.t1) maxT1Width = Math.max(maxT1Width, s.t1.length);
-          if (s.t2) maxT2Width = Math.max(maxT2Width, s.t2.length);
+          if (s.t1) maxT1Width = Math.max(maxT1Width, this.measureTokenizedWidth(s.t1));
+          if (s.t2) maxT2Width = Math.max(maxT2Width, this.measureTokenizedWidth(s.t2));
         });
       }
       
@@ -501,13 +653,55 @@ export class TreeVisualizer {
           const recordRefName = `recordRef_(${r.key})`;
           const fields = r.fields.map((f: any) => `${f.name}: ${f.typ}`).join(', ');
           const recordValue = `{ ${fields} }`;
-          maxT1Width = Math.max(maxT1Width, recordRefName.length);
-          maxT2Width = Math.max(maxT2Width, recordValue.length);
+          maxT1Width = Math.max(maxT1Width, this.measureTokenizedWidth(recordRefName));
+          maxT2Width = Math.max(maxT2Width, this.measureTokenizedWidth(recordValue));
         });
       }
     });
 
     return { maxT1Width, maxT2Width };
+  }
+
+  private tokenizeAndStyleText(text: string): DocumentFragment {
+    const fragment = document.createDocumentFragment();
+    // Regex to match tv_xxx tokens
+    const tvRegex = /(tv_\d+)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = tvRegex.exec(text)) !== null) {
+      // Add text before the match as node-type styled
+      if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index);
+        const span = document.createElement('span');
+        span.className = 'node-type';
+        span.style.whiteSpace = 'pre';
+  span.style.marginTop = '0';
+        span.textContent = beforeText;
+        fragment.appendChild(span);
+      }
+
+      // Add the tv_xxx token with tvar styling
+      const tvSpan = document.createElement('span');
+      tvSpan.className = 'tvar';
+      tvSpan.textContent = match[1];
+      fragment.appendChild(tvSpan);
+
+      lastIndex = match.index + match[1].length;
+    }
+
+    // Add remaining text as node-type styled
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex);
+      const span = document.createElement('span');
+      span.className = 'node-type';
+      span.style.whiteSpace = 'pre';
+  span.style.marginTop = '0';
+      span.textContent = remainingText;
+      fragment.appendChild(span);
+    }
+
+    return fragment;
   }
 
   private updateNodeData(nodes: JsNode[]): void {

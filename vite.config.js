@@ -23,13 +23,26 @@ export default defineConfig({
       name: 'copy-gif-worker',
       buildStart() {
         // Copy gif.js worker to public directory
-        const workerSrc = resolve(__dirname, 'node_modules/gif.js/dist/gif.worker.js');
+        const workerSrc = resolve(
+          __dirname,
+          'node_modules/gif.js/dist/gif.worker.js'
+        );
         const workerDest = resolve(__dirname, 'src/visu/public/gif.worker.js');
         try {
           copyFileSync(workerSrc, workerDest);
         } catch (e) {
           console.warn('Could not copy gif.worker.js:', e);
         }
+      },
+    },
+    {
+      name: 'full-reload-on-change',
+      handleHotUpdate({ server }) {
+        server.ws.send({
+          type: 'full-reload',
+          path: '*',
+        });
+        return [];
       },
     },
   ],

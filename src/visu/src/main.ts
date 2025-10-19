@@ -16,6 +16,14 @@ function getRunLabel(jsNode: JsNode, index: number): string {
 function selectRun(index: number): void {
   if (!treeViz) return;
 
+  // Remove any existing highlights before changing the run
+  document.querySelectorAll('.tvar.highlight').forEach(el => {
+    el.classList.remove('highlight');
+  });
+
+  const selectFirstTVarCheckbox = document.getElementById('select-first-tvar') as HTMLInputElement;
+  const shouldReselectFirstTVar = selectFirstTVarCheckbox ? selectFirstTVarCheckbox.checked : false;
+
   const treesForSolverRuns = window.treesForSolverRuns;
   if (index < 0 || index >= treesForSolverRuns.length) return;
   
@@ -29,6 +37,11 @@ function selectRun(index: number): void {
   });
 
   treeViz.loadRun(nextRun, index);
+
+  if (shouldReselectFirstTVar) {
+    // Re-apply the selection after the new run has been loaded
+    treeViz.toggleSelectFirstTVar(true);
+  }
 }
 
 function nextRun(): void {
@@ -94,9 +107,23 @@ function setupControlPanel(): void {
   const envPanelToggle = document.getElementById('env-panel-toggle') as HTMLInputElement;
   
   if (envPanelToggle) {
+    // Set initial state
+    if (treeViz) {
+      treeViz.toggleEnvPanel(envPanelToggle.checked);
+    }
+
     envPanelToggle.addEventListener('change', () => {
       if (treeViz) {
         treeViz.toggleEnvPanel(envPanelToggle.checked);
+      }
+    });
+  }
+
+  const selectFirstTVarCheckbox = document.getElementById('select-first-tvar') as HTMLInputElement;
+  if (selectFirstTVarCheckbox) {
+    selectFirstTVarCheckbox.addEventListener('change', () => {
+      if (treeViz) {
+        treeViz.toggleSelectFirstTVar(selectFirstTVarCheckbox.checked);
       }
     });
   }

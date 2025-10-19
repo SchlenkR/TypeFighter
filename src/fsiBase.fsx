@@ -192,7 +192,7 @@ module Visu =
             | Expr.PropAcc x ->
                 createExprNode "PROP-ACC" $"_.{x.ident.identName}" $"var(ident) = {x.ident.tvar}" [ createNodes x.source ]
             | Expr.MkArray x ->
-                createExprNode "MK-ARRAY" "[]" "" [ for e in x.values do createNodes e ]
+                createExprNode "MK-ARRAY" "" "" [ for e in x.values do createNodes e ]
             | Expr.MkRecord x ->
                 let fieldNames = 
                     x.fields 

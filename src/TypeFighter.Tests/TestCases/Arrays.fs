@@ -61,7 +61,7 @@ let [<Test>] ``array literal string`` () =
 // ERROR: Can't unify String and Number
 let [<Test>] ``error - non-homogeneous arrays`` () =
 
-    X.MkArray [ X.Lit "a"; X.Lit "1"; X.Lit "c" ]
+    X.MkArray [ X.Lit "a"; X.Lit 1; X.Lit "c" ]
     |> solve [] None
     |> shouldFail
 

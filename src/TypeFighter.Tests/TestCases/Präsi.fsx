@@ -24,6 +24,8 @@ let env =
         "random", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
     ]
 
+
+
 (*
     let play = number =>
         if (equals(number, 42), "win", "lose")

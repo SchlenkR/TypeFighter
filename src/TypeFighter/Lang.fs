@@ -70,7 +70,7 @@ and ShowTyp =
         match nameHint with
         | NameHint.Anonymous -> ""
         | NameHint.Given name -> ""
-        // | NameHint.Given name -> $"type '{name}'"
+        // | NameHint.Given name -> $"type '{name}' "
     static let printOrShow (typ: MonoTyp) defaultShow =
         match 
             printers 
@@ -87,7 +87,7 @@ and ShowTyp =
         fields
         |> Set.map ShowTyp.Show
         |> String.concat "; "
-        |> fun s -> $"{nameHint} {{ {s} }}"
+        |> fun s -> $"{nameHint}{{ {s} }}"
     static member Show (record: RecordDefinition) =
         ShowTyp.Show(getNameHint record.nameHint, record.fields)
     static member Show (typ: MonoTyp) =
