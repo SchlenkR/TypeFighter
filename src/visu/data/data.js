@@ -1,510 +1,692 @@
 window.solverRuns = [
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": []
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
           }
         ]
       }
     ]
   },
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": []
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
           }
         ]
       }
     ]
   },
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": []
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
           }
         ]
       }
     ]
   },
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": []
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": " { age: Number; name: String }",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
           }
         ]
       }
     ]
   },
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP =  { age: Number; name: String }",
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": []
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": " { age: Number; name: String }",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "Number",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": " { age: Number; name: String }"
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
           }
         ]
       }
     ]
   },
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP =  { age: Number; name: String }",
-        "exprTyp": "\u003Ctv_6\u003E.tv_6",
-        "env": []
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "",
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": " { age: Number; name: String }",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "Number",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": " { age: Number; name: String }"
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
           }
         ]
       }
     ]
   },
   {
-    "jsLinks": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
       {
-        "from": 7,
-        "to": 5
-      },
-      {
-        "from": 7,
-        "to": 6
-      },
-      {
-        "from": 5,
-        "to": 1
-      },
-      {
-        "from": 5,
-        "to": 3
-      }
-    ],
-    "jsNodes": [
-      {
-        "key": 7,
-        "name": "LET",
-        "code": "myRecord = ...",
-        "varNum": "7",
-        "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP =  { age: Number; name: String }",
-        "exprTyp": " { age: Number; name: String }",
-        "env": []
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "",
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
         "key": 5,
-        "name": "MK-RECORD",
-        "code": "",
-        "varNum": "5",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": " { age: Number; name: String }",
-        "env": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "code": "22",
-        "varNum": "1",
-        "additionalInfo": "",
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "Number",
-        "env": []
-      },
-      {
-        "key": 3,
-        "name": "LIT",
-        "code": "\u0027John\u0027",
-        "varNum": "3",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": []
-      },
-      {
-        "key": 6,
-        "name": "VAR",
-        "code": "myRecord",
-        "varNum": "6",
-        "additionalInfo": "",
-        "exprTyp": " { age: Number; name: String }",
-        "env": [
+        "env": [],
+        "children": [
           {
-            "ident": "myRecord",
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "",
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
             "varNum": 0,
-            "solvedTyp": " { age: Number; name: String }"
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "(Number -\u003E Number)",
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "(Number -\u003E Number)",
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": [],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "(Number -\u003E Number)",
+        "env": [],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": " { quantity: Number }",
+            "env": [],
+            "children": []
           }
         ]
       }

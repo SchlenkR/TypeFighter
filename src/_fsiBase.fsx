@@ -2,25 +2,36 @@
 #load "./TypeFighter/Lang.fs"
 #load "./TypeFighter/Tools.fs"
 
-#load "./visu/visu.fsx"
-open Visu
-
+open System.IO
+open System.Text.Json
 open TypeFighter.Lang
 
 module Visu =
 
-    let rec flattenNodes (node: Tree.Node) =
-        [
-            yield node
-            for c in node.children do
-                yield! flattenNodes c
-        ]
+    type JsNode =
+        {
+            key: int
+            name: string
+            varNum: int
+            code: string
+            additionalInfo: string
+            exprTyp: string
+            env: JsEnvItem list
+            children: JsNode list
+        }
 
-    let createAstNodes
+    and JsEnvItem =
+        {
+            ident: string
+            varNum: int
+            solvedTyp: string
+        }
+
+    let createJsNode
         (root: Expr<VarNum>)
         (solution: TypeSystem.SolutionItem list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
-        = 
+        =
         let rec createNodes (expr: Expr<_>) =
             let tryGetExprTyp tvar =
                 solution 
@@ -50,7 +61,18 @@ module Visu =
                     |> Seq.toList)
                 |> Option.defaultValue []
             let createExprNode name code additionalInfo children =
-                Tree.expr (let (VarNum x) = expr.TVar in x) code (getExprTyp expr.TVar) name env additionalInfo children
+                let node : JsNode =
+                    {
+                        key = let (VarNum x) = expr.TVar in x
+                        name = name
+                        varNum = let (VarNum x) = expr.TVar in x
+                        code = code
+                        additionalInfo = additionalInfo
+                        exprTyp = getExprTyp expr.TVar
+                        env = env
+                        children = children
+                    }
+                node
             match expr with
             | Expr.Lit x ->
                 let litTyp,litValue = 
@@ -96,23 +118,29 @@ module Visu =
                 createExprNode "MK-RECORD" "" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
         createNodes root
 
+    let writeData (solverRuns: string) =
+        let json = $"window.solverRuns = {solverRuns};"
+        let dataPath = Path.Combine(__SOURCE_DIRECTORY__, "visu/data/data.js")
+        File.WriteAllText(dataPath, json)
+
+    let writeTree (runs: JsNode list) = 
+        runs
+        |> fun v -> JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
+        |> writeData
+
     let writeNumberedAst
         (root: Expr<VarNum>)
         (solution: TypeSystem.SolutionItem list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
         = 
-        createAstNodes root solution exprToEnv
-        |> flattenNodes
+        createJsNode root solution exprToEnv
         |> List.singleton
-        |> Tree.write
+        |> writeTree
 
     let writeSolverRuns (solverResult: Solver.SolverResult) =
-        [
-            for sr in solverResult.solverRuns do
-                createAstNodes solverResult.numberedExpr sr.solution solverResult.exprToEnv
-                |> flattenNodes
-        ]
-        |> Tree.write
+        solverResult.solverRuns
+        |> List.map (fun sr -> createJsNode solverResult.numberedExpr sr.solution solverResult.exprToEnv)
+        |> writeTree
 
     let writeAst (root: Expr<unit>) solution exprToEnvMap= 
         let numGen = NumGen.mkGenerator ()

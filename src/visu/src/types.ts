@@ -4,14 +4,16 @@ export interface EnvEntry {
   solvedTyp?: string;
 }
 
-export interface NodeData {
+// JsNode from F# - hierarchical structure with children
+export interface JsNode {
   key: number;
   name: string;
   code: string;
-  varNum: string | number;
+  varNum: number;
   additionalInfo: string;
   exprTyp: string;
   env: EnvEntry[];
+  children: JsNode[];
 }
 
 export interface LinkData {
@@ -19,16 +21,14 @@ export interface LinkData {
   to: number;
 }
 
-export interface Run {
-  jsNodes: NodeData[];
-  jsLinks: LinkData[];
-  label?: string;
-  name?: string;
-  title?: string;
-  id?: string | number;
-}
-
-export interface TreeNode extends NodeData {
+export interface TreeNode {
+  key: number;
+  name: string;
+  code: string;
+  varNum: string | number;
+  additionalInfo: string;
+  exprTyp: string;
+  env: EnvEntry[];
   children: TreeNode[];
   parents: TreeNode[];
 }
@@ -45,6 +45,6 @@ export interface Position {
 
 declare global {
   interface Window {
-    solverRuns: Run[];
+    solverRuns: JsNode[];
   }
 }

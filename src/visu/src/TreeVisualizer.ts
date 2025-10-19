@@ -1,4 +1,4 @@
-import type { NodeData, LinkData, Run, TreeNode, Link, Position, EnvEntry } from './types';
+import type { JsNode, LinkData, TreeNode, Link, Position, EnvEntry } from './types';
 
 export class TreeVisualizer {
   private levelHeight = 140;
@@ -20,7 +20,7 @@ export class TreeVisualizer {
   private activePointerId: number | null = null;
   private lastPanPosition = { x: 0, y: 0 };
 
-  private nodeDataArray: NodeData[] = [];
+  private nodeDataArray: JsNode[] = [];
   private linkDataArray: LinkData[] = [];
   private nodes = new Map<number, TreeNode>();
   private links: Link[] = [];
@@ -43,8 +43,10 @@ export class TreeVisualizer {
   private hoveredNodeKey: number | null = null;
   private selectedNodeKey: number | null = null;
   private didPan = false;
+  private isFirstLoad = true;
+  private allRuns: JsNode[] = [];
 
-  constructor(initialRun: Run | null = null) {
+  constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
     this.container = document.getElementById('tree-container')!;
     this.envPanel = this.createEnvPanel();
     this.contentLayer = this.createContentLayer();
@@ -65,8 +67,9 @@ export class TreeVisualizer {
     this.setupInteraction();
     this.applyTransform();
 
-    if (initialRun) {
-      this.loadRun(initialRun);
+    this.allRuns = allRuns;
+    if (allRuns.length > 0) {
+      this.loadRun(allRuns[initialRunIndex] || allRuns[0]);
     }
   }
 
@@ -289,22 +292,126 @@ export class TreeVisualizer {
     this.contentLayer.style.paddingLeft = (this.envPanelWidth + this.envPanelSpacing) + 'px';
   }
 
-  loadRun(run: Run): void {
-    this.nodeDataArray = run.jsNodes;
-    this.linkDataArray = run.jsLinks;
-    this.resetInternalCollections();
-    this.hoveredNodeKey = null;
-    this.selectedNodeKey = null;
-    this.didPan = false;
-    this.zoomLevel = 1;
-    this.panX = 0;
-    this.panY = 0;
+  loadRun(jsNode: JsNode): void {
+    // Convert hierarchical tree to flat nodes and links
+    const { nodes, links } = this.flattenHierarchicalTree(jsNode);
+    
+    if (this.isFirstLoad) {
+      // First load: do full layout calculation
+      this.nodeDataArray = nodes;
+      this.linkDataArray = links;
+      
+      this.resetInternalCollections();
+      this.hoveredNodeKey = null;
+      this.selectedNodeKey = null;
+      this.didPan = false;
+      this.zoomLevel = 1;
+      // Position tree to the right of the environment panel
+      this.panX = 300;
+      this.panY = 0;
 
-    this.parseData();
-    this.calculateNodeDimensions();
-    this.calculateLayout();
-    this.updateEnvPanelLayout();
-    this.render();
+      this.parseData();
+      this.calculateNodeDimensions();
+      this.calculateLayout();
+      this.updateEnvPanelLayout();
+      this.render();
+      
+      this.isFirstLoad = false;
+    } else {
+      // Subsequent loads: just update node data without recalculating layout
+      this.updateNodeData(nodes);
+      this.updateNodeElements();
+      this.refreshEnvPanel();
+    }
+  }
+
+  private updateNodeData(nodes: JsNode[]): void {
+    // Update the existing TreeNode objects with new data
+    nodes.forEach(nodeData => {
+      const existingNode = this.nodes.get(nodeData.key);
+      if (existingNode) {
+        existingNode.name = nodeData.name;
+        existingNode.code = nodeData.code;
+        existingNode.varNum = nodeData.varNum;
+        existingNode.additionalInfo = nodeData.additionalInfo;
+        existingNode.exprTyp = nodeData.exprTyp;
+        existingNode.env = nodeData.env || [];
+      }
+    });
+  }
+
+  private updateNodeElements(): void {
+    // Update the DOM elements for each node without recalculating positions
+    this.nodes.forEach(node => {
+      const nodeElement = this.contentLayer.querySelector<HTMLElement>(
+        `.node[data-key="${node.key}"]`
+      );
+      if (nodeElement) {
+        // Update the node header
+        const nameEl = nodeElement.querySelector('.node-name');
+        if (nameEl) nameEl.textContent = node.name;
+        
+        const codeEl = nodeElement.querySelector('.node-code');
+        if (codeEl) {
+          if (node.code) {
+            codeEl.textContent = node.code;
+            codeEl.classList.remove('env-panel-hidden');
+          } else {
+            codeEl.textContent = '';
+            codeEl.classList.add('env-panel-hidden');
+          }
+        }
+        
+        const varEl = nodeElement.querySelector('.tvar');
+        if (varEl) varEl.textContent = 'tv_' + node.varNum;
+        
+        // Update the type
+        const typeEl = nodeElement.querySelector('.node-type');
+        if (typeEl) {
+          typeEl.textContent = node.exprTyp;
+        } else if (node.exprTyp) {
+          // Type element doesn't exist but we have a type, create it
+          const newTypeEl = document.createElement('div');
+          newTypeEl.className = 'node-type';
+          newTypeEl.textContent = node.exprTyp;
+          nodeElement.appendChild(newTypeEl);
+        }
+      }
+    });
+  }
+
+  private flattenHierarchicalTree(root: JsNode): { nodes: JsNode[], links: LinkData[] } {
+    const nodes: JsNode[] = [];
+    const links: LinkData[] = [];
+    const visited = new Set<number>();
+
+    const traverse = (node: JsNode) => {
+      if (visited.has(node.key)) return;
+      visited.add(node.key);
+
+      // Add the node itself
+      nodes.push({
+        key: node.key,
+        name: node.name,
+        code: node.code,
+        varNum: node.varNum,
+        additionalInfo: node.additionalInfo,
+        exprTyp: node.exprTyp,
+        env: node.env || [],
+        children: [] // Will be rebuilt by parseData
+      });
+
+      // Process children
+      if (node.children && Array.isArray(node.children)) {
+        for (const child of node.children) {
+          links.push({ from: node.key, to: child.key });
+          traverse(child);
+        }
+      }
+    };
+
+    traverse(root);
+    return { nodes, links };
   }
 
   private parseData(): void {
@@ -328,8 +435,22 @@ export class TreeVisualizer {
   private calculateNodeDimensions(): void {
     this.measurementContainer.innerHTML = '';
 
+    // Use the last solver run for measurements if available
+    const lastRun = this.allRuns.length > 0 ? this.allRuns[this.allRuns.length - 1] : null;
+    let lastRunNodes: Map<number, JsNode> | null = null;
+    
+    if (lastRun) {
+      const { nodes } = this.flattenHierarchicalTree(lastRun);
+      lastRunNodes = new Map(nodes.map(n => [n.key, n]));
+    }
+
     this.nodes.forEach(node => {
-      const measurementElement = this.buildNodeElement(node);
+      // Create a temporary node with data from the last run for measurement
+      const measurementNode = lastRunNodes?.get(node.key) 
+        ? { ...node, ...lastRunNodes.get(node.key) } 
+        : node;
+      
+      const measurementElement = this.buildNodeElement(measurementNode as TreeNode);
       measurementElement.style.position = 'static';
       measurementElement.style.left = 'auto';
       measurementElement.style.top = 'auto';

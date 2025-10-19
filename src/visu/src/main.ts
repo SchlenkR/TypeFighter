@@ -1,11 +1,12 @@
 import { TreeVisualizer } from './TreeVisualizer';
-import type { Run } from './types';
+import type { JsNode } from './types';
 
 let treeViz: TreeVisualizer;
 let runButtons: HTMLButtonElement[] = [];
 
-function getRunLabel(run: Run, index: number): string {
-  return run.label || run.name || run.title || (run.id ? `Instance ${run.id}` : `Instance ${index + 1}`);
+function getRunLabel(jsNode: JsNode, index: number): string {
+  // Just use the number (1-indexed)
+  return `${index + 1}`;
 }
 
 function selectRun(index: number): void {
@@ -22,7 +23,7 @@ function selectRun(index: number): void {
   treeViz.loadRun(nextRun);
 }
 
-function setupRunButtons(runs: Run[]): void {
+function setupRunButtons(runs: JsNode[]): void {
   const buttonContainer = document.getElementById('run-buttons')!;
   runButtons = [];
   buttonContainer.innerHTML = '';
@@ -51,7 +52,6 @@ function setupRunButtons(runs: Run[]): void {
 // Initialize when page loads
 window.addEventListener('load', () => {
   const runs = window.solverRuns || [];
-  const initialRun = runs[0] || null;
-  treeViz = new TreeVisualizer(initialRun);
+  treeViz = new TreeVisualizer(runs, 0);
   setupRunButtons(runs);
 });

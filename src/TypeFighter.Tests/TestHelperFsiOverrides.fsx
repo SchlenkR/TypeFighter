@@ -33,7 +33,7 @@ let solve
             printfn ""
 
     do
-        Visu.writeSolverRuns solverResult 
+        Visu.writeSolverRuns solverResult
 
     solverResult
 
