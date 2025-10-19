@@ -549,18 +549,9 @@
         }
 
         setEnvPanelText(text) {
-          const content = this.envPanelEnvContent;
-          if (!content) {
-            return;
-          }
-          const trimmed = text && text.trim().length > 0 ? text : '\u00a0';
-          content.textContent = trimmed;
-          if (trimmed === this.envPanelDefaultText || trimmed === '\u00a0') {
-            content.classList.add('env-panel-placeholder-text');
-          } else {
-            content.classList.remove('env-panel-placeholder-text');
-          }
-          content.scrollTop = 0;
+          this.envPanelEnvContent.textContent = text || '\u00a0';
+          this.envPanelEnvContent.classList.toggle('env-panel-placeholder-text', !text || text === '\u00a0');
+          this.envPanelEnvContent.scrollTop = 0;
         }
 
         updateEnvPanelNodePreview(node) {
@@ -570,39 +561,24 @@
           const additionalEl = this.envPanelAdditionalEl;
           const typeEl = this.envPanelTypeTextEl;
 
-          if (!nameEl || !codeEl || !varEl || !additionalEl || !typeEl) {
-            return;
-          }
-
-          const placeholderText = this.envPanelNodePlaceholderText;
-
           if (!node) {
-            nameEl.textContent = placeholderText;
+            nameEl.textContent = '\u00a0';
             nameEl.classList.add('env-panel-placeholder-text');
-
             codeEl.textContent = '';
             codeEl.classList.add('env-panel-hidden');
-
             varEl.textContent = '';
             varEl.classList.add('env-panel-hidden');
-
             additionalEl.textContent = '\u00a0';
-            additionalEl.classList.remove('env-panel-hidden');
             additionalEl.classList.add('env-panel-placeholder-text');
-
             typeEl.textContent = '\u00a0';
             typeEl.classList.add('env-panel-placeholder-text');
             return;
           }
 
-          const nameText =
-            node.name && node.name.trim().length
-              ? node.name
-              : '(unnamed expression)';
-          nameEl.textContent = nameText;
+          nameEl.textContent = node.name;
           nameEl.classList.remove('env-panel-placeholder-text');
 
-          if (node.code && node.code.trim()) {
+          if (node.code) {
             codeEl.textContent = node.code;
             codeEl.classList.remove('env-panel-hidden');
           } else {
@@ -610,27 +586,18 @@
             codeEl.classList.add('env-panel-hidden');
           }
 
-          const varLabel =
-            typeof node.varNum !== 'undefined' ? 'tv_' + node.varNum : '';
-          if (varLabel) {
-            varEl.textContent = varLabel;
-            varEl.classList.remove('env-panel-hidden');
-          } else {
-            varEl.textContent = '';
-            varEl.classList.add('env-panel-hidden');
-          }
+          varEl.textContent = 'tv_' + node.varNum;
+          varEl.classList.remove('env-panel-hidden');
 
-          if (node.additionalInfo && node.additionalInfo.trim()) {
+          if (node.additionalInfo) {
             additionalEl.textContent = node.additionalInfo;
-            additionalEl.classList.remove('env-panel-hidden');
             additionalEl.classList.remove('env-panel-placeholder-text');
           } else {
             additionalEl.textContent = '\u00a0';
-            additionalEl.classList.remove('env-panel-hidden');
             additionalEl.classList.add('env-panel-placeholder-text');
           }
 
-          if (node.exprTyp && node.exprTyp.trim()) {
+          if (node.exprTyp) {
             typeEl.textContent = node.exprTyp;
             typeEl.classList.remove('env-panel-placeholder-text');
           } else {
@@ -639,54 +606,18 @@
           }
         }
 
-        normalizeEnvironmentEntry(entry) {
-          if (!entry || typeof entry !== 'object') {
-            return null;
-          }
-
-          const ident =
-            typeof entry.ident === 'string' && entry.ident.trim().length
-              ? entry.ident.trim()
-              : '(anonymous)';
-
-          const hasVarNum = entry.varNum !== undefined && entry.varNum !== null;
-          const varLabel = hasVarNum ? `tv_${String(entry.varNum)}` : null;
-
-          const typeLabel =
-            typeof entry.solvedTyp === 'string' && entry.solvedTyp.trim().length
-              ? entry.solvedTyp.trim()
-              : null;
-
-          return { ident, varLabel, typeLabel };
-        }
-
-        renderEnvironmentEntries(rawEnv) {
+        renderEnvironmentEntries(env) {
           const content = this.envPanelEnvContent;
-          if (!content) {
-            return false;
-          }
-
-          let entries = [];
-
-          if (Array.isArray(rawEnv)) {
-            entries = rawEnv
-              .map(entry => this.normalizeEnvironmentEntry(entry))
-              .filter(entry => entry !== null);
-          } else if (rawEnv && typeof rawEnv === 'object') {
-            const single = this.normalizeEnvironmentEntry(rawEnv);
-            if (single) {
-              entries = [single];
-            }
-          }
-
-          if (entries.length === 0) {
-            return false;
+          if (env.length === 0) {
+            content.classList.add('env-panel-placeholder-text');
+            content.textContent = '\u00a0';
+            return;
           }
 
           content.classList.remove('env-panel-placeholder-text');
           content.innerHTML = '';
 
-          entries.forEach(entry => {
+          env.forEach(entry => {
             const row = document.createElement('div');
             row.className = 'env-panel-env-row';
 
@@ -695,117 +626,34 @@
             identSpan.textContent = entry.ident;
             row.appendChild(identSpan);
 
-            if (entry.varLabel) {
+            if (entry.varNum !== undefined) {
               const varSpan = document.createElement('span');
               varSpan.className = 'tvar';
-              varSpan.textContent = entry.varLabel;
+              varSpan.textContent = `tv_${entry.varNum}`;
               row.appendChild(varSpan);
             }
 
-            if (entry.typeLabel) {
+            if (entry.solvedTyp) {
               const typeSpan = document.createElement('span');
               typeSpan.className = 'env-panel-env-type';
-              typeSpan.textContent = entry.typeLabel;
+              typeSpan.textContent = entry.solvedTyp;
               row.appendChild(typeSpan);
             }
 
             content.appendChild(row);
           });
-
-          return true;
-        }
-
-        resolveEnvText(rawEnv) {
-          if (Array.isArray(rawEnv)) {
-            const lines = rawEnv
-              .map(entry => this.normalizeEnvironmentEntry(entry))
-              .filter(entry => entry !== null)
-              .map(entry => {
-                if (entry.varLabel && entry.typeLabel) {
-                  return `${entry.ident}: ${entry.varLabel} (${entry.typeLabel})`;
-                }
-                if (entry.varLabel) {
-                  return `${entry.ident}: ${entry.varLabel}`;
-                }
-                if (entry.typeLabel) {
-                  return `${entry.ident}: ${entry.typeLabel}`;
-                }
-                return entry.ident;
-              });
-
-            if (lines.length === 0) {
-              return '\u00a0';
-            }
-
-            return lines.join('\n');
-          }
-
-          if (rawEnv === null || rawEnv === undefined) {
-            return '\u00a0';
-          }
-
-          if (typeof rawEnv === 'string') {
-            const trimmed = rawEnv.trim();
-            return trimmed.length > 0 ? trimmed : '\u00a0';
-          }
-
-          if (typeof rawEnv === 'object') {
-            const rendered = this.normalizeEnvironmentEntry(rawEnv);
-            if (!rendered) {
-              return '\u00a0';
-            }
-
-            if (rendered.varLabel && rendered.typeLabel) {
-              return `${rendered.ident}: ${rendered.varLabel} (${rendered.typeLabel})`;
-            }
-
-            if (rendered.varLabel) {
-              return `${rendered.ident}: ${rendered.varLabel}`;
-            }
-
-            if (rendered.typeLabel) {
-              return `${rendered.ident}: ${rendered.typeLabel}`;
-            }
-
-            return rendered.ident;
-          }
-
-          const fallback = String(rawEnv).trim();
-          return fallback.length > 0 ? fallback : '\u00a0';
-        }
-
-        setEnvPanelEnvironment(rawEnv) {
-          if (this.renderEnvironmentEntries(rawEnv)) {
-            return;
-          }
-
-          const text = this.resolveEnvText(rawEnv);
-          this.setEnvPanelText(text);
         }
 
         updateEnvPanelLayout() {
-          if (!this.envPanel || !this.contentLayer) {
-            return;
-          }
-
-          const scale = this.zoomLevel;
-
           this.envPanel.style.width = this.envPanelWidth + 'px';
           this.envPanel.style.transformOrigin = 'top left';
-          this.envPanel.style.transform = `scale(${scale})`;
-
-          const basePadding = this.envPanelWidth + this.envPanelSpacing;
-          this.contentLayer.style.paddingLeft = basePadding + 'px';
+          this.envPanel.style.transform = `scale(${this.zoomLevel})`;
+          this.contentLayer.style.paddingLeft = (this.envPanelWidth + this.envPanelSpacing) + 'px';
         }
 
         loadRun(run) {
-          const safeNodes =
-            run && Array.isArray(run.jsNodes) ? run.jsNodes : [];
-          const safeLinks =
-            run && Array.isArray(run.jsLinks) ? run.jsLinks : [];
-
-          this.nodeDataArray = safeNodes;
-          this.linkDataArray = safeLinks;
+          this.nodeDataArray = run.jsNodes;
+          this.linkDataArray = run.jsLinks;
           this.resetInternalCollections();
           this.hoveredNodeKey = null;
           this.selectedNodeKey = null;
@@ -823,10 +671,6 @@
 
         parseData() {
           // Create nodes map
-          if (!Array.isArray(this.nodeDataArray)) {
-            return;
-          }
-
           this.nodeDataArray.forEach(nodeData => {
             this.nodes.set(nodeData.key, {
               ...nodeData,
@@ -836,19 +680,12 @@
           });
 
           // Create links and establish parent-child relationships
-          if (!Array.isArray(this.linkDataArray)) {
-            return;
-          }
-
           this.linkDataArray.forEach(link => {
             const parent = this.nodes.get(link.from);
             const child = this.nodes.get(link.to);
-
-            if (parent && child) {
-              parent.children.push(child);
-              child.parents.push(parent);
-              this.links.push({ parent, child });
-            }
+            parent.children.push(child);
+            child.parents.push(parent);
+            this.links.push({ parent, child });
           });
         }
 
@@ -1016,16 +853,14 @@
               if (node.children.length === 1) {
                 // Align single-child subtrees so the connector remains vertical
                 const child = node.children[0];
-                if (!child.parents || child.parents.length === 1) {
+                if (child.parents.length === 1) {
                   const childPos = this.nodePositions.get(child.key);
                   const childWidth = this.nodeWidths.get(child.key);
-                  if (childPos && typeof childWidth === 'number') {
-                    const parentCenterX = finalParentX + nodeWidth / 2;
-                    const childCenterX = childPos.x + childWidth / 2;
-                    const delta = parentCenterX - childCenterX;
-                    if (Math.abs(delta) > 0.5) {
-                      this.shiftSubtree(child, delta);
-                    }
+                  const parentCenterX = finalParentX + nodeWidth / 2;
+                  const childCenterX = childPos.x + childWidth / 2;
+                  const delta = parentCenterX - childCenterX;
+                  if (Math.abs(delta) > 0.5) {
+                    this.shiftSubtree(child, delta);
                   }
                 }
               }
@@ -1074,35 +909,27 @@
         }
 
         shiftSubtree(node, deltaX) {
-          if (!node || deltaX === 0) {
-            return;
-          }
+          if (deltaX === 0) return;
 
           const visited = new Set();
           const stack = [node];
 
           while (stack.length > 0) {
             const current = stack.pop();
-            if (!current || visited.has(current.key)) {
-              continue;
-            }
+            if (visited.has(current.key)) continue;
             visited.add(current.key);
 
             const pos = this.nodePositions.get(current.key);
-            if (pos) {
-              this.nodePositions.set(current.key, {
-                x: pos.x + deltaX,
-                y: pos.y,
-              });
-            }
+            this.nodePositions.set(current.key, {
+              x: pos.x + deltaX,
+              y: pos.y,
+            });
 
-            if (!current.children || current.children.length === 0) {
-              continue;
-            }
+            if (current.children.length === 0) continue;
 
             current.children.forEach(childNode => {
               // Skip shared nodes to avoid conflicting adjustments when a node has multiple parents
-              if (!childNode.parents || childNode.parents.length === 1) {
+              if (childNode.parents.length === 1) {
                 stack.push(childNode);
               }
             });
@@ -1152,28 +979,19 @@
 
           // Render connections for each parent and its children
           parentToChildren.forEach((children, parentKey) => {
-            const parentElement = this.contentLayer.querySelector(
-              `.node[data-key="${parentKey}"]`
-            );
+            const parentElement = this.contentLayer.querySelector(`.node[data-key="${parentKey}"]`);
             if (!parentElement) return;
 
-            const parentCenterX =
-              parentElement.offsetLeft + parentElement.offsetWidth / 2;
-            const parentBottomY =
-              parentElement.offsetTop + parentElement.offsetHeight;
+            const parentCenterX = parentElement.offsetLeft + parentElement.offsetWidth / 2;
+            const parentBottomY = parentElement.offsetTop + parentElement.offsetHeight;
 
             // Calculate the span of children
             const childDetails = children
               .map(child => {
-                const childElement = this.contentLayer.querySelector(
-                  `.node[data-key="${child.key}"]`
-                );
-                if (!childElement) {
-                  return null;
-                }
+                const childElement = this.contentLayer.querySelector(`.node[data-key="${child.key}"]`);
+                if (!childElement) return null;
                 return {
-                  centerX:
-                    childElement.offsetLeft + childElement.offsetWidth / 2,
+                  centerX: childElement.offsetLeft + childElement.offsetWidth / 2,
                   topY: childElement.offsetTop,
                 };
               })
@@ -1181,9 +999,7 @@
 
             if (childDetails.length === 0) return;
 
-            const minChildTop = Math.min(
-              ...childDetails.map(detail => detail.topY)
-            );
+            const minChildTop = Math.min(...childDetails.map(detail => detail.topY));
             const gapBetweenLevels = Math.max(0, minChildTop - parentBottomY);
             const verticalDropDistance = gapBetweenLevels / 2;
             const horizontalLineY = parentBottomY + verticalDropDistance;
@@ -1197,12 +1013,8 @@
             parentVerticalLine.style.height = verticalDropDistance + 'px';
             this.contentLayer.appendChild(parentVerticalLine);
 
-            const minChildX = Math.min(
-              ...childDetails.map(detail => detail.centerX)
-            );
-            const maxChildX = Math.max(
-              ...childDetails.map(detail => detail.centerX)
-            );
+            const minChildX = Math.min(...childDetails.map(detail => detail.centerX));
+            const maxChildX = Math.max(...childDetails.map(detail => detail.centerX));
 
             // Draw horizontal line spanning all children
             const horizontalLine = document.createElement('div');
@@ -1215,72 +1027,48 @@
 
             // Draw vertical lines to each child
             childDetails.forEach(detail => {
-              const { centerX, topY } = detail;
-
               // Vertical line to child
               const childVerticalLine = document.createElement('div');
               childVerticalLine.className = 'connection-line';
-              childVerticalLine.style.left = centerX + 'px';
+              childVerticalLine.style.left = detail.centerX + 'px';
               childVerticalLine.style.top = horizontalLineY + 'px';
               childVerticalLine.style.width = '2px';
-              childVerticalLine.style.height = topY - horizontalLineY + 'px';
+              childVerticalLine.style.height = detail.topY - horizontalLineY + 'px';
               this.contentLayer.appendChild(childVerticalLine);
 
               // Arrow at child
               const arrow = document.createElement('div');
               arrow.className = 'connection-arrow';
-              arrow.style.left = centerX - 6 + 'px';
-              arrow.style.top = topY - 8 + 'px';
+              arrow.style.left = detail.centerX - 6 + 'px';
+              arrow.style.top = detail.topY - 8 + 'px';
               this.contentLayer.appendChild(arrow);
             });
           });
         }
 
         setupInteraction() {
-          this.container.addEventListener(
-            'pointerdown',
-            this.handlePointerDown
-          );
+          this.container.addEventListener('pointerdown', this.handlePointerDown);
           window.addEventListener('pointermove', this.handlePointerMove);
           window.addEventListener('pointerup', this.handlePointerUp);
           window.addEventListener('pointercancel', this.handlePointerUp);
           this.container.addEventListener('click', this.handleContainerClick);
-          this.container.addEventListener(
-            'wheel',
-            event => {
-              if (this.envPanel && this.envPanel.contains(event.target)) {
-                return;
-              }
+          
+          this.container.addEventListener('wheel', event => {
+            if (this.envPanel.contains(event.target)) return;
+            if (event.deltaY === 0) return;
 
-              const wheelDelta = event.deltaY;
-              if (wheelDelta === 0) {
-                return;
-              }
-
-              const zoomFactor = wheelDelta > 0 ? 0.9 : 1.1;
-              this.zoom(zoomFactor, { x: event.clientX, y: event.clientY });
-              event.preventDefault();
-            },
-            { passive: false }
-          );
+            const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+            this.zoom(zoomFactor, { x: event.clientX, y: event.clientY });
+            event.preventDefault();
+          }, { passive: false });
         }
 
         handlePointerDown(event) {
-          if (event.button !== 0) {
-            return;
-          }
+          if (event.button !== 0) return;
 
           this.didPan = false;
 
-          if (this.envPanel && this.envPanel.contains(event.target)) {
-            return;
-          }
-
-          if (
-            event.target &&
-            event.target.closest &&
-            event.target.closest('.node')
-          ) {
+          if (this.envPanel.contains(event.target) || event.target.closest('.node')) {
             return;
           }
 
@@ -1288,22 +1076,12 @@
           this.activePointerId = event.pointerId;
           this.lastPanPosition = { x: event.clientX, y: event.clientY };
           this.container.classList.add('panning');
-
-          if (this.container.setPointerCapture) {
-            try {
-              this.container.setPointerCapture(event.pointerId);
-            } catch (_) {
-              // Ignore cases where pointer capture is not available
-            }
-          }
-
+          this.container.setPointerCapture?.(event.pointerId);
           event.preventDefault();
         }
 
         handlePointerMove(event) {
-          if (!this.isPanning || event.pointerId !== this.activePointerId) {
-            return;
-          }
+          if (!this.isPanning || event.pointerId !== this.activePointerId) return;
 
           const deltaX = event.clientX - this.lastPanPosition.x;
           const deltaY = event.clientY - this.lastPanPosition.y;
@@ -1315,26 +1093,16 @@
             this.didPan = true;
           }
           this.applyTransform();
-
           event.preventDefault();
         }
 
         handlePointerUp(event) {
-          if (event.pointerId !== this.activePointerId) {
-            return;
-          }
+          if (event.pointerId !== this.activePointerId) return;
 
           this.isPanning = false;
           this.activePointerId = null;
           this.container.classList.remove('panning');
-
-          if (this.container.releasePointerCapture) {
-            try {
-              this.container.releasePointerCapture(event.pointerId);
-            } catch (_) {
-              // Ignore cases where release fails
-            }
-          }
+          this.container.releasePointerCapture?.(event.pointerId);
         }
 
         handleContainerClick(event) {
@@ -1343,15 +1111,7 @@
             return;
           }
 
-          if (this.envPanel && this.envPanel.contains(event.target)) {
-            return;
-          }
-
-          if (
-            event.target &&
-            event.target.closest &&
-            event.target.closest('.node')
-          ) {
+          if (this.envPanel.contains(event.target) || event.target.closest('.node')) {
             return;
           }
 
@@ -1364,30 +1124,17 @@
 
         handleEnvPanelMouseLeave(event) {
           const nextTarget = event.relatedTarget;
-          if (nextTarget && nextTarget.closest && nextTarget.closest('.node')) {
-            return;
-          }
-
-          if (
-            this.envPanel &&
-            nextTarget &&
-            this.envPanel.contains(nextTarget)
-          ) {
+          if (nextTarget?.closest('.node') || this.envPanel.contains(nextTarget)) {
             return;
           }
 
           if (this.hoveredNodeKey !== null) {
             this.hoveredNodeKey = null;
+            this.refreshEnvPanel();
           }
-
-          this.refreshEnvPanel();
         }
 
         applyTransform() {
-          if (!this.contentLayer) {
-            return;
-          }
-
           this.contentLayer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
           this.contentLayer.style.transformOrigin = 'top left';
           this.updateEnvPanelLayout();
@@ -1409,7 +1156,7 @@
           nameEl.textContent = node.name;
           titleGroup.appendChild(nameEl);
 
-          if (node.code && node.code.trim()) {
+          if (node.code) {
             const codeEl = document.createElement('div');
             codeEl.className = 'node-code';
             codeEl.textContent = node.code;
@@ -1424,7 +1171,7 @@
           header.appendChild(varEl);
           nodeElement.appendChild(header);
 
-          if (node.exprTyp && node.exprTyp.trim()) {
+          if (node.exprTyp) {
             const typeEl = document.createElement('div');
             typeEl.className = 'node-type';
             typeEl.textContent = node.exprTyp;
@@ -1448,10 +1195,6 @@
         }
 
         attachNodeEvents(node, nodeElement) {
-          if (!nodeElement) {
-            return;
-          }
-
           nodeElement.addEventListener('mouseenter', () => {
             this.hoveredNodeKey = node.key;
             this.refreshEnvPanel();
@@ -1459,18 +1202,7 @@
 
           nodeElement.addEventListener('mouseleave', event => {
             const nextTarget = event.relatedTarget;
-            if (
-              nextTarget &&
-              nextTarget.closest &&
-              nextTarget.closest('.node')
-            ) {
-              return;
-            }
-            if (
-              this.envPanel &&
-              nextTarget &&
-              this.envPanel.contains(nextTarget)
-            ) {
+            if (nextTarget?.closest('.node') || this.envPanel.contains(nextTarget)) {
               return;
             }
             this.hoveredNodeKey = null;
@@ -1486,41 +1218,21 @@
         }
 
         updateSelectionHighlight() {
-          if (!this.contentLayer) {
-            return;
-          }
-
           const nodeElements = this.contentLayer.querySelectorAll('.node');
-          const selectedKeyString =
-            this.selectedNodeKey !== null ? String(this.selectedNodeKey) : null;
+          const selectedKeyString = this.selectedNodeKey !== null ? String(this.selectedNodeKey) : null;
+          
           nodeElements.forEach(nodeElement => {
-            const elementKey = nodeElement.dataset.key ?? '';
-            if (
-              selectedKeyString !== null &&
-              elementKey === selectedKeyString
-            ) {
-              nodeElement.classList.add('selected');
-            } else {
-              nodeElement.classList.remove('selected');
-            }
+            const isSelected = selectedKeyString !== null && nodeElement.dataset.key === selectedKeyString;
+            nodeElement.classList.toggle('selected', isSelected);
           });
         }
 
         refreshEnvPanel() {
-          const activeKey =
-            this.hoveredNodeKey !== null
-              ? this.hoveredNodeKey
-              : this.selectedNodeKey;
-          const node =
-            activeKey !== null ? this.nodes.get(activeKey) || null : null;
+          const activeKey = this.hoveredNodeKey !== null ? this.hoveredNodeKey : this.selectedNodeKey;
+          const node = activeKey !== null ? this.nodes.get(activeKey) : null;
 
           this.updateEnvPanelNodePreview(node);
-
-          if (node) {
-            this.setEnvPanelEnvironment(node.env);
-          } else {
-            this.setEnvPanelEnvironment(null);
-          }
+          this.renderEnvironmentEntries(node ? node.env : []);
         }
 
         adjustLevelSpacing(delta) {
@@ -1539,13 +1251,10 @@
 
         zoom(factor, focalPoint = null) {
           const oldZoom = this.zoomLevel;
-          const newZoom = Math.min(
-            this.maxZoom,
-            Math.max(this.minZoom, oldZoom * factor)
-          );
+          const newZoom = Math.min(this.maxZoom, Math.max(this.minZoom, oldZoom * factor));
           const zoomChange = newZoom / oldZoom;
 
-          if (focalPoint && zoomChange !== 1 && this.contentLayer) {
+          if (focalPoint && zoomChange !== 1) {
             const layerRect = this.contentLayer.getBoundingClientRect();
             const offsetX = focalPoint.x - layerRect.left;
             const offsetY = focalPoint.y - layerRect.top;
@@ -1571,47 +1280,17 @@
       let runButtons = [];
 
       function getRunLabel(run, index) {
-        if (!run || typeof run !== 'object') {
-          return `Instance ${index + 1}`;
-        }
-
-        const labelCandidates = [run.label, run.name, run.title].filter(
-          candidate => typeof candidate === 'string' && candidate.trim().length
-        );
-
-        if (labelCandidates.length > 0) {
-          return labelCandidates[0];
-        }
-
-        if (typeof run.id === 'string' && run.id.trim().length > 0) {
-          return run.id;
-        }
-
-        if (typeof run.id === 'number') {
-          return `Instance ${run.id}`;
-        }
-
-        return `Instance ${index + 1}`;
+        return run.label || run.name || run.title || (run.id ? `Instance ${run.id}` : `Instance ${index + 1}`);
       }
 
       function selectRun(index) {
-        if (!treeViz) {
-          return;
-        }
+        if (!treeViz) return;
 
-        const runs = Array.isArray(window.solverRuns)
-          ? window.solverRuns
-          : [];
+        const runs = window.solverRuns;
         const nextRun = runs[index];
-
-        if (!nextRun) {
-          return;
-        }
+        if (!nextRun) return;
 
         runButtons.forEach((button, buttonIndex) => {
-          if (!button) {
-            return;
-          }
           button.classList.toggle('active', buttonIndex === index);
         });
 
@@ -1620,11 +1299,6 @@
 
       function setupRunButtons(runs) {
         const buttonContainer = document.getElementById('run-buttons');
-
-        if (!buttonContainer) {
-          return;
-        }
-
         runButtons = [];
         buttonContainer.innerHTML = '';
 
@@ -1651,10 +1325,8 @@
 
       // Initialize when page loads
       window.addEventListener('load', () => {
-        const runs = Array.isArray(window.solverRuns)
-          ? window.solverRuns
-          : [];
-        const initialRun = runs.length > 0 ? runs[0] : null;
+        const runs = window.solverRuns || [];
+        const initialRun = runs[0] || null;
         treeViz = new TreeVisualizer(initialRun);
         setupRunButtons(runs);
       });
