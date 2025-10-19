@@ -4,12 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start" : "vite"
+    "start": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "gojs": "^3.0.12"
   },
   "devDependencies": {
+    "typescript": "^5.9.3",
     "vite": "5.0.0"
   }
 }
