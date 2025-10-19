@@ -486,24 +486,19 @@
 
           if (!node) {
             nameEl.textContent = placeholderText;
-            nameEl.title = placeholderText;
             nameEl.classList.add('env-panel-placeholder-text');
 
             codeEl.textContent = '';
-            codeEl.removeAttribute('title');
             codeEl.classList.add('env-panel-hidden');
 
             varEl.textContent = '';
-            varEl.removeAttribute('title');
             varEl.classList.add('env-panel-hidden');
 
             additionalEl.textContent = '\u00a0';
-            additionalEl.removeAttribute('title');
             additionalEl.classList.remove('env-panel-hidden');
             additionalEl.classList.add('env-panel-placeholder-text');
 
             typeEl.textContent = '\u00a0';
-            typeEl.removeAttribute('title');
             typeEl.classList.add('env-panel-placeholder-text');
             return;
           }
@@ -513,16 +508,13 @@
               ? node.name
               : '(unnamed expression)';
           nameEl.textContent = nameText;
-          nameEl.title = nameText;
           nameEl.classList.remove('env-panel-placeholder-text');
 
           if (node.code && node.code.trim()) {
             codeEl.textContent = node.code;
-            codeEl.title = node.code;
             codeEl.classList.remove('env-panel-hidden');
           } else {
             codeEl.textContent = '';
-            codeEl.removeAttribute('title');
             codeEl.classList.add('env-panel-hidden');
           }
 
@@ -530,33 +522,27 @@
             typeof node.varNum !== 'undefined' ? 'tv_' + node.varNum : '';
           if (varLabel) {
             varEl.textContent = varLabel;
-            varEl.title = varLabel;
             varEl.classList.remove('env-panel-hidden');
           } else {
             varEl.textContent = '';
-            varEl.removeAttribute('title');
             varEl.classList.add('env-panel-hidden');
           }
 
           if (node.additionalInfo && node.additionalInfo.trim()) {
             additionalEl.textContent = node.additionalInfo;
-            additionalEl.title = node.additionalInfo;
             additionalEl.classList.remove('env-panel-hidden');
             additionalEl.classList.remove('env-panel-placeholder-text');
           } else {
             additionalEl.textContent = '\u00a0';
-            additionalEl.removeAttribute('title');
             additionalEl.classList.remove('env-panel-hidden');
             additionalEl.classList.add('env-panel-placeholder-text');
           }
 
           if (node.exprTyp && node.exprTyp.trim()) {
             typeEl.textContent = node.exprTyp;
-            typeEl.title = node.exprTyp;
             typeEl.classList.remove('env-panel-placeholder-text');
           } else {
             typeEl.textContent = '\u00a0';
-            typeEl.removeAttribute('title');
             typeEl.classList.add('env-panel-placeholder-text');
           }
         }
@@ -1309,21 +1295,18 @@
           const nameEl = document.createElement('div');
           nameEl.className = 'node-name';
           nameEl.textContent = node.name;
-          nameEl.title = node.name;
           titleGroup.appendChild(nameEl);
 
           if (node.code && node.code.trim()) {
             const codeEl = document.createElement('div');
             codeEl.className = 'node-code';
             codeEl.textContent = node.code;
-            codeEl.title = node.code;
             titleGroup.appendChild(codeEl);
           }
 
           const varEl = document.createElement('div');
           varEl.className = 'tvar';
           varEl.textContent = 'tv_' + node.varNum;
-          varEl.title = 'tv_' + node.varNum;
 
           header.appendChild(titleGroup);
           header.appendChild(varEl);
@@ -1333,7 +1316,6 @@
             const typeEl = document.createElement('div');
             typeEl.className = 'node-type';
             typeEl.textContent = node.exprTyp;
-            typeEl.title = node.exprTyp;
             nodeElement.appendChild(typeEl);
           }
 
