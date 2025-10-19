@@ -27,11 +27,10 @@ module PrintHelper =
                 |} 
             ]
         let solutions = 
-            let solutions = sr.solutionItems |> List.map (fun s -> { tvar = s.tvar; typ = Mono s.monoTyp })
-            [ for s in solutions do 
+            [ for solutionItem in sr.solution do 
                 {| 
-                    t1 = (TVar s.tvar).ToString()
-                    t2 = s.typ.ToString()
+                    t1 = (TVar solutionItem.tvar).ToString()
+                    t2 = solutionItem.typ.ToString()
                     trivia = ""
                 |} 
             ]
@@ -62,4 +61,5 @@ module PrintHelper =
         printfn $""
 
     let printSolverRuns (solverRuns: SolverRun list) =
-        for sr in solverRuns do printSolverRun sr
+        for sr in solverRuns do
+            printSolverRun sr

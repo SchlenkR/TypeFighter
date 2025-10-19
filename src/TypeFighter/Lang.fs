@@ -526,7 +526,7 @@ module TypeSystem =
             cycle: int
             constraints: Constraint list
             recordRefs: RecordRefs
-            solutionItems: MSolutionItem list
+            solution: SolutionItem list
         }
 
     let rec substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn inTyp) =
@@ -735,27 +735,28 @@ module TypeSystem =
         ]
                 
     let solveConstraints (constraints: Constraint list) (recordRefs: RecordRefs) maxSolverRuns =
-        let mutable solverRuns = []
+        let mutable solverRuns = ResizeArray()
    
         let rec solve
             (constraints: Constraint list)
             (recordRefs: RecordRefs)
             (solutionItems: MSolutionItem list)
             =
-            do solverRuns <- 
-                [
-                    yield! solverRuns
-                    yield { 
-                        cycle = solverRuns.Length
+            do
+                let solution = finalizeSolution solutionItems recordRefs
+                let solverRun = 
+                    {
+                        cycle = solverRuns.Count
                         constraints = constraints
                         recordRefs = recordRefs
-                        solutionItems = solutionItems }
-                ]
+                        solution = solution
+                    }
+                solverRuns.Add(solverRun)
 
             let continueSolve =
                 match maxSolverRuns with
                 | None -> true
-                | Some maxSolverRuns when solverRuns.Length <= maxSolverRuns -> true
+                | Some maxSolverRuns when solverRuns.Count <= maxSolverRuns -> true
                 | _ -> false
 
             if continueSolve then
@@ -929,22 +930,22 @@ module TypeSystem =
                 let finalizedSolution = finalizeSolution solutionItems recordRefs
                 Ok finalizedSolution
             with ex -> Error ex.Message
-        
+
         {|
             solution = solution
-            solverRuns = solverRuns
+            solverRuns = [ yield! solverRuns ]
         |}
 
 module Services =
 
-    type SolveResult = 
+    type SolverResult =
         {
             numberedExpr: Expr<VarNum>
-            result: 
+            finalResult:
                 Result<
                     {|
                         solution: TypeSystem.SolutionItem list
-                        finalTyp: Typ option
+                        typ: Typ option
                     |},
                     string
                 >
@@ -1002,13 +1003,13 @@ module Services =
 
         {
             numberedExpr = expr
-            result =
+            finalResult =
                 match sr.solution with
                 | Ok solution ->
                     Ok {|
                         solution = solution
                         // we can have limited solver runs; so the result is partial
-                        finalTyp = 
+                        typ = 
                             solution 
                             |> List.tryFind (fun s -> s.tvar = expr.TVar) 
                             |> Option.map (fun x -> x.typ)

@@ -15,35 +15,32 @@ let solve
     (expr: Expr<unit>)
     =
 
-    do Visu.writeAst expr [] Map.empty
-    let solution = TypeFighter.Tests.TestHelper.solve externalEnv maxSolverRuns expr 
+    let solverResult = TypeFighter.Tests.TestHelper.solve externalEnv maxSolverRuns expr 
     
     do
         printfn "SOLVER RUNS"
         printfn "==========="
-        PrintHelper.printSolverRuns solution.solverRuns
+        PrintHelper.printSolverRuns solverResult.solverRuns
         printfn ""
 
     do
-        match solution.result with
+        match solverResult.finalResult with
         | Ok res -> 
-            printfn $"Final type:\n    {res.finalTyp}"
+            printfn $"Final type:\n    {res.typ}"
             printfn ""
 
-            do Visu.writeNumberedAst solution.numberedExpr res.solution solution.exprToEnv
+            do Visu.writeNumberedAst solverResult.numberedExpr res.solution solverResult.exprToEnv
         | Error err ->
             printfn $"Error:\n    {err}"
             printfn ""
             
             let finalSolution =
-                let s =
-                    match solution.solverRuns |> List.tryLast with
-                    | Some lastSolverRun -> lastSolverRun
-                    | None -> { cycle = 0; constraints = []; solutionItems = []; recordRefs = Map.empty }
-                TypeSystem.finalizeSolution s.solutionItems s.recordRefs
+                match solverResult.solverRuns |> List.tryLast with
+                | Some lastSolverRun -> lastSolverRun.solution
+                | None -> []
 
-            do Visu.writeAst expr finalSolution solution.exprToEnv
-    solution
+            do Visu.writeAst expr finalSolution solverResult.exprToEnv
+    solverResult
 
 let writeInitialAst (expr: Expr<unit>) =
     do Visu.writeAst expr [] Map.empty
