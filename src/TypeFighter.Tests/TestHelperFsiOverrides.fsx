@@ -20,7 +20,7 @@ let solve
     do
         printfn "SOLVER RUNS"
         printfn "==========="
-        PrintHelper.printSolverRuns solverResult.solverRuns
+        SolverRunPrinter.printSolverRuns solverResult.solverRuns
         printfn ""
 
     do

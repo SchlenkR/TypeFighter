@@ -1,10 +1,75 @@
 #load "./TypeFighter/Utils.fs"
 #load "./TypeFighter/Lang.fs"
-#load "./TypeFighter/Tools.fs"
 
 open System.IO
 open System.Text.Json
 open TypeFighter.Lang
+
+module SolverRunPrinter =
+    open TypeFighter.Lang.TypeSystem
+
+    let indent = "    "
+
+    let printEquations (elements: list<{| t1: string; t2: string; trivia: string |}>) widthColLeft widthColRight =
+        let sb = System.Text.StringBuilder()
+        match elements with
+        | [] -> sb.AppendLine($"{indent}<empty>") |> ignore
+        | _ -> 
+            for e in elements do
+                sb.AppendLine($"""{indent}{e.t1.PadRight(widthColLeft, ' ')} = {e.t2.PadRight(widthColRight, ' ')}  {e.trivia}""") |> ignore
+        sb.ToString()
+
+    let printSolverRun (sr: SolverRun) =
+        let constraints =
+            [
+                for c in sr.constraints do
+                    {| 
+                        t1 = c.t1.ToString()
+                        t2 = c.t2.ToString()
+                        trivia =
+                            let (VarNum var) = c.triviaSource.TVar
+                            let sources = ($"{var}            ")[.. 10]
+                            $"   :::  {sources}"
+                    |} 
+            ]
+        let solutions = 
+            [
+                for solutionItem in sr.solution do 
+                    {| 
+                        t1 = (TVar solutionItem.tvar).ToString()
+                        t2 = solutionItem.typ.ToString()
+                        trivia = ""
+                    |} 
+            ]
+        let widthColLeft,widthColRight =
+            let getColWidth (getter: _ -> string) =
+                let getColWidth es (getter: _ -> string) = 
+                    es
+                    |> List.map (fun e -> (getter e).Length)
+                    |> List.fold max 0
+                max (getColWidth constraints getter) (getColWidth solutions getter)
+            getColWidth (fun x -> x.t1), getColWidth (fun x -> x.t2)
+        
+        printfn $""
+        printfn $""
+        printfn $""
+        printfn $""
+        printfn $"Solver run {sr.cycle}"
+        printfn $""
+        printfn $"  Constraints:"
+        printfn "%s" (printEquations constraints widthColLeft widthColRight)
+        printfn $""
+        printfn $"  Solutions:"
+        printfn "%s" (printEquations solutions widthColLeft widthColRight)
+        printfn $""
+        printfn $"  Records:"
+        for r in sr.recordRefs do
+            printfn $"""{indent}recordRef_({r.Key}) = {ShowTyp.Show("", r.Value)}"""
+        printfn $""
+
+    let printSolverRuns (solverRuns: SolverRun list) =
+        for sr in solverRuns do
+            printSolverRun sr
 
 module Visu =
 
@@ -25,6 +90,25 @@ module Visu =
             ident: string
             varNum: int
             solvedTyp: string
+        }
+
+    type JsEquation =
+        {
+            t1: string
+            t2: string
+        }
+
+    type JsRecordRef =
+        {
+            key: int
+            fields: {| name: string; typ: string |} list
+        }
+
+    type JsSolverRun =
+        {
+            constraints: JsEquation list
+            solutions: JsEquation list
+            recordRefs: JsRecordRef list
         }
 
     let createJsNode
@@ -118,15 +202,24 @@ module Visu =
                 createExprNode "MK-RECORD" "" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
         createNodes root
 
-    let writeData (solverRuns: string) =
-        let json = $"window.solverRuns = {solverRuns};"
+    let writeVisuData (runs: (JsNode * JsSolverRun) list) =
+        let treesForSolverRuns =
+            runs
+            |> List.map fst
+            |> fun v -> JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
+        
+        let solverRuns =
+            runs
+            |> List.map snd
+            |> fun v -> JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
+        
+        let json = $"
+window.treesForSolverRuns = {treesForSolverRuns};
+window.solverRuns = {solverRuns};
+        "
+
         let dataPath = Path.Combine(__SOURCE_DIRECTORY__, "visu/data/data.js")
         File.WriteAllText(dataPath, json)
-
-    let writeTree (runs: JsNode list) = 
-        runs
-        |> fun v -> JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
-        |> writeData
 
     let writeNumberedAst
         (root: Expr<VarNum>)
@@ -134,14 +227,49 @@ module Visu =
         (exprToEnv: Map<Expr<VarNum>, Env>)
         = 
         createJsNode root solution exprToEnv
+        |> fun node -> node, { constraints = []; solutions = []; recordRefs = [] }
         |> List.singleton
-        |> writeTree
+        |> writeVisuData
 
     let writeSolverRuns (solverResult: Solver.SolverResult) =
         solverResult.solverRuns
-        |> List.map (fun sr -> createJsNode solverResult.numberedExpr sr.solution solverResult.exprToEnv)
-        |> writeTree
+        |> List.map (fun sr ->
+            let node = createJsNode solverResult.numberedExpr sr.solution solverResult.exprToEnv
+            let jsSolverRun =
+                {
+                    constraints =
+                        sr.constraints
+                        |> List.map (fun c ->
+                            {
+                                t1 = c.t1.ToString()
+                                t2 = c.t2.ToString()
+                            })
+                    solutions =
+                        sr.solution
+                        |> List.map (fun s ->
+                            {
+                                t1 = (TVar s.tvar).ToString()
+                                t2 = s.typ.ToString()
+                            })
+                    recordRefs =
+                        sr.recordRefs
+                        |> Map.toList
+                        |> List.map (fun (key, fields) ->
+                            {
+                                key = key
+                                fields =
+                                    fields
+                                    |> Set.toList
+                                    |> List.map (fun field ->
+                                        {|
+                                            name = field.fname
+                                            typ = field.typ.ToString()
+                                        |})
+                            })
+                }
+            node, jsSolverRun)
+        |> writeVisuData
 
-    let writeAst (root: Expr<unit>) solution exprToEnvMap= 
+    let writeAst (root: Expr<unit>) solution exprToEnvMap = 
         let numGen = NumGen.mkGenerator ()
         writeNumberedAst (Expr.toNumberedExpr root numGen) solution exprToEnvMap

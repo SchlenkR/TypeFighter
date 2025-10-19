@@ -96,6 +96,39 @@
         color: #5c6370;
       }
 
+      .control-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #d0d7de;
+      }
+
+      .control-section h2 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .control-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .control-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+
+      .control-item label {
+        font-size: 13px;
+        color: #1a1a1a;
+        cursor: pointer;
+        user-select: none;
+      }
+
       .gif-section {
         margin-top: 24px;
         padding-top: 24px;
@@ -283,7 +316,7 @@
 
       .env-panel {
         position: absolute;
-        top: 150px;
+        top: 50px;
         left: 50px;
         box-sizing: border-box;
         background: #ffffff;
@@ -295,10 +328,12 @@
         font-size: 12px;
         color: #1a1a1a;
         z-index: 5;
+        transition: opacity 0.2s ease, width 0.2s ease, padding 0.2s ease;
       }
 
       .solver-run-panel {
-        top: 50px;
+        top: 350px;
+        transition: top 0.2s ease;
       }
 
       .env-panel-body {
@@ -309,6 +344,10 @@
 
       .solver-run-panel .env-panel-body {
         margin-top: 0;
+      }
+
+      .solver-run-panel .env-panel-content {
+        max-height: 160px;
       }
 
       .env-panel-section {
@@ -373,6 +412,16 @@
 
       .env-panel-hidden {
         display: none !important;
+      }
+
+      .env-panel.collapsed {
+        width: 0 !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
       }
 
       .env-panel-content {
@@ -450,6 +499,14 @@
       <aside id="sidebar">
         <h2>Solver Runs</h2>
         <div id="run-buttons"></div>
+        
+        <div class="control-section">
+          <h2>Control</h2>
+          <div class="control-item">
+            <input type="checkbox" id="env-panel-toggle" checked />
+            <label for="env-panel-toggle">Show Type Panel</label>
+          </div>
+        </div>
         
         <div class="gif-section">
           <h2>GIF Creation</h2>

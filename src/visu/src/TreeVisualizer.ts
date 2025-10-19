@@ -8,13 +8,13 @@ export class TreeVisualizer {
   private readonly subtreeSpacing = 50;
   private readonly minLevelHeight = 40;
   private readonly maxLevelHeight = 320;
-  private readonly envPanelWidth = 350;
+  private readonly envPanelWidth = 500;
   private readonly envPanelSpacing = 80;
   private readonly minZoom = 0.25;
   private readonly maxZoom = 4;
 
   private zoomLevel = 1;
-  private panX = 360;
+  private panX = 500;
   private panY = 0;
   private isPanning = false;
   private activePointerId: number | null = null;
@@ -41,6 +41,9 @@ export class TreeVisualizer {
   private envPanelTypeTextEl!: HTMLElement;
   private envPanelEnvContent!: HTMLElement;
   private envPanelSolverRunEl!: HTMLElement;
+  private envPanelConstraintsEl!: HTMLElement;
+  private envPanelSolutionsEl!: HTMLElement;
+  private envPanelRecordsEl!: HTMLElement;
 
   private hoveredNodeKey: number | null = null;
   private selectedNodeKey: number | null = null;
@@ -115,6 +118,57 @@ export class TreeVisualizer {
     solverRunSection.appendChild(solverRunText);
 
     this.envPanelSolverRunEl = solverRunText;
+
+    // Constraints section
+    const constraintsSection = document.createElement('div');
+    constraintsSection.className = 'env-panel-section';
+    body.appendChild(constraintsSection);
+
+    const constraintsTitle = document.createElement('div');
+    constraintsTitle.className = 'env-panel-section-title';
+    constraintsTitle.textContent = 'CONSTRAINTS:';
+    constraintsSection.appendChild(constraintsTitle);
+
+    const constraintsContent = document.createElement('div');
+    constraintsContent.className = 'env-panel-box env-panel-content';
+    constraintsContent.textContent = '\u00a0';
+    constraintsSection.appendChild(constraintsContent);
+
+    this.envPanelConstraintsEl = constraintsContent;
+
+    // Solutions section
+    const solutionsSection = document.createElement('div');
+    solutionsSection.className = 'env-panel-section';
+    body.appendChild(solutionsSection);
+
+    const solutionsTitle = document.createElement('div');
+    solutionsTitle.className = 'env-panel-section-title';
+    solutionsTitle.textContent = 'SOLUTIONS:';
+    solutionsSection.appendChild(solutionsTitle);
+
+    const solutionsContent = document.createElement('div');
+    solutionsContent.className = 'env-panel-box env-panel-content';
+    solutionsContent.textContent = '\u00a0';
+    solutionsSection.appendChild(solutionsContent);
+
+    this.envPanelSolutionsEl = solutionsContent;
+
+    // Records section
+    const recordsSection = document.createElement('div');
+    recordsSection.className = 'env-panel-section';
+    body.appendChild(recordsSection);
+
+    const recordsTitle = document.createElement('div');
+    recordsTitle.className = 'env-panel-section-title';
+    recordsTitle.textContent = 'RECORDS:';
+    recordsSection.appendChild(recordsTitle);
+
+    const recordsContent = document.createElement('div');
+    recordsContent.className = 'env-panel-box env-panel-content';
+    recordsContent.textContent = '\u00a0';
+    recordsSection.appendChild(recordsContent);
+
+    this.envPanelRecordsEl = recordsContent;
 
     return panel;
   }
@@ -321,6 +375,16 @@ export class TreeVisualizer {
     this.contentLayer.style.paddingLeft = (this.envPanelWidth + this.envPanelSpacing) + 'px';
   }
 
+  toggleEnvPanel(visible: boolean): void {
+    if (visible) {
+      this.envPanel.classList.remove('collapsed');
+      this.solverRunPanel.style.top = '350px';
+    } else {
+      this.envPanel.classList.add('collapsed');
+      this.solverRunPanel.style.top = '50px';
+    }
+  }
+
   loadRun(jsNode: JsNode, runIndex?: number): void {
     // Update current run index if provided
     if (runIndex !== undefined) {
@@ -353,6 +417,97 @@ export class TreeVisualizer {
 
   private updateSolverRunDisplay(): void {
     this.envPanelSolverRunEl.textContent = `${this.currentRunIndex + 1}`;
+    
+    // Get solver run data if available
+    const solverRuns = window.solverRuns;
+    if (solverRuns && solverRuns[this.currentRunIndex]) {
+      const runData = solverRuns[this.currentRunIndex];
+      
+      // Calculate max widths across all solver runs
+      const { maxT1Width, maxT2Width } = this.calculateMaxWidths(solverRuns);
+      
+      // Update constraints
+      if (runData.constraints && runData.constraints.length > 0) {
+        const formatted = runData.constraints.map((c: any) => 
+          `${c.t1.padEnd(maxT1Width)} = ${c.t2.padEnd(maxT2Width)}`
+        ).join('\n');
+        this.envPanelConstraintsEl.textContent = formatted;
+        this.envPanelConstraintsEl.classList.remove('env-panel-placeholder-text');
+      } else {
+        this.envPanelConstraintsEl.textContent = '\u00a0';
+        this.envPanelConstraintsEl.classList.add('env-panel-placeholder-text');
+      }
+      
+      // Update solutions
+      if (runData.solutions && runData.solutions.length > 0) {
+        const formatted = runData.solutions.map((s: any) => 
+          `${s.t1.padEnd(maxT1Width)} = ${s.t2.padEnd(maxT2Width)}`
+        ).join('\n');
+        this.envPanelSolutionsEl.textContent = formatted;
+        this.envPanelSolutionsEl.classList.remove('env-panel-placeholder-text');
+      } else {
+        this.envPanelSolutionsEl.textContent = '\u00a0';
+        this.envPanelSolutionsEl.classList.add('env-panel-placeholder-text');
+      }
+      
+      // Update records
+      if (runData.recordRefs && runData.recordRefs.length > 0) {
+        const formatted = runData.recordRefs.map((r: any) => {
+          const fields = r.fields.map((f: any) => `${f.name}: ${f.typ}`).join(', ');
+          return `recordRef_(${r.key})  = { ${fields} }`;
+        }).join('\n');
+        this.envPanelRecordsEl.textContent = formatted;
+        this.envPanelRecordsEl.classList.remove('env-panel-placeholder-text');
+      } else {
+        this.envPanelRecordsEl.textContent = '\u00a0';
+        this.envPanelRecordsEl.classList.add('env-panel-placeholder-text');
+      }
+    } else {
+      // No data available
+      this.envPanelConstraintsEl.textContent = '\u00a0';
+      this.envPanelConstraintsEl.classList.add('env-panel-placeholder-text');
+      this.envPanelSolutionsEl.textContent = '\u00a0';
+      this.envPanelSolutionsEl.classList.add('env-panel-placeholder-text');
+      this.envPanelRecordsEl.textContent = '\u00a0';
+      this.envPanelRecordsEl.classList.add('env-panel-placeholder-text');
+    }
+  }
+
+  private calculateMaxWidths(solverRuns: any[]): { maxT1Width: number, maxT2Width: number } {
+    let maxT1Width = 0;
+    let maxT2Width = 0;
+
+    solverRuns.forEach(run => {
+      // Check constraints
+      if (run.constraints) {
+        run.constraints.forEach((c: any) => {
+          if (c.t1) maxT1Width = Math.max(maxT1Width, c.t1.length);
+          if (c.t2) maxT2Width = Math.max(maxT2Width, c.t2.length);
+        });
+      }
+      
+      // Check solutions
+      if (run.solutions) {
+        run.solutions.forEach((s: any) => {
+          if (s.t1) maxT1Width = Math.max(maxT1Width, s.t1.length);
+          if (s.t2) maxT2Width = Math.max(maxT2Width, s.t2.length);
+        });
+      }
+      
+      // Check records
+      if (run.recordRefs) {
+        run.recordRefs.forEach((r: any) => {
+          // For recordRefs, we format them differently
+          const recordRefName = `recordRef_(${r.key})`;
+          const fields = r.fields.map((f: any) => `${f.name}: ${f.typ}`).join(', ');
+          const recordValue = `{ ${fields} }`;
+          maxT1Width = Math.max(maxT1Width, recordRefName.length);
+          maxT2Width = Math.max(maxT2Width, recordValue.length);
+        });
+      }
+    });
+
+    return { maxT1Width, maxT2Width };
   }
 
   private updateNodeData(nodes: JsNode[]): void {

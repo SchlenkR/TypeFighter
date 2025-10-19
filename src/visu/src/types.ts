@@ -43,8 +43,15 @@ export interface Position {
   y: number;
 }
 
+export interface SolverRunData {
+  constraints: string[];
+  solutions: string[];
+  recordRefs: any[];
+}
+
 declare global {
   interface Window {
-    solverRuns: JsNode[];
+    solverRuns: SolverRunData[];
+    treesForSolverRuns: JsNode[];
   }
 }

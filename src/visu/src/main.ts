@@ -16,10 +16,10 @@ function getRunLabel(jsNode: JsNode, index: number): string {
 function selectRun(index: number): void {
   if (!treeViz) return;
 
-  const runs = window.solverRuns;
-  if (index < 0 || index >= runs.length) return;
+  const treesForSolverRuns = window.treesForSolverRuns;
+  if (index < 0 || index >= treesForSolverRuns.length) return;
   
-  const nextRun = runs[index];
+  const nextRun = treesForSolverRuns[index];
   if (!nextRun) return;
 
   currentRunIndex = index;
@@ -32,8 +32,8 @@ function selectRun(index: number): void {
 }
 
 function nextRun(): void {
-  const runs = window.solverRuns;
-  if (currentRunIndex < runs.length - 1) {
+  const treesForSolverRuns = window.treesForSolverRuns;
+  if (currentRunIndex < treesForSolverRuns.length - 1) {
     selectRun(currentRunIndex + 1);
   }
 }
@@ -72,10 +72,11 @@ function setupRunButtons(runs: JsNode[]): void {
 
 // Initialize when page loads
 window.addEventListener('load', () => {
-  const runs = window.solverRuns || [];
-  treeViz = new TreeVisualizer(runs, 0);
-  setupRunButtons(runs);
-  setupGifCreation(runs);
+  const treesForSolverRuns = window.treesForSolverRuns || [];
+  treeViz = new TreeVisualizer(treesForSolverRuns, 0);
+  setupRunButtons(treesForSolverRuns);
+  setupGifCreation(treesForSolverRuns);
+  setupControlPanel();
 
   // Add keyboard navigation for solver runs
   window.addEventListener('keydown', (event) => {
@@ -88,6 +89,18 @@ window.addEventListener('load', () => {
     }
   });
 });
+
+function setupControlPanel(): void {
+  const envPanelToggle = document.getElementById('env-panel-toggle') as HTMLInputElement;
+  
+  if (envPanelToggle) {
+    envPanelToggle.addEventListener('change', () => {
+      if (treeViz) {
+        treeViz.toggleEnvPanel(envPanelToggle.checked);
+      }
+    });
+  }
+}
 
 function setupGifCreation(runs: JsNode[]): void {
   const createButton = document.getElementById('gif-create-button') as HTMLButtonElement;

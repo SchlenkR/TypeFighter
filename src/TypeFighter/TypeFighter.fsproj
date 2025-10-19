@@ -9,7 +9,6 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Lang.fs" />
-    <Compile Include="Tools.fs" />
   </ItemGroup>
   
 </Project>
