@@ -28,18 +28,13 @@ let solve
         | Ok res -> 
             printfn $"Final type:\n    {res.typ}"
             printfn ""
-
-            do Visu.writeNumberedAst solverResult.numberedExpr res.solution solverResult.exprToEnv
         | Error err ->
             printfn $"Error:\n    {err}"
             printfn ""
-            
-            let finalSolution =
-                match solverResult.solverRuns |> List.tryLast with
-                | Some lastSolverRun -> lastSolverRun.solution
-                | None -> []
 
-            do Visu.writeAst expr finalSolution solverResult.exprToEnv
+    do
+        Visu.writeSolverRuns solverResult 
+
     solverResult
 
 let writeInitialAst (expr: Expr<unit>) =

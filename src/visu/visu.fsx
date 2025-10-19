@@ -34,11 +34,8 @@ type JsLink =
 
 [<AutoOpen>]
 module internal Internal =
-    let writeData (nodesJson: string) (linksJson: string) =
-        let json = $"
-window.nodeDataArray = {nodesJson};
-window.linkDataArray = {linksJson};
-        "
+    let writeData (solverRuns: string) =
+        let json = $"window.solverRuns = {solverRuns};"
 
         let path = Path.Combine(__SOURCE_DIRECTORY__, "data")
         let dataPath = Path.Combine(path, "data.js")
@@ -73,24 +70,29 @@ module Tree =
             children = ResizeArray(children) 
         }
 
-    let write (nodes: Node list) =
-        let jsNodes =
-            nodes
-            |> List.map (fun n ->
-                { 
-                    key = n.key
-                    name = n.name
-                    code = n.code
-                    varNum = $"{n.key}"
-                    additionalInfo = n.additionalInfo
-                    exprTyp = n.exprTyp
-                    env = n.env
-                })
-        let jsLinks =
-            [
-                for n in nodes do
-                    for c in n.children do
-                        { fromNode = n.key; toNode = c.key }
-            ]
-
-        writeData (serialize jsNodes) (serialize jsLinks)
+    let write (runs: list<Node list>) =
+        [
+            for nodes in runs do
+                {|
+                    jsNodes =
+                        nodes
+                        |> List.map (fun n ->
+                            { 
+                                key = n.key
+                                name = n.name
+                                code = n.code
+                                varNum = $"{n.key}"
+                                additionalInfo = n.additionalInfo
+                                exprTyp = n.exprTyp
+                                env = n.env
+                            })
+                    jsLinks =
+                        [
+                            for n in nodes do
+                                for c in n.children do
+                                    { fromNode = n.key; toNode = c.key }
+                        ]
+                |}
+        ]
+        |> serialize
+        |> writeData

@@ -936,7 +936,9 @@ module TypeSystem =
             solverRuns = [ yield! solverRuns ]
         |}
 
-module Services =
+
+[<RequireQualifiedAccess>]
+module Solver =
 
     type SolverResult =
         {

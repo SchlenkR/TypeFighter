@@ -4,17 +4,93 @@
     <title>TypeFighter Tree Visualization</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
       body {
         margin: 0;
-        padding: 50px;
         font-family: Arial, sans-serif;
         background-color: white;
       }
 
-      #container {
+      #app {
+        display: flex;
+        height: 100%;
         width: 100%;
-        height: 100vh;
-        overflow: auto;
+      }
+
+      #container {
+        flex: 1 1 auto;
+        position: relative;
+        overflow: hidden;
+        padding: 50px;
+        box-sizing: border-box;
+        min-width: 0;
+        height: 100%;
+      }
+
+      #sidebar {
+        flex: 0 0 240px;
+        box-sizing: border-box;
+        padding: 40px 24px;
+        border-left: 1px solid #d0d7de;
+        background: #f6f8fa;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        overflow-y: auto;
+        height: 100%;
+        scrollbar-width: none;
+      }
+
+      #sidebar::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+
+      #sidebar h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      #run-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1 1 auto;
+      }
+
+      .run-button {
+        border: 1px solid #b6beca;
+        background: #ffffff;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 14px;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease,
+          color 0.2s ease;
+      }
+
+      .run-button:hover {
+        background: #edf2ff;
+        border-color: #4a6fa5;
+      }
+
+      .run-button.active {
+        background: #4a6fa5;
+        border-color: #36527a;
+        color: #ffffff;
+      }
+
+      .run-buttons-empty {
+        font-size: 14px;
+        color: #5c6370;
       }
 
       #tree-container {
@@ -24,6 +100,7 @@
         padding: 50px;
         cursor: grab;
         touch-action: none;
+        height: 100%;
       }
 
       #tree-container.panning {
@@ -284,13 +361,19 @@
     <script src="./data/data.js"></script>
   </head>
   <body>
-    <div id="container">
-      <div id="tree-container"></div>
+    <div id="app">
+      <div id="container">
+        <div id="tree-container"></div>
+      </div>
+      <aside id="sidebar">
+        <h2>AST Instances</h2>
+        <div id="run-buttons"></div>
+      </aside>
     </div>
 
     <script>
       class TreeVisualizer {
-        constructor() {
+        constructor(initialRun = null) {
           this.levelHeight = 140;
           this.minNodeWidth = 90;
           this.maxNodeWidth = 550;
@@ -313,11 +396,9 @@
           this.activePointerId = null;
           this.lastPanPosition = { x: 0, y: 0 };
 
-          this.nodes = new Map();
-          this.links = [];
-          this.nodePositions = new Map();
-          this.nodeWidths = new Map(); // Store calculated widths for each node
-          this.nodeHeights = new Map(); // Store calculated heights for each node
+          this.nodeDataArray = [];
+          this.linkDataArray = [];
+          this.resetInternalCollections();
           this.container = document.getElementById('tree-container');
           this.envPanel = this.createEnvPanel();
           this.contentLayer = this.createContentLayer();
@@ -341,8 +422,19 @@
           this.refreshEnvPanel();
           this.updateEnvPanelLayout();
           this.setupInteraction();
-          this.init();
           this.applyTransform();
+
+          if (initialRun) {
+            this.loadRun(initialRun);
+          }
+        }
+
+        resetInternalCollections() {
+          this.nodes = new Map();
+          this.links = [];
+          this.nodePositions = new Map();
+          this.nodeWidths = new Map();
+          this.nodeHeights = new Map();
         }
 
         createMeasurementContainer() {
@@ -706,20 +798,36 @@
           this.contentLayer.style.paddingLeft = basePadding + 'px';
         }
 
-        init() {
-          // Parse data
+        loadRun(run) {
+          const safeNodes =
+            run && Array.isArray(run.jsNodes) ? run.jsNodes : [];
+          const safeLinks =
+            run && Array.isArray(run.jsLinks) ? run.jsLinks : [];
+
+          this.nodeDataArray = safeNodes;
+          this.linkDataArray = safeLinks;
+          this.resetInternalCollections();
+          this.hoveredNodeKey = null;
+          this.selectedNodeKey = null;
+          this.didPan = false;
+          this.zoomLevel = 1;
+          this.panX = 0;
+          this.panY = 0;
+
           this.parseData();
-          // Calculate node widths and heights based on content
           this.calculateNodeDimensions();
-          // Calculate layout
           this.calculateLayout();
-          // Render tree
+          this.updateEnvPanelLayout();
           this.render();
         }
 
         parseData() {
           // Create nodes map
-          window.nodeDataArray.forEach(nodeData => {
+          if (!Array.isArray(this.nodeDataArray)) {
+            return;
+          }
+
+          this.nodeDataArray.forEach(nodeData => {
             this.nodes.set(nodeData.key, {
               ...nodeData,
               children: [],
@@ -728,7 +836,11 @@
           });
 
           // Create links and establish parent-child relationships
-          window.linkDataArray.forEach(link => {
+          if (!Array.isArray(this.linkDataArray)) {
+            return;
+          }
+
+          this.linkDataArray.forEach(link => {
             const parent = this.nodes.get(link.from);
             const child = this.nodes.get(link.to);
 
@@ -1456,10 +1568,95 @@
 
       // Global instance
       let treeViz;
+      let runButtons = [];
+
+      function getRunLabel(run, index) {
+        if (!run || typeof run !== 'object') {
+          return `Instance ${index + 1}`;
+        }
+
+        const labelCandidates = [run.label, run.name, run.title].filter(
+          candidate => typeof candidate === 'string' && candidate.trim().length
+        );
+
+        if (labelCandidates.length > 0) {
+          return labelCandidates[0];
+        }
+
+        if (typeof run.id === 'string' && run.id.trim().length > 0) {
+          return run.id;
+        }
+
+        if (typeof run.id === 'number') {
+          return `Instance ${run.id}`;
+        }
+
+        return `Instance ${index + 1}`;
+      }
+
+      function selectRun(index) {
+        if (!treeViz) {
+          return;
+        }
+
+        const runs = Array.isArray(window.solverRuns)
+          ? window.solverRuns
+          : [];
+        const nextRun = runs[index];
+
+        if (!nextRun) {
+          return;
+        }
+
+        runButtons.forEach((button, buttonIndex) => {
+          if (!button) {
+            return;
+          }
+          button.classList.toggle('active', buttonIndex === index);
+        });
+
+        treeViz.loadRun(nextRun);
+      }
+
+      function setupRunButtons(runs) {
+        const buttonContainer = document.getElementById('run-buttons');
+
+        if (!buttonContainer) {
+          return;
+        }
+
+        runButtons = [];
+        buttonContainer.innerHTML = '';
+
+        if (!runs.length) {
+          const emptyState = document.createElement('div');
+          emptyState.className = 'run-buttons-empty';
+          emptyState.textContent = 'No AST instances available.';
+          buttonContainer.appendChild(emptyState);
+          return;
+        }
+
+        runs.forEach((run, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'run-button';
+          button.textContent = getRunLabel(run, index);
+          button.addEventListener('click', () => selectRun(index));
+          runButtons.push(button);
+          buttonContainer.appendChild(button);
+        });
+
+        selectRun(0);
+      }
 
       // Initialize when page loads
       window.addEventListener('load', () => {
-        treeViz = new TreeVisualizer();
+        const runs = Array.isArray(window.solverRuns)
+          ? window.solverRuns
+          : [];
+        const initialRun = runs.length > 0 ? runs[0] : null;
+        treeViz = new TreeVisualizer(initialRun);
+        setupRunButtons(runs);
       });
     </script>
   </body>

@@ -9,18 +9,18 @@ open TypeFighter.Lang
 
 module Visu =
 
-    let writeNumberedAst
+    let rec flattenNodes (node: Tree.Node) =
+        [
+            yield node
+            for c in node.children do
+                yield! flattenNodes c
+        ]
+
+    let createAstNodes
         (root: Expr<VarNum>)
-        (solution: TypeSystem.SolutionItem list) 
+        (solution: TypeSystem.SolutionItem list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
         = 
-        let rec flatten (node: Tree.Node) =
-            [
-                yield node
-                for c in node.children do
-                    yield! flatten c
-            ]
-
         let rec createNodes (expr: Expr<_>) =
             let tryGetExprTyp tvar =
                 solution 
@@ -94,8 +94,25 @@ module Visu =
                     |> String.concat "; " 
                     |> sprintf "{ %s }"
                 createExprNode "MK-RECORD" "" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
+        createNodes root
 
-        do createNodes root |> flatten |> Tree.write
+    let writeNumberedAst
+        (root: Expr<VarNum>)
+        (solution: TypeSystem.SolutionItem list)
+        (exprToEnv: Map<Expr<VarNum>, Env>)
+        = 
+        createAstNodes root solution exprToEnv
+        |> flattenNodes
+        |> List.singleton
+        |> Tree.write
+
+    let writeSolverRuns (solverResult: Solver.SolverResult) =
+        [
+            for sr in solverResult.solverRuns do
+                createAstNodes solverResult.numberedExpr sr.solution solverResult.exprToEnv
+                |> flattenNodes
+        ]
+        |> Tree.write
 
     let writeAst (root: Expr<unit>) solution exprToEnvMap= 
         let numGen = NumGen.mkGenerator ()
