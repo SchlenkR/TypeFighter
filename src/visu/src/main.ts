@@ -1,5 +1,8 @@
 import { TreeVisualizer } from './TreeVisualizer';
 import type { JsNode } from './types';
+import html2canvas from 'html2canvas';
+// @ts-ignore - gif.js doesn't have proper TypeScript types
+import GIF from 'gif.js';
 
 let treeViz: TreeVisualizer;
 let runButtons: HTMLButtonElement[] = [];
@@ -25,7 +28,7 @@ function selectRun(index: number): void {
     button.classList.toggle('active', buttonIndex === index);
   });
 
-  treeViz.loadRun(nextRun);
+  treeViz.loadRun(nextRun, index);
 }
 
 function nextRun(): void {
@@ -72,6 +75,7 @@ window.addEventListener('load', () => {
   const runs = window.solverRuns || [];
   treeViz = new TreeVisualizer(runs, 0);
   setupRunButtons(runs);
+  setupGifCreation(runs);
 
   // Add keyboard navigation for solver runs
   window.addEventListener('keydown', (event) => {
@@ -84,3 +88,121 @@ window.addEventListener('load', () => {
     }
   });
 });
+
+function setupGifCreation(runs: JsNode[]): void {
+  const createButton = document.getElementById('gif-create-button') as HTMLButtonElement;
+  const runsInput = document.getElementById('gif-runs-input') as HTMLInputElement;
+  const durationInput = document.getElementById('gif-duration-input') as HTMLInputElement;
+
+  createButton.addEventListener('click', () => {
+    const runsText = runsInput.value.trim();
+    let runNumbers: number[];
+
+    if (!runsText) {
+      // If no numbers entered, use all solver runs
+      runNumbers = Array.from({ length: runs.length }, (_, i) => i + 1);
+    } else {
+      runNumbers = runsText
+        .split(/\s+/)
+        .map(s => parseInt(s, 10))
+        .filter(n => !isNaN(n) && n >= 1 && n <= runs.length);
+
+      if (runNumbers.length === 0) {
+        alert('Please enter valid run numbers (1-' + runs.length + ')');
+        return;
+      }
+    }
+
+    const duration = parseInt(durationInput.value, 10);
+    if (isNaN(duration) || duration < 100) {
+      alert('Please enter a valid duration (minimum 100ms)');
+      return;
+    }
+
+    createGif(runNumbers, duration);
+  });
+}
+
+async function createGif(runNumbers: number[], duration: number): Promise<void> {
+  const createButton = document.getElementById('gif-create-button') as HTMLButtonElement;
+  const treeContainer = document.getElementById('tree-container');
+  
+  if (!treeContainer) {
+    alert('Tree container not found');
+    return;
+  }
+
+  // Disable button and show progress
+  createButton.disabled = true;
+  createButton.textContent = 'Creating GIF...';
+
+  try {
+    // Initialize GIF encoder
+    const gif = new GIF({
+      workers: 2,
+      quality: 5, // Better quality (1-30, lower = better but slower)
+      workerScript: '/gif.worker.js'
+    });
+
+    // Capture frames for each specified run
+    for (let i = 0; i < runNumbers.length; i++) {
+      const runIndex = runNumbers[i] - 1; // Convert to 0-based index
+      
+      // Update button to show progress
+      createButton.textContent = `Capturing frame ${i + 1}/${runNumbers.length}...`;
+      
+      // Switch to the specified run
+      selectRun(runIndex);
+      
+      // Wait a bit for the render to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get the background color from the body element
+      const bodyBgColor = window.getComputedStyle(document.body).backgroundColor;
+      
+      // Capture the tree container as an image with higher resolution
+      const canvas = await html2canvas(treeContainer, {
+        backgroundColor: bodyBgColor,
+        scale: 2, // Capture at 2x resolution for better quality
+        logging: false
+      });
+      
+      // Add frame to GIF
+      gif.addFrame(canvas, { delay: duration });
+    }
+
+    // Show encoding progress
+    createButton.textContent = 'Encoding GIF...';
+
+    // Render the GIF
+    gif.on('finished', (blob: Blob) => {
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = 'solver-runs-animation.gif';
+      link.href = url;
+      link.click();
+      
+      // Cleanup
+      URL.revokeObjectURL(url);
+      
+      // Reset button
+      createButton.disabled = false;
+      createButton.textContent = 'Create GIF';
+    });
+
+    gif.on('progress', (progress: number) => {
+      createButton.textContent = `Encoding: ${Math.round(progress * 100)}%`;
+    });
+
+    gif.render();
+
+  } catch (error) {
+    console.error('Error creating GIF:', error);
+    alert('Error creating GIF: ' + (error instanceof Error ? error.message : String(error)));
+    
+    // Reset button
+    createButton.disabled = false;
+    createButton.textContent = 'Create GIF';
+  }
+}

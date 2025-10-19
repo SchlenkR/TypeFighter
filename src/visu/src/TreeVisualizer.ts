@@ -1,7 +1,7 @@
 import type { JsNode, LinkData, TreeNode, Link, Position, EnvEntry } from './types';
 
 export class TreeVisualizer {
-  private levelHeight = 140;
+  private readonly levelHeight = 140;
   private readonly minNodeWidth = 90;
   private readonly maxNodeWidth = 550;
   private readonly minNodeSpacing = 50;
@@ -14,7 +14,7 @@ export class TreeVisualizer {
   private readonly maxZoom = 4;
 
   private zoomLevel = 1;
-  private panX = 0;
+  private panX = 360;
   private panY = 0;
   private isPanning = false;
   private activePointerId: number | null = null;
@@ -29,6 +29,7 @@ export class TreeVisualizer {
   private nodeHeights = new Map<number, number>();
 
   private container: HTMLElement;
+  private solverRunPanel: HTMLElement;
   private envPanel: HTMLElement;
   private contentLayer: HTMLElement;
   private measurementContainer: HTMLElement;
@@ -39,17 +40,21 @@ export class TreeVisualizer {
   private envPanelAdditionalEl!: HTMLElement;
   private envPanelTypeTextEl!: HTMLElement;
   private envPanelEnvContent!: HTMLElement;
+  private envPanelSolverRunEl!: HTMLElement;
 
   private hoveredNodeKey: number | null = null;
   private selectedNodeKey: number | null = null;
   private didPan = false;
   private isFirstLoad = true;
   private allRuns: JsNode[] = [];
+  private currentRunIndex: number = 0;
 
-  constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
+    constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
     this.container = document.getElementById('tree-container')!;
+    this.solverRunPanel = this.createSolverRunPanel();
     this.envPanel = this.createEnvPanel();
     this.contentLayer = this.createContentLayer();
+    this.container.appendChild(this.solverRunPanel);
     this.container.appendChild(this.envPanel);
     this.container.appendChild(this.contentLayer);
     this.measurementContainer = this.createMeasurementContainer();
@@ -69,16 +74,8 @@ export class TreeVisualizer {
 
     this.allRuns = allRuns;
     if (allRuns.length > 0) {
-      this.loadRun(allRuns[initialRunIndex] || allRuns[0]);
+      this.loadRun(allRuns[initialRunIndex] || allRuns[0], initialRunIndex);
     }
-  }
-
-  private resetInternalCollections(): void {
-    this.nodes = new Map();
-    this.links = [];
-    this.nodePositions = new Map();
-    this.nodeWidths = new Map();
-    this.nodeHeights = new Map();
   }
 
   private createMeasurementContainer(): HTMLElement {
@@ -92,6 +89,34 @@ export class TreeVisualizer {
     measurementHost.style.height = 'auto';
     document.body.appendChild(measurementHost);
     return measurementHost;
+  }
+
+  private createSolverRunPanel(): HTMLElement {
+    const panel = document.createElement('div');
+    panel.className = 'env-panel solver-run-panel';
+
+    const body = document.createElement('div');
+    body.className = 'env-panel-body';
+    panel.appendChild(body);
+
+    // Solver Run section
+    const solverRunSection = document.createElement('div');
+    solverRunSection.className = 'env-panel-section';
+    body.appendChild(solverRunSection);
+
+    const solverRunTitle = document.createElement('div');
+    solverRunTitle.className = 'env-panel-section-title';
+    solverRunTitle.textContent = 'SOLVER RUN:';
+    solverRunSection.appendChild(solverRunTitle);
+
+    const solverRunText = document.createElement('div');
+    solverRunText.className = 'env-panel-solver-run';
+    solverRunText.textContent = '-';
+    solverRunSection.appendChild(solverRunText);
+
+    this.envPanelSolverRunEl = solverRunText;
+
+    return panel;
   }
 
   private createEnvPanel(): HTMLElement {
@@ -286,13 +311,23 @@ export class TreeVisualizer {
   }
 
   private updateEnvPanelLayout(): void {
+    this.solverRunPanel.style.width = this.envPanelWidth + 'px';
+    this.solverRunPanel.style.transformOrigin = 'top left';
+    this.solverRunPanel.style.transform = `scale(${this.zoomLevel})`;
+    
     this.envPanel.style.width = this.envPanelWidth + 'px';
     this.envPanel.style.transformOrigin = 'top left';
     this.envPanel.style.transform = `scale(${this.zoomLevel})`;
     this.contentLayer.style.paddingLeft = (this.envPanelWidth + this.envPanelSpacing) + 'px';
   }
 
-  loadRun(jsNode: JsNode): void {
+  loadRun(jsNode: JsNode, runIndex?: number): void {
+    // Update current run index if provided
+    if (runIndex !== undefined) {
+      this.currentRunIndex = runIndex;
+      this.updateSolverRunDisplay();
+    }
+
     // Convert hierarchical tree to flat nodes and links
     const { nodes, links } = this.flattenHierarchicalTree(jsNode);
     
@@ -301,15 +336,6 @@ export class TreeVisualizer {
       this.nodeDataArray = nodes;
       this.linkDataArray = links;
       
-      this.resetInternalCollections();
-      this.hoveredNodeKey = null;
-      this.selectedNodeKey = null;
-      this.didPan = false;
-      this.zoomLevel = 1;
-      // Position tree to the right of the environment panel
-      this.panX = 300;
-      this.panY = 0;
-
       this.parseData();
       this.calculateNodeDimensions();
       this.calculateLayout();
@@ -323,6 +349,10 @@ export class TreeVisualizer {
       this.updateNodeElements();
       this.refreshEnvPanel();
     }
+  }
+
+  private updateSolverRunDisplay(): void {
+    this.envPanelSolverRunEl.textContent = `${this.currentRunIndex + 1}`;
   }
 
   private updateNodeData(nodes: JsNode[]): void {
@@ -984,20 +1014,6 @@ export class TreeVisualizer {
 
     this.updateEnvPanelNodePreview(node);
     this.renderEnvironmentEntries(node ? node.env : []);
-  }
-
-  adjustLevelSpacing(delta: number): void {
-    const bounded = Math.min(
-      this.maxLevelHeight,
-      Math.max(this.minLevelHeight, this.levelHeight + delta)
-    );
-    if (bounded === this.levelHeight) {
-      return;
-    }
-
-    this.levelHeight = bounded;
-    this.calculateLayout();
-    this.render();
   }
 
   zoom(factor: number, focalPoint: { x: number; y: number } | null = null): void {
