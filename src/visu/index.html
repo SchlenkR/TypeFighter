@@ -59,22 +59,22 @@
 
       #run-buttons {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
         align-content: start;
       }
 
       .run-button {
         border: 1px solid #b6beca;
         background: #ffffff;
-        border-radius: 4px;
-        padding: 4px 6px;
-        font-size: 12px;
+        border-radius: 3px;
+        padding: 2px 4px;
+        font-size: 11px;
         text-align: center;
         cursor: pointer;
         transition: background-color 0.2s ease, border-color 0.2s ease,
           color 0.2s ease;
-        height: 32px;
+        height: 26px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -259,6 +259,131 @@
         background: #b6beca;
         border-color: #b6beca;
         cursor: not-allowed;
+      }
+
+      .screenshot-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #d0d7de;
+      }
+
+      .screenshot-section h2 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .screenshot-button {
+        width: 100%;
+        border: 1px solid #4a6fa5;
+        background: #4a6fa5;
+        color: white;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+
+      .screenshot-button:hover {
+        background: #36527a;
+        border-color: #36527a;
+      }
+
+      .screenshot-button:disabled {
+        background: #b6beca;
+        border-color: #b6beca;
+        cursor: not-allowed;
+      }
+
+      .downloads-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #d0d7de;
+      }
+
+      .downloads-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .downloads-section h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .download-all-button {
+        border: 1px solid #4a6fa5;
+        background: #4a6fa5;
+        color: white;
+        border-radius: 4px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .download-all-button:hover:not(:disabled) {
+        background: #36527a;
+        border-color: #36527a;
+      }
+
+      .download-all-button:disabled {
+        background: #b6beca;
+        border-color: #b6beca;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .download-links {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .download-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f5f5f5;
+        border: 1px solid #d0d7de;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #1a1a1a;
+        font-size: 13px;
+        transition: background-color 0.2s ease;
+      }
+
+      .download-link:hover {
+        background: #e8e8e8;
+        border-color: #4a6fa5;
+      }
+
+      .download-link-icon {
+        font-size: 16px;
+      }
+
+      .download-link-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .download-links-empty {
+        font-size: 13px;
+        color: #5c6370;
+        font-style: italic;
       }
 
       #tree-container {
@@ -776,6 +901,25 @@
             <button id="gif-create-button" class="gif-create-button">
               Create GIF
             </button>
+          </div>
+        </div>
+
+        <div class="screenshot-section">
+          <h2>Screenshot</h2>
+          <button id="screenshot-button" class="screenshot-button">
+            Take Screenshot
+          </button>
+        </div>
+
+        <div class="downloads-section">
+          <div class="downloads-header">
+            <h2>Downloads</h2>
+            <button id="download-all-button" class="download-all-button" disabled>
+              Download All
+            </button>
+          </div>
+          <div id="download-links" class="download-links">
+            <!-- Download links will be added here dynamically -->
           </div>
         </div>
       </aside>

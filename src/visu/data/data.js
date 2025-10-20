@@ -1,72 +1,138 @@
 
 window.treesForSolverRuns = [
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
     "exprTyp": "",
-    "env": [],
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
     "children": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
         "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": [],
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
         "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
           {
             "key": 1,
             "name": "LIT",
             "varNum": 1,
-            "code": "22",
+            "code": "10",
             "additionalInfo": "",
             "exprTyp": "",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "",
-            "env": [],
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
             "children": []
           }
         ]
       },
       {
-        "key": 8,
+        "key": 5,
         "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 3,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 3,
+            "code": "order",
             "additionalInfo": "",
             "exprTyp": "",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": ""
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -76,72 +142,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
     "exprTyp": "",
-    "env": [],
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
     "children": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
         "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": [],
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
         "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
           {
             "key": 1,
             "name": "LIT",
             "varNum": 1,
-            "code": "22",
-            "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
+            "code": "10",
             "additionalInfo": "",
             "exprTyp": "",
-            "env": [],
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
             "children": []
           }
         ]
       },
       {
-        "key": 8,
+        "key": 5,
         "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 3,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 3,
+            "code": "order",
             "additionalInfo": "",
-            "exprTyp": "",
+            "exprTyp": "{ quantity: Number }",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": ""
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -151,72 +283,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
     "exprTyp": "",
-    "env": [],
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
     "children": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
         "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": [],
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
         "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
           {
             "key": 1,
             "name": "LIT",
             "varNum": 1,
-            "code": "22",
+            "code": "10",
             "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
             "children": []
           }
         ]
       },
       {
-        "key": 8,
+        "key": 5,
         "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 3,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 3,
+            "code": "order",
             "additionalInfo": "",
-            "exprTyp": "",
+            "exprTyp": "{ quantity: Number }",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": ""
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -226,72 +424,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = ",
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
     "exprTyp": "",
-    "env": [],
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
     "children": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
         "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
+        "additionalInfo": "",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
         "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
           {
             "key": 1,
             "name": "LIT",
             "varNum": 1,
-            "code": "22",
+            "code": "10",
             "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
             "children": []
           }
         ]
       },
       {
-        "key": 8,
+        "key": 5,
         "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": ""
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 3,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 3,
+            "code": "order",
             "additionalInfo": "",
-            "exprTyp": "",
+            "exprTyp": "{ quantity: Number }",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": ""
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -301,147 +565,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
     "exprTyp": "",
-    "env": [],
-    "children": [
+    "env": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
-        "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
-        "children": [
-          {
-            "key": 1,
-            "name": "LIT",
-            "varNum": 1,
-            "code": "22",
-            "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
-            "children": []
-          }
-        ]
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
       },
       {
-        "key": 8,
-        "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": "{ age: Number; name: String }"
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 0,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 0,
+            "code": "add",
             "additionalInfo": "",
             "exprTyp": "",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": "{ age: Number; name: String }"
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
-    "exprTyp": "tv_8",
-    "env": [],
-    "children": [
-      {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
-        "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
-        "children": [
+          },
           {
             "key": 1,
             "name": "LIT",
             "varNum": 1,
-            "code": "22",
-            "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
-            "children": []
-          }
-        ]
-      },
-      {
-        "key": 8,
-        "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
-        "exprTyp": "",
-        "env": [
-          {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": "{ age: Number; name: String }"
-          }
-        ],
-        "children": [
-          {
-            "key": 6,
-            "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "code": "10",
             "additionalInfo": "",
             "exprTyp": "",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": "{ age: Number; name: String }"
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "{ quantity: Number }",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -451,72 +706,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
-    "exprTyp": "tv_8",
-    "env": [],
-    "children": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
-        "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
-        "children": [
-          {
-            "key": 1,
-            "name": "LIT",
-            "varNum": 1,
-            "code": "22",
-            "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
-            "children": []
-          }
-        ]
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
       },
       {
-        "key": 8,
-        "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": "{ age: Number; name: String }"
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 0,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 0,
+            "code": "add",
             "additionalInfo": "",
-            "exprTyp": "{ age: Number; name: String }",
+            "exprTyp": "",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": "{ age: Number; name: String }"
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "{ quantity: Number }",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -526,72 +847,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
-    "exprTyp": "tv_8",
-    "env": [],
-    "children": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
-        "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
-        "children": [
-          {
-            "key": 1,
-            "name": "LIT",
-            "varNum": 1,
-            "code": "22",
-            "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
-            "children": []
-          }
-        ]
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
       },
       {
-        "key": 8,
-        "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": "{ age: Number; name: String }"
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 0,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 0,
+            "code": "add",
             "additionalInfo": "",
-            "exprTyp": "{ age: Number; name: String }",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": "{ age: Number; name: String }"
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "{ quantity: Number }",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -601,72 +988,138 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
-    "exprTyp": "tv_8",
-    "env": [],
-    "children": [
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
-        "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
-        "children": [
-          {
-            "key": 1,
-            "name": "LIT",
-            "varNum": 1,
-            "code": "22",
-            "additionalInfo": "",
-            "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
-            "children": []
-          }
-        ]
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
       },
       {
-        "key": 8,
-        "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
         "exprTyp": "",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": "{ age: Number; name: String }"
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 0,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 0,
+            "code": "add",
             "additionalInfo": "",
-            "exprTyp": "{ age: Number; name: String }",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": "{ age: Number; name: String }"
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "{ quantity: Number }",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -676,72 +1129,420 @@ window.treesForSolverRuns = [
     ]
   },
   {
-    "key": 9,
-    "name": "LET",
-    "varNum": 9,
-    "code": "myRecord = ...",
-    "additionalInfo": "IDENT = myRecord   TVAR = tv_0   TYP = { age: Number; name: String }",
-    "exprTyp": "String",
-    "env": [],
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
     "children": [
       {
-        "key": 5,
-        "name": "MK-RECORD",
-        "varNum": 5,
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
         "code": "",
-        "additionalInfo": "fields = { age: tv_1; name: tv_3 }",
-        "exprTyp": "{ age: Number; name: String }",
-        "env": [],
+        "additionalInfo": "",
+        "exprTyp": "(Number -\u003E Number)",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
         "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
           {
             "key": 1,
             "name": "LIT",
             "varNum": 1,
-            "code": "22",
+            "code": "10",
             "additionalInfo": "",
             "exprTyp": "Number",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 3,
-            "name": "LIT",
-            "varNum": 3,
-            "code": "\u0027John\u0027",
-            "additionalInfo": "",
-            "exprTyp": "String",
-            "env": [],
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
             "children": []
           }
         ]
       },
       {
-        "key": 8,
+        "key": 5,
         "name": "PROP-ACC",
-        "varNum": 8,
-        "code": "_.name",
-        "additionalInfo": "var(ident) = tv_7",
-        "exprTyp": "String",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
         "env": [
           {
-            "ident": "myRecord",
-            "varNum": 0,
-            "solvedTyp": "{ age: Number; name: String }"
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
           }
         ],
         "children": [
           {
-            "key": 6,
+            "key": 3,
             "name": "VAR",
-            "varNum": 6,
-            "code": "myRecord",
+            "varNum": 3,
+            "code": "order",
             "additionalInfo": "",
-            "exprTyp": "{ age: Number; name: String }",
+            "exprTyp": "{ quantity: Number }",
             "env": [
               {
-                "ident": "myRecord",
-                "varNum": 0,
-                "solvedTyp": "{ age: Number; name: String }"
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "(Number -\u003E Number)",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "{ quantity: Number }",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "Number",
+    "env": [
+      {
+        "ident": "UnitValue",
+        "solvedTyp": "Unit"
+      },
+      {
+        "ident": "add",
+        "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "ident": "order",
+        "solvedTyp": "{ quantity: Number }"
+      }
+    ],
+    "children": [
+      {
+        "key": 2,
+        "name": "APP",
+        "varNum": 2,
+        "code": "",
+        "additionalInfo": "",
+        "exprTyp": "(Number -\u003E Number)",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 0,
+            "name": "VAR",
+            "varNum": 0,
+            "code": "add",
+            "additionalInfo": "",
+            "exprTyp": "(Number -\u003E (Number -\u003E Number))",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          },
+          {
+            "key": 1,
+            "name": "LIT",
+            "varNum": 1,
+            "code": "10",
+            "additionalInfo": "",
+            "exprTyp": "Number",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "PROP-ACC",
+        "varNum": 5,
+        "code": "_.quantity",
+        "additionalInfo": "var(ident) = tv_4",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "UnitValue",
+            "solvedTyp": "Unit"
+          },
+          {
+            "ident": "add",
+            "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+          },
+          {
+            "ident": "order",
+            "solvedTyp": "{ quantity: Number }"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "VAR",
+            "varNum": 3,
+            "code": "order",
+            "additionalInfo": "",
+            "exprTyp": "{ quantity: Number }",
+            "env": [
+              {
+                "ident": "UnitValue",
+                "solvedTyp": "Unit"
+              },
+              {
+                "ident": "add",
+                "solvedTyp": "(Number -\u003E (Number -\u003E Number))"
+              },
+              {
+                "ident": "order",
+                "solvedTyp": "{ quantity: Number }"
               }
             ],
             "children": []
@@ -755,46 +1556,42 @@ window.solverRuns = [
   {
     "constraints": [
       {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "recordRef_(3)"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "tv_4"
+      },
+      {
         "t1": "tv_1",
         "t2": "Number"
       },
       {
-        "t1": "tv_3",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "{ age: tv_1; name: tv_3 }"
+        "t1": "tv_0",
+        "t2": "(Number -\u003E (Number -\u003E Number))"
       },
       {
         "t1": "tv_0",
-        "t2": "tv_5"
+        "t2": "(tv_1 -\u003E tv_2)"
       },
       {
-        "t1": "tv_9",
-        "t2": "tv_8"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "tv_0"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
+        "t1": "tv_2",
+        "t2": "(tv_5 -\u003E tv_6)"
       }
     ],
     "solutions": [],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "tv_7"
+            "name": "quantity",
+            "typ": "tv_4"
           }
         ]
       }
@@ -804,47 +1601,89 @@ window.solverRuns = [
   {
     "constraints": [
       {
-        "t1": "tv_3",
-        "t2": "String"
+        "t1": "{ quantity: Number }",
+        "t2": "recordRef_(3)"
       },
       {
         "t1": "tv_5",
-        "t2": "{ age: Number; name: tv_3 }"
+        "t2": "tv_4"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "Number"
       },
       {
         "t1": "tv_0",
-        "t2": "tv_5"
+        "t2": "(Number -\u003E (Number -\u003E Number))"
       },
       {
-        "t1": "tv_9",
-        "t2": "tv_8"
+        "t1": "tv_0",
+        "t2": "(tv_1 -\u003E tv_2)"
       },
       {
-        "t1": "tv_6",
-        "t2": "tv_0"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
+        "t1": "tv_2",
+        "t2": "(tv_5 -\u003E tv_6)"
       }
     ],
     "solutions": [
       {
-        "t1": "tv_1",
-        "t2": "Number"
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
       }
     ],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "tv_7"
+            "name": "quantity",
+            "typ": "tv_4"
+          }
+        ]
+      }
+    ],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "tv_4"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(tv_1 -\u003E tv_2)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "(tv_5 -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
+      }
+    ],
+    "recordRefs": [
+      {
+        "key": 3,
+        "fields": [
+          {
+            "name": "quantity",
+            "typ": "tv_4"
           }
         ]
       }
@@ -855,46 +1694,88 @@ window.solverRuns = [
     "constraints": [
       {
         "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "tv_5"
-      },
-      {
-        "t1": "tv_9",
-        "t2": "tv_8"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "tv_0"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_3",
-        "t2": "String"
+        "t2": "Number"
       },
       {
         "t1": "tv_1",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(tv_1 -\u003E tv_2)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "(tv_5 -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
       }
     ],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "tv_7"
+            "name": "quantity",
+            "typ": "Number"
+          }
+        ]
+      }
+    ],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_1",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(tv_1 -\u003E tv_2)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
+      }
+    ],
+    "recordRefs": [
+      {
+        "key": 3,
+        "fields": [
+          {
+            "name": "quantity",
+            "typ": "Number"
           }
         ]
       }
@@ -905,46 +1786,42 @@ window.solverRuns = [
     "constraints": [
       {
         "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
+        "t2": "(Number -\u003E (Number -\u003E Number))"
       },
       {
-        "t1": "tv_9",
-        "t2": "tv_8"
+        "t1": "tv_0",
+        "t2": "(Number -\u003E tv_2)"
       },
       {
-        "t1": "tv_6",
-        "t2": "tv_0"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
+        "t1": "tv_2",
+        "t2": "(Number -\u003E tv_6)"
       }
     ],
     "solutions": [
       {
+        "t1": "tv_1",
+        "t2": "Number"
+      },
+      {
         "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
       },
       {
         "t1": "tv_3",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "Number"
+        "t2": "{ quantity: Number }"
       }
     ],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "tv_7"
+            "name": "quantity",
+            "typ": "Number"
           }
         ]
       }
@@ -954,47 +1831,135 @@ window.solverRuns = [
   {
     "constraints": [
       {
-        "t1": "tv_9",
-        "t2": "tv_8"
+        "t1": "(Number -\u003E (Number -\u003E Number))",
+        "t2": "(Number -\u003E tv_2)"
       },
       {
-        "t1": "tv_6",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
+        "t1": "tv_2",
+        "t2": "(Number -\u003E tv_6)"
       }
     ],
     "solutions": [
       {
         "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "String"
+        "t2": "(Number -\u003E (Number -\u003E Number))"
       },
       {
         "t1": "tv_1",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
       }
     ],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "tv_7"
+            "name": "quantity",
+            "typ": "Number"
+          }
+        ]
+      }
+    ],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_2",
+        "t2": "(Number -\u003E Number)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_0",
+        "t2": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
+      }
+    ],
+    "recordRefs": [
+      {
+        "key": 3,
+        "fields": [
+          {
+            "name": "quantity",
+            "typ": "Number"
+          }
+        ]
+      }
+    ],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "(Number -\u003E Number)",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_2",
+        "t2": "(Number -\u003E Number)"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "(Number -\u003E (Number -\u003E Number))"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
+      }
+    ],
+    "recordRefs": [
+      {
+        "key": 3,
+        "fields": [
+          {
+            "name": "quantity",
+            "typ": "Number"
           }
         ]
       }
@@ -1005,196 +1970,42 @@ window.solverRuns = [
     "constraints": [
       {
         "t1": "tv_6",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
+        "t2": "Number"
       }
     ],
     "solutions": [
       {
-        "t1": "tv_9",
-        "t2": "tv_8"
+        "t1": "tv_2",
+        "t2": "(Number -\u003E Number)"
       },
       {
         "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "String"
+        "t2": "(Number -\u003E (Number -\u003E Number))"
       },
       {
         "t1": "tv_1",
         "t2": "Number"
-      }
-    ],
-    "recordRefs": [
-      {
-        "key": 6,
-        "fields": [
-          {
-            "name": "name",
-            "typ": "tv_7"
-          }
-        ]
-      }
-    ],
-    "error": null
-  },
-  {
-    "constraints": [
-      {
-        "t1": "{ age: Number; name: String }",
-        "t2": "recordRef_(6)"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_6",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_9",
-        "t2": "tv_8"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
       },
       {
         "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
       },
       {
         "t1": "tv_3",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "Number"
+        "t2": "{ quantity: Number }"
       }
     ],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "tv_7"
-          }
-        ]
-      }
-    ],
-    "error": null
-  },
-  {
-    "constraints": [
-      {
-        "t1": "tv_7",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_8",
-        "t2": "tv_7"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_6",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_9",
-        "t2": "tv_8"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "Number"
-      }
-    ],
-    "recordRefs": [
-      {
-        "key": 6,
-        "fields": [
-          {
-            "name": "name",
-            "typ": "tv_7"
-          }
-        ]
-      }
-    ],
-    "error": null
-  },
-  {
-    "constraints": [
-      {
-        "t1": "tv_8",
-        "t2": "String"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_7",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_6",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_9",
-        "t2": "tv_8"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "Number"
-      }
-    ],
-    "recordRefs": [
-      {
-        "key": 6,
-        "fields": [
-          {
-            "name": "name",
-            "typ": "String"
+            "name": "quantity",
+            "typ": "Number"
           }
         ]
       }
@@ -1205,45 +2016,41 @@ window.solverRuns = [
     "constraints": [],
     "solutions": [
       {
-        "t1": "tv_8",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_7",
-        "t2": "String"
-      },
-      {
         "t1": "tv_6",
-        "t2": "{ age: Number; name: String }"
+        "t2": "Number"
       },
       {
-        "t1": "tv_9",
-        "t2": "String"
+        "t1": "tv_2",
+        "t2": "(Number -\u003E Number)"
       },
       {
         "t1": "tv_0",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "{ age: Number; name: String }"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "String"
+        "t2": "(Number -\u003E (Number -\u003E Number))"
       },
       {
         "t1": "tv_1",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "{ quantity: Number }"
       }
     ],
     "recordRefs": [
       {
-        "key": 6,
+        "key": 3,
         "fields": [
           {
-            "name": "name",
-            "typ": "String"
+            "name": "quantity",
+            "typ": "Number"
           }
         ]
       }

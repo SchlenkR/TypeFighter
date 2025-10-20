@@ -94,6 +94,8 @@ window.addEventListener('load', () => {
   treeViz = new TreeVisualizer(treesForSolverRuns, 0);
   setupRunButtons(treesForSolverRuns);
   setupGifCreation(treesForSolverRuns);
+  setupScreenshot();
+  setupDownloadAll();
   setupControlPanel();
 
   // Expose selectRun globally for solver panel buttons
@@ -262,15 +264,22 @@ async function createGif(runNumbers: number[], duration: number): Promise<void> 
 
     // Render the GIF
     gif.on('finished', (blob: Blob) => {
-      // Create download link
+      // Create filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `solver-runs-animation-${timestamp}.gif`;
+      
+      // Add download link to the downloads section
+      addDownloadLink(blob, filename, '🎬');
+      
+      // Also auto-download
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = 'solver-runs-animation.gif';
+      link.download = filename;
       link.href = url;
       link.click();
       
       // Cleanup
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
       
       // Reset button
       createButton.disabled = false;
@@ -291,4 +300,137 @@ async function createGif(runNumbers: number[], duration: number): Promise<void> 
     createButton.disabled = false;
     createButton.textContent = 'Create GIF';
   }
+}
+
+function setupScreenshot(): void {
+  const screenshotButton = document.getElementById('screenshot-button') as HTMLButtonElement;
+
+  if (!screenshotButton) return;
+
+  screenshotButton.addEventListener('click', async () => {
+    const treeContainer = document.getElementById('tree-container');
+    
+    if (!treeContainer) {
+      alert('Tree container not found');
+      return;
+    }
+
+    // Disable button during capture
+    screenshotButton.disabled = true;
+    screenshotButton.textContent = 'Capturing...';
+
+    try {
+      // Get the background color from the body element
+      const bodyBgColor = window.getComputedStyle(document.body).backgroundColor;
+      
+      // Capture the tree container as an image with high resolution
+      const canvas = await html2canvas(treeContainer, {
+        backgroundColor: bodyBgColor,
+        scale: 2, // 2x resolution for crisp screenshots
+        logging: false
+      });
+
+      // Convert canvas to blob
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('Failed to create screenshot');
+          screenshotButton.disabled = false;
+          screenshotButton.textContent = 'Take Screenshot';
+          return;
+        }
+
+        // Create filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `screenshot-run-${currentRunIndex + 1}-${timestamp}.png`;
+
+        // Add download link
+        addDownloadLink(blob, filename, '📸');
+
+        // Reset button
+        screenshotButton.disabled = false;
+        screenshotButton.textContent = 'Take Screenshot';
+      }, 'image/png');
+
+    } catch (error) {
+      console.error('Error creating screenshot:', error);
+      alert('Error creating screenshot: ' + (error instanceof Error ? error.message : String(error)));
+      
+      screenshotButton.disabled = false;
+      screenshotButton.textContent = 'Take Screenshot';
+    }
+  });
+}
+
+function addDownloadLink(blob: Blob, filename: string, icon: string = '💾'): void {
+  const downloadLinksContainer = document.getElementById('download-links');
+  
+  if (!downloadLinksContainer) return;
+
+  // Remove "no downloads" message if present
+  const emptyState = downloadLinksContainer.querySelector('.download-links-empty');
+  if (emptyState) {
+    emptyState.remove();
+  }
+
+  // Create download link
+  const url = URL.createObjectURL(blob);
+  
+  const linkElement = document.createElement('a');
+  linkElement.className = 'download-link';
+  linkElement.href = url;
+  linkElement.download = filename;
+  
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'download-link-icon';
+  iconSpan.textContent = icon;
+  
+  const textSpan = document.createElement('span');
+  textSpan.className = 'download-link-text';
+  textSpan.textContent = filename;
+  
+  linkElement.appendChild(iconSpan);
+  linkElement.appendChild(textSpan);
+  
+  // Add to the top of the list
+  downloadLinksContainer.insertBefore(linkElement, downloadLinksContainer.firstChild);
+  
+  // Cleanup URL after download
+  linkElement.addEventListener('click', () => {
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  });
+
+  // Update download all button state
+  updateDownloadAllButton();
+}
+
+function setupDownloadAll(): void {
+  const downloadAllButton = document.getElementById('download-all-button') as HTMLButtonElement;
+  
+  if (!downloadAllButton) return;
+
+  downloadAllButton.addEventListener('click', () => {
+    const downloadLinksContainer = document.getElementById('download-links');
+    if (!downloadLinksContainer) return;
+
+    const links = downloadLinksContainer.querySelectorAll('.download-link') as NodeListOf<HTMLAnchorElement>;
+    
+    if (links.length === 0) return;
+
+    // Download all files with a small delay between each to avoid browser blocking
+    links.forEach((link, index) => {
+      setTimeout(() => {
+        link.click();
+      }, index * 100); // 100ms delay between downloads
+    });
+  });
+}
+
+function updateDownloadAllButton(): void {
+  const downloadAllButton = document.getElementById('download-all-button') as HTMLButtonElement;
+  const downloadLinksContainer = document.getElementById('download-links');
+  
+  if (!downloadAllButton || !downloadLinksContainer) return;
+
+  const links = downloadLinksContainer.querySelectorAll('.download-link');
+  downloadAllButton.disabled = links.length === 0;
 }

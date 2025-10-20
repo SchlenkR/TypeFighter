@@ -88,7 +88,6 @@ module Visu =
     and JsEnvItem =
         {
             ident: string
-            varNum: int
             solvedTyp: string
         }
 
@@ -117,6 +116,12 @@ module Visu =
         (solution: TypeSystem.SolutionItem list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
         =
+        // let rootEnv =
+        //     exprToEnv
+        //     |> Map.tryFind root
+        //     |> Option.defaultValue Map.empty
+        // printfn $"""Root-Env = {rootEnv.Keys |> String.concat ", "}"""
+
         let rec createNodes (expr: Expr<_>) =
             let tryGetExprTyp tvar =
                 solution 
@@ -134,15 +139,9 @@ module Visu =
                     env
                     |> Seq.map (fun kvp -> 
                         match kvp.Value with 
-                        | EnvItem.External _ -> None
-                        | EnvItem.Internal t -> Some (kvp.Key, t))
-                    |> Seq.choose id
-                    |> Seq.map (fun (ident, VarNum varNum) ->
-                        {
-                            ident = ident
-                            varNum = varNum
-                            solvedTyp = getExprTyp (VarNum varNum)
-                        })
+                        | EnvItem.External t -> { ident = kvp.Key; solvedTyp = t.ToString() }
+                        | EnvItem.Internal t -> { ident = kvp.Key; solvedTyp = getExprTyp t }
+                    )
                     |> Seq.toList)
                 |> Option.defaultValue []
             let createExprNode name code additionalInfo children =
@@ -226,7 +225,7 @@ window.solverRuns = {solverRuns};
         (root: Expr<VarNum>)
         (solution: TypeSystem.SolutionItem list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
-        = 
+        =
         createJsNode root solution exprToEnv
         |> fun node -> node, { constraints = []; solutions = []; recordRefs = []; error = None }
         |> List.singleton
