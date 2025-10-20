@@ -53,6 +53,32 @@ let [<Test>] ``app with property access`` () =
 
 
 
+
+(*
+    { 
+        age = 22
+        name = "John"
+        address = "123 Main St"
+    }
+*)
+let [<Test>] ``make record`` () =
+
+    X.MkRecord [
+        X.Field "age" (X.Lit 22)
+        X.Field "name" (X.Lit "John")
+        X.Field "address" (X.Lit "123 Main St")
+    ]
+    |> solve [] None
+    |> shouldSolveType (
+            Mono (TDef.NamedRecordWith (NameHint.Given "Person") [
+                "age", BuiltinTypes.number
+                "name", BuiltinTypes.string
+                "address", BuiltinTypes.string
+            ]))
+
+
+
+
 (*
     let myRecord = 
         { 

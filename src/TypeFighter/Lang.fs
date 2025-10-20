@@ -988,7 +988,7 @@ module Solver =
         let env =
             [
                 let varOffset = Expr.maxVar expr
-                for (ident, typ) in env do
+                for ident, typ in env do
                     let rec reindexedVarNums typ = 
                         match typ with
                         | Mono typ -> Mono (reindexMono typ)
