@@ -122,7 +122,7 @@ function setupControlPanel(): void {
     });
   }
 
-  const inputPanelToggle = document.getElementById('input-panel-toggle') as HTMLInputElement;
+  const inputPanelToggle = document.getElementById('code-panel-toggle') as HTMLInputElement;
   
   if (inputPanelToggle) {
     // Set initial state
@@ -147,7 +147,7 @@ function setupControlPanel(): void {
   }
 
   // Wire up control panel textarea to update input panel
-  const controlInputTextarea = document.getElementById('control-input-text') as HTMLTextAreaElement;
+  const controlInputTextarea = document.getElementById('control-code-text') as HTMLTextAreaElement;
   if (controlInputTextarea) {
     controlInputTextarea.addEventListener('input', () => {
       if (treeViz) {
@@ -155,7 +155,7 @@ function setupControlPanel(): void {
         treeViz.updateInputText(controlInputTextarea.value);
 
         // Auto-open CODE panel if it's hidden so the user immediately sees the text reflected
-        const inputToggle = document.getElementById('input-panel-toggle') as HTMLInputElement | null;
+        const inputToggle = document.getElementById('code-panel-toggle') as HTMLInputElement | null;
         if (inputToggle && !inputToggle.checked) {
           inputToggle.checked = true;
           treeViz.toggleInputPanel(true);

@@ -583,7 +583,7 @@
 
       .input-panel {
         position: absolute;
-        top: 50px;
+        top: 550px;
         right: 50px;
         width: 550px;
         height: 400px;
@@ -591,7 +591,7 @@
         resize: none;
       }
 
-      .input-container {
+      .code-container {
         position: relative;
         width: 100%;
         height: 300px;
@@ -601,8 +601,8 @@
         border-radius: 4px;
       }
 
-      .input-textarea,
-      .input-highlighted {
+      .code-textarea,
+      .code-highlighted {
         font-family: Consolas, Monaco, 'Courier New', monospace;
         font-size: 13px;
         line-height: 1.5;
@@ -616,7 +616,7 @@
         box-sizing: border-box;
       }
 
-      .input-highlighted {
+      .code-highlighted {
         position: absolute;
         top: 0;
         left: 0;
@@ -629,7 +629,7 @@
         overflow: auto;
       }
 
-      .input-textarea {
+      .code-textarea {
         position: absolute;
         top: 0;
         left: 0;
@@ -645,16 +645,16 @@
         overflow: auto;
       }
 
-      .input-textarea::selection {
+      .code-textarea::selection {
         background: rgba(181, 213, 255, 0.8);
       }
 
-      .input-panel-header {
+      .code-panel-header {
         cursor: move;
         user-select: none;
       }
 
-      .input-highlighted pre {
+      .code-highlighted pre {
         margin: 0;
         padding: 0;
         font-family: inherit;
@@ -704,7 +704,7 @@
       }
     </style>
     <script src="./data/data.js"></script>
-    <script type="module" crossorigin src="/assets/index-4wFm5Ge0.js"></script>
+    <script type="module" crossorigin src="/assets/index-1uVZPSpj.js"></script>
   </head>
   <body>
     <div id="app">
@@ -722,21 +722,22 @@
             <label for="env-panel-toggle">Show Type Panel</label>
           </div>
           <div class="control-item">
-            <input type="checkbox" id="input-panel-toggle" autocomplete="off" />
-            <label for="input-panel-toggle">Show Input Panel</label>
+            <input type="checkbox" id="code-panel-toggle" autocomplete="off" checked />
+            <label for="code-panel-toggle">Show Code Panel</label>
           </div>
           <div class="control-item">
-            <input type="checkbox" id="select-first-tvar" />
+            <input type="checkbox" id="select-first-tvar" autocomplete="off" />
             <label for="select-first-tvar">Select 1st tvar</label>
           </div>
           
           <div class="control-textarea-container">
-            <label for="control-input-text">Input Text:</label>
+            <label for="control-code-text">Code Text:</label>
             <textarea 
-              id="control-input-text" 
+              id="control-code-text" 
               class="control-textarea"
-              placeholder="Type here to update the Input panel..."
+              placeholder="Type here to update the Code panel..."
               rows="6"
+              autocomplete="off"
             ></textarea>
           </div>
         </div>
@@ -750,6 +751,7 @@
                 type="text"
                 id="gif-runs-input"
                 placeholder="e.g., 1 3 5 7 (empty = all)"
+                autocomplete="off"
               />
             </div>
             <div class="gif-control-group">
@@ -760,6 +762,7 @@
                 value="500"
                 min="100"
                 step="100"
+                autocomplete="off"
               />
             </div>
             <button id="gif-create-button" class="gif-create-button">

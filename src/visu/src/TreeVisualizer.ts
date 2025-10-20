@@ -233,12 +233,12 @@ export class TreeVisualizer {
 
     // Title section (draggable header)
     const titleSection = document.createElement('div');
-    titleSection.className = 'env-panel-section input-panel-header';
+    titleSection.className = 'env-panel-section code-panel-header';
     body.appendChild(titleSection);
 
     const title = document.createElement('div');
     title.className = 'env-panel-section-title';
-    title.textContent = 'CODE:';
+    title.textContent = '\u00a0';
     titleSection.appendChild(title);
 
     // Make panel draggable by header
@@ -246,16 +246,16 @@ export class TreeVisualizer {
 
     // Input textarea with highlighted output
     const inputContainer = document.createElement('div');
-    inputContainer.className = 'input-container';
+    inputContainer.className = 'code-container';
     body.appendChild(inputContainer);
 
     const highlightedOutput = document.createElement('div');
-    highlightedOutput.className = 'input-highlighted';
+    highlightedOutput.className = 'code-highlighted';
     highlightedOutput.setAttribute('aria-hidden', 'true');
     inputContainer.appendChild(highlightedOutput);
 
     const textarea = document.createElement('textarea');
-    textarea.className = 'input-textarea';
+    textarea.className = 'code-textarea';
     textarea.placeholder = 'Enter your code here...';
     textarea.spellcheck = false;
     inputContainer.appendChild(textarea);
