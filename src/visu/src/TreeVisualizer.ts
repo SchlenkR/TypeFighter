@@ -31,6 +31,7 @@ export class TreeVisualizer {
   private container: HTMLElement;
   private solverRunPanel: HTMLElement;
   private envPanel: HTMLElement;
+  private inputPanel: HTMLElement;
   private contentLayer: HTMLElement;
   private measurementContainer: HTMLElement;
 
@@ -44,6 +45,9 @@ export class TreeVisualizer {
   private envPanelConstraintsEl!: HTMLElement;
   private envPanelSolutionsEl!: HTMLElement;
   private envPanelRecordsEl!: HTMLElement;
+  
+  private inputPanelTextarea!: HTMLTextAreaElement;
+  private inputPanelHighlighted!: HTMLElement;
 
   private hoveredNodeKey: number | null = null;
   private selectedNodeKey: number | null = null;
@@ -88,14 +92,17 @@ export class TreeVisualizer {
     this.container = document.getElementById('tree-container')!;
     this.solverRunPanel = this.createSolverRunPanel();
     this.envPanel = this.createEnvPanel();
+    this.inputPanel = this.createInputPanel();
     this.contentLayer = this.createContentLayer();
     this.container.appendChild(this.solverRunPanel);
     this.container.appendChild(this.envPanel);
+    this.container.appendChild(this.inputPanel);
     this.container.appendChild(this.contentLayer);
     this.measurementContainer = this.createMeasurementContainer();
 
     this.addTVarHighlighting(this.solverRunPanel);
     this.addTVarHighlighting(this.envPanel);
+    this.addTVarHighlighting(this.inputPanel);
     this.addTVarHighlighting(this.contentLayer);
 
     this.handleEnvPanelMouseLeave = this.handleEnvPanelMouseLeave.bind(this);
@@ -206,6 +213,186 @@ export class TreeVisualizer {
     this.envPanelRecordsEl = recordsContent;
 
     return panel;
+  }
+
+  // Update input text from external source (e.g., control panel)
+  public updateInputText(text: string): void {
+    if (this.inputPanelTextarea) {
+      this.inputPanelTextarea.value = text;
+      this.updateHighlighting(text, this.inputPanelHighlighted);
+    }
+  }
+
+  private createInputPanel(): HTMLElement {
+    const panel = document.createElement('div');
+    panel.className = 'env-panel input-panel';
+
+    const body = document.createElement('div');
+    body.className = 'env-panel-body';
+    panel.appendChild(body);
+
+    // Title section (draggable header)
+    const titleSection = document.createElement('div');
+    titleSection.className = 'env-panel-section input-panel-header';
+    body.appendChild(titleSection);
+
+    const title = document.createElement('div');
+    title.className = 'env-panel-section-title';
+    title.textContent = 'CODE:';
+    titleSection.appendChild(title);
+
+    // Make panel draggable by header
+    this.makeDraggable(panel, titleSection);
+
+    // Input textarea with highlighted output
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'input-container';
+    body.appendChild(inputContainer);
+
+    const highlightedOutput = document.createElement('div');
+    highlightedOutput.className = 'input-highlighted';
+    highlightedOutput.setAttribute('aria-hidden', 'true');
+    inputContainer.appendChild(highlightedOutput);
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'input-textarea';
+    textarea.placeholder = 'Enter your code here...';
+    textarea.spellcheck = false;
+    inputContainer.appendChild(textarea);
+
+    // Store references for external updates
+    this.inputPanelTextarea = textarea;
+    this.inputPanelHighlighted = highlightedOutput;
+
+    // Resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle';
+    panel.appendChild(resizeHandle);
+
+    // Handle textarea input and sync with highlighted output
+    textarea.addEventListener('input', () => {
+      this.updateHighlighting(textarea.value, highlightedOutput);
+    });
+
+    textarea.addEventListener('scroll', () => {
+      highlightedOutput.scrollTop = textarea.scrollTop;
+      highlightedOutput.scrollLeft = textarea.scrollLeft;
+    });
+
+    // Handle resizing
+    this.makeResizable(panel, resizeHandle);
+
+    // Initialize with empty content
+    this.updateHighlighting('', highlightedOutput);
+
+    return panel;
+  }
+
+  private updateHighlighting(text: string, output: HTMLElement): void {
+    // Escape HTML and wrap in pre tag
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    output.innerHTML = `<pre>${escaped || '\n'}</pre>`;
+  }
+
+  private makeResizable(panel: HTMLElement, handle: HTMLElement): void {
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+
+    handle.addEventListener('pointerdown', (e: PointerEvent) => {
+      isResizing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startWidth = panel.offsetWidth;
+      startHeight = panel.offsetHeight;
+      
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    window.addEventListener('pointermove', (e: PointerEvent) => {
+      if (!isResizing) return;
+
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      const newWidth = Math.max(300, startWidth + deltaX);
+      const newHeight = Math.max(200, startHeight + deltaY);
+
+      panel.style.width = `${newWidth}px`;
+      panel.style.height = `${newHeight}px`;
+    });
+
+    window.addEventListener('pointerup', (e: PointerEvent) => {
+      if (isResizing) {
+        isResizing = false;
+        handle.releasePointerCapture(e.pointerId);
+      }
+    });
+  }
+
+  private makeDraggable(panel: HTMLElement, handle: HTMLElement): void {
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    handle.style.cursor = 'move';
+
+    handle.addEventListener('pointerdown', (e: PointerEvent) => {
+      // Don't drag if clicking on the resize handle
+      if ((e.target as HTMLElement).classList.contains('resize-handle')) {
+        return;
+      }
+
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      
+      // Get current position
+      const rect = panel.getBoundingClientRect();
+      const containerRect = this.container.getBoundingClientRect();
+      startLeft = rect.left - containerRect.left;
+      startTop = rect.top - containerRect.top;
+      
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation(); // Prevent tree panning
+    });
+
+    const moveHandler = (e: PointerEvent) => {
+      if (!isDragging) return;
+
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      const newLeft = startLeft + deltaX;
+      const newTop = startTop + deltaY;
+
+      panel.style.left = `${newLeft}px`;
+      panel.style.top = `${newTop}px`;
+      
+      e.preventDefault();
+      e.stopPropagation(); // Prevent tree panning
+    };
+
+    const upHandler = (e: PointerEvent) => {
+      if (isDragging) {
+        isDragging = false;
+        handle.releasePointerCapture(e.pointerId);
+        e.stopPropagation(); // Prevent tree panning
+      }
+    };
+
+    window.addEventListener('pointermove', moveHandler);
+    window.addEventListener('pointerup', upHandler);
   }
 
   private createEnvPanel(): HTMLElement {
@@ -458,6 +645,14 @@ export class TreeVisualizer {
     } else {
       this.envPanel.classList.add('collapsed');
       this.solverRunPanel.style.top = '50px';
+    }
+  }
+
+  toggleInputPanel(visible: boolean): void {
+    if (visible) {
+      this.inputPanel.classList.remove('collapsed');
+    } else {
+      this.inputPanel.classList.add('collapsed');
     }
   }
 
@@ -1244,7 +1439,13 @@ export class TreeVisualizer {
 
     this.didPan = false;
 
-    if (this.envPanel.contains(event.target as Node) || (event.target as HTMLElement).closest('.node')) {
+    // Don't start panning if clicking on panels or nodes
+    if (
+      this.envPanel.contains(event.target as Node) || 
+      this.solverRunPanel.contains(event.target as Node) ||
+      this.inputPanel.contains(event.target as Node) ||
+      (event.target as HTMLElement).closest('.node')
+    ) {
       return;
     }
 

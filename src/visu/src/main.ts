@@ -122,6 +122,21 @@ function setupControlPanel(): void {
     });
   }
 
+  const inputPanelToggle = document.getElementById('input-panel-toggle') as HTMLInputElement;
+  
+  if (inputPanelToggle) {
+    // Set initial state
+    if (treeViz) {
+      treeViz.toggleInputPanel(inputPanelToggle.checked);
+    }
+
+    inputPanelToggle.addEventListener('change', () => {
+      if (treeViz) {
+        treeViz.toggleInputPanel(inputPanelToggle.checked);
+      }
+    });
+  }
+
   const selectFirstTVarCheckbox = document.getElementById('select-first-tvar') as HTMLInputElement;
   if (selectFirstTVarCheckbox) {
     selectFirstTVarCheckbox.addEventListener('change', () => {
@@ -129,6 +144,29 @@ function setupControlPanel(): void {
         treeViz.toggleSelectFirstTVar(selectFirstTVarCheckbox.checked);
       }
     });
+  }
+
+  // Wire up control panel textarea to update input panel
+  const controlInputTextarea = document.getElementById('control-input-text') as HTMLTextAreaElement;
+  if (controlInputTextarea) {
+    controlInputTextarea.addEventListener('input', () => {
+      if (treeViz) {
+        // Always mirror text into CODE panel
+        treeViz.updateInputText(controlInputTextarea.value);
+
+        // Auto-open CODE panel if it's hidden so the user immediately sees the text reflected
+        const inputToggle = document.getElementById('input-panel-toggle') as HTMLInputElement | null;
+        if (inputToggle && !inputToggle.checked) {
+          inputToggle.checked = true;
+          treeViz.toggleInputPanel(true);
+        }
+      }
+    });
+
+    // On load, if there is prefilled text, sync it into CODE panel as well
+    if (controlInputTextarea.value && treeViz) {
+      treeViz.updateInputText(controlInputTextarea.value);
+    }
   }
 }
 
