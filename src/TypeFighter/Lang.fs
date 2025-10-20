@@ -188,7 +188,7 @@ type Expr<'noneOrVarnum> =
         ShowExpr.Expr(this)
 
 and Ident<'noneOrVarnum> = internal { identName: string; tvar: 'noneOrVarnum }
-and Field<'noneOrVarnum> = internal { fname: string; value: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum }
+and Field<'noneOrVarnum> = internal { fname: string; value: Expr<'noneOrVarnum> }
 and UnionCase<'noneOrVarnum> = internal { disc: string; ident: Ident<'noneOrVarnum> option; body: Expr<'noneOrVarnum> }
 
 and ShowExpr =
@@ -248,7 +248,7 @@ type X =
             loop source xs
     static member MkArray values = Expr.MkArray {| values = values; tvar = ()  |}
     static member MkRecord fields = Expr.MkRecord {| fields = fields; tvar = ()  |}
-    static member Field field value = { fname = field; value = value; tvar = () }
+    static member Field field value = { fname = field; value = value; }
     static member Case disc ident body = { disc = disc; ident = ident; body = body }
 
 // TODO: Replace this (and throwing) with a "TError"
@@ -321,7 +321,6 @@ module Expr =
                                 { 
                                     fname = f.fname
                                     value = loop f.value
-                                    tvar = newVar ()
                                 } 
                             ]
                         tvar = newVar ()
