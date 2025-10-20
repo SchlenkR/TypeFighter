@@ -105,7 +105,8 @@
         background-color: #e0e0e0;
       }
 
-      .first-constraint-left .tvar {
+      .first-constraint-left .tvar,
+      .first-constraint-left .tvar.highlight {
         background-color: #37f188 !important;
         border: 2px solid #4a6fa5 !important;
       }
@@ -593,7 +594,6 @@
 
       .code-container {
         position: relative;
-        top: -20px;
         width: 100%;
         height: 300px;
         min-height: 200px;
@@ -702,6 +702,13 @@
         padding: 5px;
         border: 1px solid red;
         border-radius: 4px;
+      }
+
+      /* Must come last to override all other .tvar styles */
+      .solver-run-panel .first-constraint-left .tvar,
+      .solver-run-panel .first-constraint-left .tvar.highlight {
+        background-color: #37f188 !important;
+        border: 2px solid #4a6fa5 !important;
       }
     </style>
     <script src="./data/data.js"></script>

@@ -1,4 +1,10 @@
 import type { JsNode, LinkData, TreeNode, Link, Position, EnvEntry } from './types';
+import hljs from 'highlight.js/lib/core';
+import fsharp from 'highlight.js/lib/languages/fsharp';
+import 'highlight.js/styles/atom-one-dark.css';
+
+// Register F# language
+hljs.registerLanguage('fsharp', fsharp);
 
 export class TreeVisualizer {
   private readonly levelHeight = 140;
@@ -45,7 +51,7 @@ export class TreeVisualizer {
   private envPanelConstraintsEl!: HTMLElement;
   private envPanelSolutionsEl!: HTMLElement;
   private envPanelRecordsEl!: HTMLElement;
-  
+
   private inputPanelTextarea!: HTMLTextAreaElement;
   private inputPanelHighlighted!: HTMLElement;
 
@@ -231,18 +237,8 @@ export class TreeVisualizer {
     body.className = 'env-panel-body';
     panel.appendChild(body);
 
-    // Title section (draggable header)
-    const titleSection = document.createElement('div');
-    titleSection.className = 'env-panel-section code-panel-header';
-    body.appendChild(titleSection);
-
-    const title = document.createElement('div');
-    title.className = 'env-panel-section-title';
-    title.textContent = '\u00a0';
-    titleSection.appendChild(title);
-
-    // Make panel draggable by header
-    this.makeDraggable(panel, titleSection);
+    // Make entire panel draggable
+    this.makeDraggable(panel, panel);
 
     // Input textarea with highlighted output
     const inputContainer = document.createElement('div');
@@ -289,13 +285,23 @@ export class TreeVisualizer {
   }
 
   private updateHighlighting(text: string, output: HTMLElement): void {
-    // Escape HTML and wrap in pre tag
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    
-    output.innerHTML = `<pre>${escaped || '\n'}</pre>`;
+    if (!text) {
+      output.innerHTML = '<pre></pre>';
+      return;
+    }
+
+    // Use Highlight.js to highlight as F#
+    try {
+      const result = hljs.highlight(text, { language: 'fsharp', ignoreIllegals: true });
+      output.innerHTML = `<pre><code class="hljs language-fsharp">${result.value}</code></pre>`;
+    } catch (e) {
+      // Fallback to plain text if highlighting fails
+      const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      output.innerHTML = `<pre>${escaped}</pre>`;
+    }
   }
 
   private makeResizable(panel: HTMLElement, handle: HTMLElement): void {
@@ -311,7 +317,7 @@ export class TreeVisualizer {
       startY = e.clientY;
       startWidth = panel.offsetWidth;
       startHeight = panel.offsetHeight;
-      
+
       handle.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
@@ -355,13 +361,13 @@ export class TreeVisualizer {
       isDragging = true;
       startX = e.clientX;
       startY = e.clientY;
-      
+
       // Get current position
       const rect = panel.getBoundingClientRect();
       const containerRect = this.container.getBoundingClientRect();
       startLeft = rect.left - containerRect.left;
       startTop = rect.top - containerRect.top;
-      
+
       handle.setPointerCapture(e.pointerId);
       e.preventDefault();
       e.stopPropagation(); // Prevent tree panning
@@ -378,7 +384,7 @@ export class TreeVisualizer {
 
       panel.style.left = `${newLeft}px`;
       panel.style.top = `${newTop}px`;
-      
+
       e.preventDefault();
       e.stopPropagation(); // Prevent tree panning
     };
@@ -598,9 +604,12 @@ export class TreeVisualizer {
     });
 
     if (checked) {
-      this.selectFirstTVar();
+      this.selectedTVarName = 'placeholder'; // Set to non-null first
+      this.updateSolverRunDisplay(); // Re-render constraints with the class
+      this.selectFirstTVar(); // Then select and highlight
     } else {
       this.selectedTVarName = null;
+      this.updateSolverRunDisplay(); // Re-render constraints without the class
     }
   }
 
@@ -689,28 +698,28 @@ export class TreeVisualizer {
   private updateSolverRunDisplay(): void {
     // Get solver run data if available
     const solverRuns = window.solverRuns;
-    
+
     // Create buttons for all solver runs
     if (solverRuns && solverRuns.length > 0) {
       this.envPanelSolverRunEl.innerHTML = '';
-      
+
       solverRuns.forEach((run: any, index: number) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'run-button';
         button.textContent = `${index + 1}`;
-        
+
         if (index === this.currentRunIndex) {
           button.classList.add('active');
         }
-        
+
         button.addEventListener('click', () => {
           // Call the global selectRun function from main.ts
           if ((window as any).selectRunFromPanel) {
             (window as any).selectRunFromPanel(index);
           }
         });
-        
+
         this.envPanelSolverRunEl.appendChild(button);
       });
     }
@@ -736,7 +745,7 @@ export class TreeVisualizer {
           t1Container.style.justifySelf = 'end';
           t1Container.style.textAlign = 'right';
           t1Container.style.alignSelf = 'baseline';
-          if (index === 0) {
+          if (index === 0 && this.selectedTVarName !== null) {
             t1Container.classList.add('first-constraint-left');
           }
           t1Container.appendChild(this.tokenizeAndStyleText(c.t1));
@@ -1441,7 +1450,7 @@ export class TreeVisualizer {
 
     // Don't start panning if clicking on panels or nodes
     if (
-      this.envPanel.contains(event.target as Node) || 
+      this.envPanel.contains(event.target as Node) ||
       this.solverRunPanel.contains(event.target as Node) ||
       this.inputPanel.contains(event.target as Node) ||
       (event.target as HTMLElement).closest('.node')

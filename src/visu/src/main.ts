@@ -46,15 +46,20 @@ function selectRun(index: number): void {
 
 function nextRun(): void {
   const treesForSolverRuns = window.treesForSolverRuns;
-  if (currentRunIndex < treesForSolverRuns.length - 1) {
-    selectRun(currentRunIndex + 1);
-  }
+  if (treesForSolverRuns.length === 0) return;
+  
+  // Wrap around to the beginning if at the end
+  const nextIndex = (currentRunIndex + 1) % treesForSolverRuns.length;
+  selectRun(nextIndex);
 }
 
 function previousRun(): void {
-  if (currentRunIndex > 0) {
-    selectRun(currentRunIndex - 1);
-  }
+  const treesForSolverRuns = window.treesForSolverRuns;
+  if (treesForSolverRuns.length === 0) return;
+  
+  // Wrap around to the end if at the beginning
+  const prevIndex = currentRunIndex === 0 ? treesForSolverRuns.length - 1 : currentRunIndex - 1;
+  selectRun(prevIndex);
 }
 
 function setupRunButtons(runs: JsNode[]): void {
