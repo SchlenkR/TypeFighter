@@ -89,6 +89,7 @@ module Visu =
         {
             ident: string
             solvedTyp: string
+            origin: string
         }
 
     type JsEquation =
@@ -131,7 +132,7 @@ module Visu =
                 tryGetExprTyp tvar |> Option.defaultValue ""
             let getIdentDetails (ident: Ident<_>) =
                 let typ = tryGetExprTyp ident.tvar |> Option.defaultValue ""
-                $"IDENT = {ident.identName}   TVAR = {ident.tvar}   TYP = {typ}"
+                $"{ident.identName}: {ident.tvar}"
             let env =
                 exprToEnv
                 |> Map.tryFind expr
@@ -139,8 +140,10 @@ module Visu =
                     env
                     |> Seq.map (fun kvp -> 
                         match kvp.Value with 
-                        | EnvItem.External t -> { ident = kvp.Key; solvedTyp = t.ToString() }
-                        | EnvItem.Internal t -> { ident = kvp.Key; solvedTyp = getExprTyp t }
+                        | EnvItem.External t -> 
+                            { ident = kvp.Key; solvedTyp = t.ToString(); origin = "EXTERNAL" }
+                        | EnvItem.Internal t ->
+                            { ident = kvp.Key; solvedTyp = getExprTyp t; origin = t.ToString() }
                     )
                     |> Seq.toList)
                 |> Option.defaultValue []
@@ -174,7 +177,7 @@ module Visu =
                 createExprNode "FUN" $"{x.ident.identName} -> ..." details [ createNodes x.body ]
             | Expr.Let x ->
                 let details = getIdentDetails x.ident
-                createExprNode "LET" $"{x.ident.identName} = ..." details [ createNodes x.value; createNodes x.body ]
+                createExprNode "LET" $"({x.ident.identName}: {x.ident.tvar}) = ..." details [ createNodes x.value; createNodes x.body ]
             | Expr.Do x ->
                 createExprNode "DO" "..." "" [ createNodes x.action; createNodes x.body ]
             | Expr.Match x ->

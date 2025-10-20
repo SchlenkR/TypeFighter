@@ -479,7 +479,7 @@ export class TreeVisualizer {
 
     const envSectionTitle = document.createElement('div');
     envSectionTitle.className = 'env-panel-section-title';
-    envSectionTitle.textContent = 'ENVIRONMENT';
+    envSectionTitle.textContent = 'CONTEXT ENVIRONMENT:';
     envSection.appendChild(envSectionTitle);
 
     const envContent = document.createElement('div');
@@ -571,6 +571,12 @@ export class TreeVisualizer {
     env.forEach(entry => {
       const row = document.createElement('div');
       row.className = 'env-panel-env-row';
+
+      // Origin column (first column)
+      const originSpan = document.createElement('span');
+      originSpan.className = 'env-panel-env-origin';
+      originSpan.textContent = entry.origin || '';
+      row.appendChild(originSpan);
 
       const identSpan = document.createElement('span');
       identSpan.className = 'env-panel-env-ident';

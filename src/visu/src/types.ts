@@ -2,6 +2,7 @@ export interface EnvEntry {
   ident: string;
   varNum?: number;
   solvedTyp?: string;
+  origin?: string;
 }
 
 // JsNode from F# - hierarchical structure with children

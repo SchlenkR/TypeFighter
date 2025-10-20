@@ -638,7 +638,7 @@
       /* Grid layout only for environment entries */
       .env-panel-section:last-child .env-panel-content {
         display: grid;
-        grid-template-columns: max-content auto 1fr;
+        grid-template-columns: max-content max-content auto 1fr;
         column-gap: 8px;
         row-gap: 4px;
         align-items: baseline;
@@ -679,6 +679,12 @@
 
       .env-panel-env-row:last-child {
         margin-bottom: 0;
+      }
+
+      .env-panel-env-origin {
+        font-style: italic;
+        color: #888;
+        font-size: 11px;
       }
 
       .env-panel-env-ident {
