@@ -129,6 +129,21 @@ function setupControlPanel(): void {
     });
   }
 
+  const solverRunPanelToggle = document.getElementById('solver-run-panel-toggle') as HTMLInputElement;
+  
+  if (solverRunPanelToggle) {
+    // Set initial state
+    if (treeViz) {
+      treeViz.toggleSolverRunPanel(solverRunPanelToggle.checked);
+    }
+
+    solverRunPanelToggle.addEventListener('change', () => {
+      if (treeViz) {
+        treeViz.toggleSolverRunPanel(solverRunPanelToggle.checked);
+      }
+    });
+  }
+
   const inputPanelToggle = document.getElementById('code-panel-toggle') as HTMLInputElement;
   
   if (inputPanelToggle) {

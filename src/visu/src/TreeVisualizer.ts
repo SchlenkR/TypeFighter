@@ -96,12 +96,22 @@ export class TreeVisualizer {
 
   constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
     this.container = document.getElementById('tree-container')!;
+    
+    // Create wrapper for left panels
+    const leftPanelsWrapper = document.createElement('div');
+    leftPanelsWrapper.className = 'left-panels-wrapper';
+    
     this.solverRunPanel = this.createSolverRunPanel();
     this.envPanel = this.createEnvPanel();
     this.inputPanel = this.createInputPanel();
     this.contentLayer = this.createContentLayer();
-    this.container.appendChild(this.solverRunPanel);
-    this.container.appendChild(this.envPanel);
+    
+    // Add panels to wrapper
+    leftPanelsWrapper.appendChild(this.envPanel);
+    leftPanelsWrapper.appendChild(this.solverRunPanel);
+    
+    // Add wrapper and other elements to container
+    this.container.appendChild(leftPanelsWrapper);
     this.container.appendChild(this.inputPanel);
     this.container.appendChild(this.contentLayer);
     this.measurementContainer = this.createMeasurementContainer();
@@ -120,7 +130,6 @@ export class TreeVisualizer {
     this.envPanel.addEventListener('mouseleave', this.handleEnvPanelMouseLeave);
 
     this.refreshEnvPanel();
-    this.updateEnvPanelLayout();
     this.setupInteraction();
     this.applyTransform();
 
@@ -506,9 +515,9 @@ export class TreeVisualizer {
     if (!node) {
       nameEl.textContent = '\u00a0';
       nameEl.classList.add('env-panel-placeholder-text');
-      codeEl.textContent = '';
+      codeEl.textContent = '\u00a0';
       codeEl.classList.add('env-panel-hidden');
-      varEl.textContent = '';
+      varEl.textContent = '\u00a0';
       varEl.classList.add('env-panel-hidden');
       additionalEl.textContent = '\u00a0';
       additionalEl.classList.add('env-panel-placeholder-text');
@@ -524,7 +533,7 @@ export class TreeVisualizer {
       codeEl.textContent = node.code;
       codeEl.classList.remove('env-panel-hidden');
     } else {
-      codeEl.textContent = '';
+      codeEl.textContent = '\u00a0';
       codeEl.classList.add('env-panel-hidden');
     }
 
@@ -568,33 +577,31 @@ export class TreeVisualizer {
       identSpan.textContent = entry.ident;
       row.appendChild(identSpan);
 
+      const colonSpan = document.createElement('span');
+      colonSpan.className = 'env-panel-env-colon';
+      colonSpan.textContent = ':';
+      row.appendChild(colonSpan);
+
+      const typeContainer = document.createElement('span');
+      typeContainer.className = 'env-panel-env-type-container';
+
       if (entry.varNum !== undefined) {
         const varSpan = document.createElement('span');
         varSpan.className = 'tvar';
         varSpan.textContent = `tv_${entry.varNum}`;
-        row.appendChild(varSpan);
+        typeContainer.appendChild(varSpan);
       }
 
       if (entry.solvedTyp) {
         const typeSpan = document.createElement('span');
         typeSpan.className = 'env-panel-env-type';
         typeSpan.textContent = entry.solvedTyp;
-        row.appendChild(typeSpan);
+        typeContainer.appendChild(typeSpan);
       }
 
+      row.appendChild(typeContainer);
       content.appendChild(row);
     });
-  }
-
-  private updateEnvPanelLayout(): void {
-    this.solverRunPanel.style.width = this.envPanelWidth + 'px';
-    this.solverRunPanel.style.transformOrigin = 'top left';
-    this.solverRunPanel.style.transform = `scale(${this.zoomLevel})`;
-
-    this.envPanel.style.width = this.envPanelWidth + 'px';
-    this.envPanel.style.transformOrigin = 'top left';
-    this.envPanel.style.transform = `scale(${this.zoomLevel})`;
-    this.contentLayer.style.paddingLeft = (this.envPanelWidth + this.envPanelSpacing) + 'px';
   }
 
   toggleSelectFirstTVar(checked: boolean): void {
@@ -650,10 +657,8 @@ export class TreeVisualizer {
   toggleEnvPanel(visible: boolean): void {
     if (visible) {
       this.envPanel.classList.remove('collapsed');
-      this.solverRunPanel.style.top = '350px';
     } else {
       this.envPanel.classList.add('collapsed');
-      this.solverRunPanel.style.top = '50px';
     }
   }
 
@@ -662,6 +667,14 @@ export class TreeVisualizer {
       this.inputPanel.classList.remove('collapsed');
     } else {
       this.inputPanel.classList.add('collapsed');
+    }
+  }
+
+  toggleSolverRunPanel(visible: boolean): void {
+    if (visible) {
+      this.solverRunPanel.classList.remove('collapsed');
+    } else {
+      this.solverRunPanel.classList.add('collapsed');
     }
   }
 
@@ -683,7 +696,6 @@ export class TreeVisualizer {
       this.parseData();
       this.calculateNodeDimensions();
       this.calculateLayout();
-      this.updateEnvPanelLayout();
       this.render();
 
       this.isFirstLoad = false;
@@ -1523,7 +1535,6 @@ export class TreeVisualizer {
   private applyTransform(): void {
     this.contentLayer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
     this.contentLayer.style.transformOrigin = 'top left';
-    this.updateEnvPanelLayout();
   }
 
   private buildNodeElement(node: TreeNode): HTMLElement {

@@ -504,10 +504,20 @@
         min-height: 800px;
       }
 
-      .env-panel {
+      .left-panels-wrapper {
         position: absolute;
         top: 50px;
         left: 50px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        z-index: 5;
+      }
+
+      .env-panel {
+        position: relative;
+        top: 0;
+        left: 0;
         box-sizing: border-box;
         background: #ffffff;
         border: 2px solid #99aacc;
@@ -517,13 +527,13 @@
         font-family: Arial, sans-serif;
         font-size: 12px;
         color: #1a1a1a;
-        z-index: 5;
-        transition: opacity 0.2s ease, width 0.2s ease, padding 0.2s ease;
+        transition: opacity 0.2s ease, width 0.2s ease, padding 0.2s ease, max-height 0.2s ease;
       }
 
       .solver-run-panel {
-        top: 350px;
-        transition: top 0.2s ease;
+        position: relative;
+        top: 0;
+        left: 0;
       }
 
       .env-panel-body {
@@ -598,20 +608,15 @@
       .env-panel-placeholder-text {
         font-style: italic;
         color: #666;
+        display: block !important;
       }
 
       .env-panel-hidden {
-        display: none !important;
+        visibility: hidden;
       }
 
       .env-panel.collapsed {
-        width: 0 !important;
-        min-width: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        overflow: hidden;
-        opacity: 0;
-        pointer-events: none;
+        display: none;
       }
 
       .env-panel-content {
@@ -628,6 +633,15 @@
         max-height: none;
         overflow: visible;
         user-select: text;
+      }
+
+      /* Grid layout only for environment entries */
+      .env-panel-section:last-child .env-panel-content {
+        display: grid;
+        grid-template-columns: max-content auto 1fr;
+        column-gap: 8px;
+        row-gap: 4px;
+        align-items: baseline;
       }
 
       /* Keep the expression preview visually identical to AST nodes
@@ -660,11 +674,7 @@
       }
 
       .env-panel-env-row {
-        display: flex;
-        align-items: baseline;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 4px;
+        display: contents;
       }
 
       .env-panel-env-row:last-child {
@@ -674,6 +684,19 @@
       .env-panel-env-ident {
         font-weight: 600;
         color: #1a1a1a;
+        text-align: right;
+      }
+
+      .env-panel-env-colon {
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .env-panel-env-type-container {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .env-panel-env-type {
@@ -853,6 +876,10 @@
           <div class="control-item">
             <input type="checkbox" id="env-panel-toggle" autocomplete="off" />
             <label for="env-panel-toggle">Show Type Panel</label>
+          </div>
+          <div class="control-item">
+            <input type="checkbox" id="solver-run-panel-toggle" autocomplete="off" checked />
+            <label for="solver-run-panel-toggle">Show Solver Run Panel</label>
           </div>
           <div class="control-item">
             <input type="checkbox" id="code-panel-toggle" autocomplete="off" checked />
