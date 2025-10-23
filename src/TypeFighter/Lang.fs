@@ -586,22 +586,23 @@ module TypeSystem =
         let mutable exprToEnv = Map.empty
         let addEnv (expr: Expr<VarNum>) (env: Env) =
             do exprToEnv <- exprToEnv |> Map.add expr env
-        
-        let inst (typ: Typ) =
-            match typ with
-            | Mono mono ->
-                mono
-            | Poly poly ->
-                let rec substPoly remainingVars typ =
-                    match remainingVars with
-                    | [] -> typ
-                    | v :: remainingVars ->
-                        let substedTyp = substVarWithTypInTyp v (SubstWith (TVar (newVar ()))) (SubstIn typ)
-                        substPoly remainingVars substedTyp
-                substPoly (poly.vars |> Set.toList) poly.monoTyp
 
         let rec generateConstraints (env: Env) (expr: Expr<VarNum>) =
+            let inst (typ: Typ) =
+                match typ with
+                | Mono mono ->
+                    mono
+                | Poly poly ->
+                    let rec substPoly remainingVars typ =
+                        match remainingVars with
+                        | [] -> typ
+                        | v :: remainingVars ->
+                            let substedTyp = substVarWithTypInTyp v (SubstWith (TVar (newVar ()))) (SubstIn typ)
+                            substPoly remainingVars substedTyp
+                    substPoly (poly.vars |> Set.toList) poly.monoTyp
+
             do addEnv expr env
+
             match expr with
             | Expr.Lit x ->
                 let litTyp =
@@ -618,11 +619,13 @@ module TypeSystem =
                 *)
                 let resolvedIdent =
                     match env |> Map.tryFind x.ident with
-                    | Some (EnvItem.Internal tvar) -> TVar tvar
+                    | Some (EnvItem.Internal tvar) ->
+                        TVar tvar
                     | Some (EnvItem.External typ) ->
                         // INST - here's where it happens :)
                         inst typ
-                    | None -> failwith $"Unresolved identifier: {x.ident}"
+                    | None ->
+                        failwith $"Unresolved identifier: {x.ident}"
                 appendConstraint expr x.tvar resolvedIdent
             | Expr.App x ->
                 (*

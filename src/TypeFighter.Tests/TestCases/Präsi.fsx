@@ -1,4 +1,3 @@
-
 #load "../TestHelperFsiOverrides.fsx"
 open TypeFighter.Tests.TestHelper
 
@@ -23,6 +22,49 @@ let env =
         "equals", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.boolean)
         "random", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
     ]
+
+
+(*
+    let x = 42
+    toString x
+*)
+let expr =
+    let env = 
+        [
+            "toString", TDef.Generalize (BuiltinTypes.number ^-> BuiltinTypes.string)
+        ]
+    X.Let (X.Ident "x") (X.Lit 42) (
+        X.App (X.Var "toString") (X.Var "x")
+    )
+    |> writeInitialAst
+
+
+
+(*
+    if x == "Hello" then
+        return -1
+    let y = 100
+    return y + 23
+
+Desugared pseudo-code:
+    if x == "Hello" then
+        -1
+    else
+        let y = 100
+        y + 23
+*)
+let earlyReturnExpr =
+    let env =
+        [
+            "if", TDef.Generalize (BuiltinTypes.boolean ^-> %1 ^-> %1 ^-> %1)
+            "equalsStr", Mono (BuiltinTypes.string ^-> BuiltinTypes.string ^-> BuiltinTypes.boolean)
+            "add", Mono (BuiltinTypes.number ^-> BuiltinTypes.number ^-> BuiltinTypes.number)
+        ]
+    X.App (X.App (X.App (X.Var "if") (X.App (X.App (X.Var "equalsStr") (X.Var "x")) (X.Lit "Hello"))) (X.Lit (-1))) (
+        X.Let (X.Ident "y") (X.Lit 100) (X.App (X.App (X.Var "add") (X.Var "y")) (X.Lit 23))
+    )
+    |> writeInitialAst
+
 
 
 

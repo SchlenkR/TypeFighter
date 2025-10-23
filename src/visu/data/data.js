@@ -1,327 +1,188 @@
 
 window.treesForSolverRuns = [
   {
-    "key": 3,
-    "name": "MK-RECORD",
-    "varNum": 3,
+    "key": 17,
+    "name": "APP",
+    "varNum": 17,
     "code": "",
-    "additionalInfo": "fields = { age: tv_0; name: tv_1; address: tv_2 }",
+    "additionalInfo": "",
     "exprTyp": "",
     "env": [],
     "children": [
       {
-        "key": 0,
-        "name": "LIT",
-        "varNum": 0,
-        "code": "22",
+        "key": 8,
+        "name": "APP",
+        "varNum": 8,
+        "code": "",
         "additionalInfo": "",
         "exprTyp": "",
         "env": [],
-        "children": []
+        "children": [
+          {
+            "key": 6,
+            "name": "APP",
+            "varNum": 6,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": [
+              {
+                "key": 0,
+                "name": "VAR",
+                "varNum": 0,
+                "code": "if",
+                "additionalInfo": "",
+                "exprTyp": "",
+                "env": [],
+                "children": []
+              },
+              {
+                "key": 5,
+                "name": "APP",
+                "varNum": 5,
+                "code": "",
+                "additionalInfo": "",
+                "exprTyp": "",
+                "env": [],
+                "children": [
+                  {
+                    "key": 3,
+                    "name": "APP",
+                    "varNum": 3,
+                    "code": "",
+                    "additionalInfo": "",
+                    "exprTyp": "",
+                    "env": [],
+                    "children": [
+                      {
+                        "key": 1,
+                        "name": "VAR",
+                        "varNum": 1,
+                        "code": "equalsStr",
+                        "additionalInfo": "",
+                        "exprTyp": "",
+                        "env": [],
+                        "children": []
+                      },
+                      {
+                        "key": 2,
+                        "name": "VAR",
+                        "varNum": 2,
+                        "code": "x",
+                        "additionalInfo": "",
+                        "exprTyp": "",
+                        "env": [],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "key": 4,
+                    "name": "LIT",
+                    "varNum": 4,
+                    "code": "\u0027Hello\u0027",
+                    "additionalInfo": "",
+                    "exprTyp": "",
+                    "env": [],
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": 7,
+            "name": "LIT",
+            "varNum": 7,
+            "code": "-1",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          }
+        ]
       },
       {
-        "key": 1,
-        "name": "LIT",
-        "varNum": 1,
-        "code": "\u0027John\u0027",
-        "additionalInfo": "",
+        "key": 16,
+        "name": "LET",
+        "varNum": 16,
+        "code": "(y: tv_9) = ...",
+        "additionalInfo": "y: tv_9",
         "exprTyp": "",
         "env": [],
-        "children": []
-      },
-      {
-        "key": 2,
-        "name": "LIT",
-        "varNum": 2,
-        "code": "\u0027123 Main St\u0027",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 3,
-    "name": "MK-RECORD",
-    "varNum": 3,
-    "code": "",
-    "additionalInfo": "fields = { age: tv_0; name: tv_1; address: tv_2 }",
-    "exprTyp": "",
-    "env": [],
-    "children": [
-      {
-        "key": 0,
-        "name": "LIT",
-        "varNum": 0,
-        "code": "22",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "varNum": 1,
-        "code": "\u0027John\u0027",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 2,
-        "name": "LIT",
-        "varNum": 2,
-        "code": "\u0027123 Main St\u0027",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 3,
-    "name": "MK-RECORD",
-    "varNum": 3,
-    "code": "",
-    "additionalInfo": "fields = { age: tv_0; name: tv_1; address: tv_2 }",
-    "exprTyp": "",
-    "env": [],
-    "children": [
-      {
-        "key": 0,
-        "name": "LIT",
-        "varNum": 0,
-        "code": "22",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "varNum": 1,
-        "code": "\u0027John\u0027",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 2,
-        "name": "LIT",
-        "varNum": 2,
-        "code": "\u0027123 Main St\u0027",
-        "additionalInfo": "",
-        "exprTyp": "",
-        "env": [],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 3,
-    "name": "MK-RECORD",
-    "varNum": 3,
-    "code": "",
-    "additionalInfo": "fields = { age: tv_0; name: tv_1; address: tv_2 }",
-    "exprTyp": "",
-    "env": [],
-    "children": [
-      {
-        "key": 0,
-        "name": "LIT",
-        "varNum": 0,
-        "code": "22",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "varNum": 1,
-        "code": "\u0027John\u0027",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 2,
-        "name": "LIT",
-        "varNum": 2,
-        "code": "\u0027123 Main St\u0027",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": [],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 3,
-    "name": "MK-RECORD",
-    "varNum": 3,
-    "code": "",
-    "additionalInfo": "fields = { age: tv_0; name: tv_1; address: tv_2 }",
-    "exprTyp": "{ address: String; age: Number; name: String }",
-    "env": [],
-    "children": [
-      {
-        "key": 0,
-        "name": "LIT",
-        "varNum": 0,
-        "code": "22",
-        "additionalInfo": "",
-        "exprTyp": "Number",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 1,
-        "name": "LIT",
-        "varNum": 1,
-        "code": "\u0027John\u0027",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": [],
-        "children": []
-      },
-      {
-        "key": 2,
-        "name": "LIT",
-        "varNum": 2,
-        "code": "\u0027123 Main St\u0027",
-        "additionalInfo": "",
-        "exprTyp": "String",
-        "env": [],
-        "children": []
+        "children": [
+          {
+            "key": 10,
+            "name": "LIT",
+            "varNum": 10,
+            "code": "100",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": []
+          },
+          {
+            "key": 15,
+            "name": "APP",
+            "varNum": 15,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [],
+            "children": [
+              {
+                "key": 13,
+                "name": "APP",
+                "varNum": 13,
+                "code": "",
+                "additionalInfo": "",
+                "exprTyp": "",
+                "env": [],
+                "children": [
+                  {
+                    "key": 11,
+                    "name": "VAR",
+                    "varNum": 11,
+                    "code": "add",
+                    "additionalInfo": "",
+                    "exprTyp": "",
+                    "env": [],
+                    "children": []
+                  },
+                  {
+                    "key": 12,
+                    "name": "VAR",
+                    "varNum": 12,
+                    "code": "y",
+                    "additionalInfo": "",
+                    "exprTyp": "",
+                    "env": [],
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "key": 14,
+                "name": "LIT",
+                "varNum": 14,
+                "code": "23",
+                "additionalInfo": "",
+                "exprTyp": "",
+                "env": [],
+                "children": []
+              }
+            ]
+          }
+        ]
       }
     ]
   }
 ];
 window.solverRuns = [
   {
-    "constraints": [
-      {
-        "t1": "tv_0",
-        "t2": "Number"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_2",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "{ address: tv_2; age: tv_0; name: tv_1 }"
-      }
-    ],
-    "solutions": [],
-    "recordRefs": [],
-    "error": null
-  },
-  {
-    "constraints": [
-      {
-        "t1": "tv_1",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_2",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "{ address: tv_2; age: Number; name: tv_1 }"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_0",
-        "t2": "Number"
-      }
-    ],
-    "recordRefs": [],
-    "error": null
-  },
-  {
-    "constraints": [
-      {
-        "t1": "tv_2",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "{ address: tv_2; age: Number; name: String }"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_1",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "Number"
-      }
-    ],
-    "recordRefs": [],
-    "error": null
-  },
-  {
-    "constraints": [
-      {
-        "t1": "tv_3",
-        "t2": "{ address: String; age: Number; name: String }"
-      }
-    ],
-    "solutions": [
-      {
-        "t1": "tv_2",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "Number"
-      }
-    ],
-    "recordRefs": [],
-    "error": null
-  },
-  {
     "constraints": [],
-    "solutions": [
-      {
-        "t1": "tv_3",
-        "t2": "{ address: String; age: Number; name: String }"
-      },
-      {
-        "t1": "tv_2",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_1",
-        "t2": "String"
-      },
-      {
-        "t1": "tv_0",
-        "t2": "Number"
-      }
-    ],
+    "solutions": [],
     "recordRefs": [],
     "error": null
   }
