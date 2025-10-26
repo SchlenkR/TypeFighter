@@ -542,9 +542,6 @@ module TypeSystem =
 
     let generateConstraints (env: Env) (expr: Expr<VarNum>) newVar =
         let constraints = Mutable.fifo None
-        let appendConstraint (triviaSource: Expr<VarNum>) (tvar: VarNum) (typ: MonoTyp) =
-            printfn $"For expr {triviaSource}, appending constraint: {TVar tvar} := {typ}"
-            do constraints.Append({ triviaSource = triviaSource; t1 = TVar tvar; t2 = typ })
 
         let recordRefs = Mutable.oneToMany None
 
@@ -553,6 +550,11 @@ module TypeSystem =
             do exprToEnv <- exprToEnv |> Map.add expr env
 
         let rec generateConstraints (env: Env) (expr: Expr<VarNum>) =
+
+            let appendConstraint (triviaSource: Expr<VarNum>) (tvar: VarNum) (typ: MonoTyp) =
+                printfn $"For expr {expr}, appending constraint: {TVar tvar} := {typ}"
+                do constraints.Append({ triviaSource = triviaSource; t1 = TVar tvar; t2 = typ })
+
             let inst (typ: Typ) =
                 match typ with
                 | Mono mono ->
@@ -569,6 +571,7 @@ module TypeSystem =
             do addEnv expr env
 
             match expr with
+
             | Expr.Lit x ->
                 let litTyp =
                     match x.value with
@@ -576,6 +579,7 @@ module TypeSystem =
                     | Number _ -> BuiltinTypes.number
                     | String _ -> BuiltinTypes.string
                 appendConstraint expr x.tvar litTyp
+
             | Expr.Var x ->
                 (*
                     S: ident
@@ -592,6 +596,7 @@ module TypeSystem =
                     | None ->
                         failwith $"Unresolved identifier: {x.ident}"
                 appendConstraint expr x.tvar resolvedIdent
+
             | Expr.App x ->
                 (*
                     S: func arg
@@ -602,6 +607,7 @@ module TypeSystem =
                 generateConstraints env x.arg
 
                 appendConstraint expr x.func.TVar (FunTyp (TVar x.arg.TVar, TVar x.tvar))
+
             | Expr.Fun x ->
                 (*
                     S:fun ident -> body 
@@ -613,6 +619,7 @@ module TypeSystem =
                     x.body
 
                 appendConstraint expr x.tvar (FunTyp (TVar x.ident.tvar, TVar x.body.TVar))
+            
             | Expr.Let x ->
                 (*
                     S: let ident = value in body
@@ -627,6 +634,7 @@ module TypeSystem =
                 generateConstraints
                     (env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar))
                     x.body
+
             | Expr.Do x ->
                 (*  
                     S: do action in body
@@ -638,6 +646,7 @@ module TypeSystem =
 
                 appendConstraint expr x.tvar (TVar x.body.TVar)
                 appendConstraint expr x.action.TVar BuiltinTypes.unit
+
             | Expr.PropAcc x ->
                 (*
                     S: source.ident
@@ -652,6 +661,7 @@ module TypeSystem =
                 appendConstraint expr x.source.TVar (RecordRefTyp recref)
 
                 appendConstraint expr x.tvar (TVar x.ident.tvar)
+
             | Expr.MkArray x ->
                 let elemTyp = TVar (newVar ())
 
@@ -660,6 +670,7 @@ module TypeSystem =
                     generateConstraints env v
 
                 appendConstraint expr x.tvar (BuiltinTypes.array elemTyp)
+
             | Expr.MkRecord x ->
                 for f in x.fields do
                     generateConstraints env f.value
@@ -670,6 +681,7 @@ module TypeSystem =
                     |> List.sortBy _.fname
                     |> List.map (fun f -> f.fname, TVar f.value.TVar)
                 appendConstraint expr x.tvar (TDef.RecordWith fields)
+                
             | Expr.Match x ->
                 match x.cases with
                 | [] -> failwith $"Match expression must have at least one case."
