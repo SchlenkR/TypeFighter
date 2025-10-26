@@ -19,6 +19,8 @@ export class TreeVisualizer {
   private readonly minZoom = 0.25;
   private readonly maxZoom = 4;
 
+  private readonly tvarPopOrderPauseInMs = 160;
+
   private zoomLevel = 1;
   private panX = this.envPanelWidth;
   private panY = 0;
@@ -681,6 +683,40 @@ export class TreeVisualizer {
       this.solverRunPanel.classList.remove('collapsed');
     } else {
       this.solverRunPanel.classList.add('collapsed');
+    }
+  }
+
+  toggleTVarsVisibility(visible: boolean): void {
+    // Only target tvars within AST nodes, not in panels
+    const tvars = Array.from(this.contentLayer.querySelectorAll('.node .tvar'));
+    
+    if (!visible) {
+      // Hide immediately
+      tvars.forEach(tvar => {
+        tvar.classList.add('hidden');
+        tvar.classList.remove('pop-in');
+      });
+    } else {
+      // Sort tvars by their number (extract from "tv_123" format)
+      const sortedTvars = tvars.sort((a, b) => {
+        const numA = parseInt((a.textContent || '').replace('tv_', '')) || 0;
+        const numB = parseInt((b.textContent || '').replace('tv_', '')) || 0;
+        return numA - numB;
+      });
+
+      // Show with sequential pop-in animation
+      sortedTvars.forEach((tvar, index) => {
+        // Remove hidden class after a delay based on index
+        setTimeout(() => {
+          tvar.classList.remove('hidden');
+          tvar.classList.add('pop-in');
+          
+          // Remove pop-in class after animation completes
+          setTimeout(() => {
+            tvar.classList.remove('pop-in');
+          }, 500);
+        }, index * this.tvarPopOrderPauseInMs);
+      });
     }
   }
 

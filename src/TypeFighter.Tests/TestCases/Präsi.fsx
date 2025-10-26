@@ -5,7 +5,7 @@ open TypeFighter.Tests.TestHelper
 open TestHelperFsiOverrides
 
 open NUnit.Framework
-open TypeFighter.Lang
+open TypeFighter
 
 
 // ------------------------------------------

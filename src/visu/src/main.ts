@@ -168,6 +168,15 @@ function setupControlPanel(): void {
     });
   }
 
+  const showTVarsToggle = document.getElementById('show-tvars-toggle') as HTMLInputElement;
+  if (showTVarsToggle) {
+    showTVarsToggle.addEventListener('change', () => {
+      if (treeViz) {
+        treeViz.toggleTVarsVisibility(showTVarsToggle.checked);
+      }
+    });
+  }
+
   // Wire up control panel textarea to update input panel
   const controlInputTextarea = document.getElementById('control-code-text') as HTMLTextAreaElement;
   if (controlInputTextarea) {

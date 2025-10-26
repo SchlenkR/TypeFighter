@@ -1,12 +1,13 @@
 #load "./TypeFighter/Utils.fs"
 #load "./TypeFighter/Lang.fs"
+#load "./TypeFighter/ExpressionDsl.fs"
 
 open System.IO
 open System.Text.Json
-open TypeFighter.Lang
+open TypeFighter
 
 module SolverRunPrinter =
-    open TypeFighter.Lang.TypeSystem
+    open TypeFighter.TypeSystem
 
     let indent = "    "
 

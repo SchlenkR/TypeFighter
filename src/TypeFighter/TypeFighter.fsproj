@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Lang.fs" />
+    <Compile Include="ExpressionDsl.fs" />
   </ItemGroup>
   
 </Project>

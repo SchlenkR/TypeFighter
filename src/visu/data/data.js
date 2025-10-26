@@ -1,188 +1,1486 @@
 
 window.treesForSolverRuns = [
   {
-    "key": 17,
+    "key": 6,
     "name": "APP",
-    "varNum": 17,
+    "varNum": 6,
     "code": "",
     "additionalInfo": "",
     "exprTyp": "",
-    "env": [],
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
     "children": [
       {
-        "key": 8,
-        "name": "APP",
-        "varNum": 8,
-        "code": "",
-        "additionalInfo": "",
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
         "exprTyp": "",
-        "env": [],
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
         "children": [
           {
-            "key": 6,
+            "key": 3,
             "name": "APP",
-            "varNum": 6,
+            "varNum": 3,
             "code": "",
             "additionalInfo": "",
             "exprTyp": "",
-            "env": [],
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "",
+                "origin": "tv_0"
+              }
+            ],
             "children": [
               {
-                "key": 0,
+                "key": 1,
                 "name": "VAR",
-                "varNum": 0,
-                "code": "if",
+                "varNum": 1,
+                "code": "isPositive",
                 "additionalInfo": "",
                 "exprTyp": "",
-                "env": [],
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
                 "children": []
               },
               {
-                "key": 5,
-                "name": "APP",
-                "varNum": 5,
-                "code": "",
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
                 "additionalInfo": "",
                 "exprTyp": "",
-                "env": [],
-                "children": [
+                "env": [
                   {
-                    "key": 3,
-                    "name": "APP",
-                    "varNum": 3,
-                    "code": "",
-                    "additionalInfo": "",
-                    "exprTyp": "",
-                    "env": [],
-                    "children": [
-                      {
-                        "key": 1,
-                        "name": "VAR",
-                        "varNum": 1,
-                        "code": "equalsStr",
-                        "additionalInfo": "",
-                        "exprTyp": "",
-                        "env": [],
-                        "children": []
-                      },
-                      {
-                        "key": 2,
-                        "name": "VAR",
-                        "varNum": 2,
-                        "code": "x",
-                        "additionalInfo": "",
-                        "exprTyp": "",
-                        "env": [],
-                        "children": []
-                      }
-                    ]
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
                   },
                   {
-                    "key": 4,
-                    "name": "LIT",
-                    "varNum": 4,
-                    "code": "\u0027Hello\u0027",
-                    "additionalInfo": "",
-                    "exprTyp": "",
-                    "env": [],
-                    "children": []
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
                   }
-                ]
+                ],
+                "children": []
               }
             ]
-          },
-          {
-            "key": 7,
-            "name": "LIT",
-            "varNum": 7,
-            "code": "-1",
-            "additionalInfo": "",
-            "exprTyp": "",
-            "env": [],
-            "children": []
           }
         ]
       },
       {
-        "key": 16,
-        "name": "LET",
-        "varNum": 16,
-        "code": "(y: tv_9) = ...",
-        "additionalInfo": "y: tv_9",
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
         "exprTyp": "",
-        "env": [],
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
         "children": [
           {
-            "key": 10,
-            "name": "LIT",
-            "varNum": 10,
-            "code": "100",
-            "additionalInfo": "",
-            "exprTyp": "",
-            "env": [],
-            "children": []
-          },
-          {
-            "key": 15,
+            "key": 3,
             "name": "APP",
-            "varNum": 15,
+            "varNum": 3,
             "code": "",
             "additionalInfo": "",
             "exprTyp": "",
-            "env": [],
-            "children": [
+            "env": [
               {
-                "key": 13,
-                "name": "APP",
-                "varNum": 13,
-                "code": "",
-                "additionalInfo": "",
-                "exprTyp": "",
-                "env": [],
-                "children": [
-                  {
-                    "key": 11,
-                    "name": "VAR",
-                    "varNum": 11,
-                    "code": "add",
-                    "additionalInfo": "",
-                    "exprTyp": "",
-                    "env": [],
-                    "children": []
-                  },
-                  {
-                    "key": 12,
-                    "name": "VAR",
-                    "varNum": 12,
-                    "code": "y",
-                    "additionalInfo": "",
-                    "exprTyp": "",
-                    "env": [],
-                    "children": []
-                  }
-                ]
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
               },
               {
-                "key": 14,
-                "name": "LIT",
-                "varNum": 14,
-                "code": "23",
+                "ident": "x",
+                "solvedTyp": "",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
                 "additionalInfo": "",
                 "exprTyp": "",
-                "env": [],
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
                 "children": []
               }
             ]
           }
         ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "tv_0",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "tv_0",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "tv_0",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "Number",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "Number",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "Bool",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "Number",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "Number",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "(Number -\u003E Bool)",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "Bool",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "Number",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "Number",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "(Number -\u003E Bool)",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "Bool",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "Number",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "Number",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 6,
+    "name": "APP",
+    "varNum": 6,
+    "code": "",
+    "additionalInfo": "",
+    "exprTyp": "Bool",
+    "env": [
+      {
+        "ident": "isPositive",
+        "solvedTyp": "(Number -\u003E Bool)",
+        "origin": "EXTERNAL"
+      }
+    ],
+    "children": [
+      {
+        "key": 4,
+        "name": "FUN",
+        "varNum": 4,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_0",
+        "exprTyp": "(Number -\u003E Bool)",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": [
+          {
+            "key": 3,
+            "name": "APP",
+            "varNum": 3,
+            "code": "",
+            "additionalInfo": "",
+            "exprTyp": "Bool",
+            "env": [
+              {
+                "ident": "isPositive",
+                "solvedTyp": "(Number -\u003E Bool)",
+                "origin": "EXTERNAL"
+              },
+              {
+                "ident": "x",
+                "solvedTyp": "Number",
+                "origin": "tv_0"
+              }
+            ],
+            "children": [
+              {
+                "key": 1,
+                "name": "VAR",
+                "varNum": 1,
+                "code": "isPositive",
+                "additionalInfo": "",
+                "exprTyp": "(Number -\u003E Bool)",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "key": 2,
+                "name": "VAR",
+                "varNum": 2,
+                "code": "x",
+                "additionalInfo": "",
+                "exprTyp": "Number",
+                "env": [
+                  {
+                    "ident": "isPositive",
+                    "solvedTyp": "(Number -\u003E Bool)",
+                    "origin": "EXTERNAL"
+                  },
+                  {
+                    "ident": "x",
+                    "solvedTyp": "Number",
+                    "origin": "tv_0"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": 5,
+        "name": "LIT",
+        "varNum": 5,
+        "code": "42",
+        "additionalInfo": "",
+        "exprTyp": "Number",
+        "env": [
+          {
+            "ident": "isPositive",
+            "solvedTyp": "(Number -\u003E Bool)",
+            "origin": "EXTERNAL"
+          }
+        ],
+        "children": []
       }
     ]
   }
 ];
 window.solverRuns = [
   {
-    "constraints": [],
+    "constraints": [
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(tv_2 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(tv_5 -\u003E tv_6)"
+      }
+    ],
     "solutions": [],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(tv_2 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "(Number -\u003E Bool)",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_0",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(tv_0 -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_3)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_0",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "(Number -\u003E Bool)",
+        "t2": "(Number -\u003E tv_6)"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [
+      {
+        "t1": "tv_6",
+        "t2": "Bool"
+      }
+    ],
+    "solutions": [
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
+    "recordRefs": [],
+    "error": null
+  },
+  {
+    "constraints": [],
+    "solutions": [
+      {
+        "t1": "tv_6",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_0",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      }
+    ],
     "recordRefs": [],
     "error": null
   }

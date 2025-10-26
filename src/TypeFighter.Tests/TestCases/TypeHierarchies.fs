@@ -13,7 +13,7 @@ open TestHelperFsiOverrides
 #endif
 
 open NUnit.Framework
-open TypeFighter.Lang
+open TypeFighter
 
 
 // ------------------------------------------

@@ -5,7 +5,7 @@ open FsiBase
 #load "TestHelper.fs"
 
 open System.IO
-open TypeFighter.Lang
+open TypeFighter
 
 let solve
     (externalEnv: (string * Typ) list) 

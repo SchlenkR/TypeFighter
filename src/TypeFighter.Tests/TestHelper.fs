@@ -6,7 +6,7 @@ open System.Reflection
 open FsUnit
 open NUnit.Framework
 
-open TypeFighter.Lang
+open TypeFighter
 
 [<SetUpFixture>]
 type InitMsgUtils() =

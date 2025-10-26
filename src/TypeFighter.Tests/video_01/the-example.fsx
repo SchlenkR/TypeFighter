@@ -2,7 +2,26 @@
 
 open TypeFighter.Tests.TestHelper
 open TestHelperFsiOverrides
-open TypeFighter.Lang
+open TypeFighter
+
+
+
+(*
+    ((x) => isPositive x) 42
+*)
+let env =
+    [
+        "isPositive", Mono (BuiltinTypes.number ^-> BuiltinTypes.boolean)
+    ]
+X.App
+    (X.Fun (X.Ident "x")
+        (X.App
+            (X.Var "isPositive")
+            (X.Var "x")))
+    (X.Lit 42)
+|> solve env None
+
+
 
 
 
