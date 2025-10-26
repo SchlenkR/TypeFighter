@@ -604,7 +604,7 @@ export class TreeVisualizer {
       if (entry.solvedTyp) {
         const typeSpan = document.createElement('span');
         typeSpan.className = 'env-panel-env-type';
-        typeSpan.textContent = entry.solvedTyp;
+        typeSpan.appendChild(this.tokenizeAndStyleText(entry.solvedTyp));
         typeContainer.appendChild(typeSpan);
       }
 
