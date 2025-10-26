@@ -598,8 +598,8 @@ module TypeSystem =
                     P: func: t1 -> t2, arg:t1
                     C: expr:t2
                 *)
-                generateConstraints env x.arg
                 generateConstraints env x.func
+                generateConstraints env x.arg
 
                 appendConstraint expr x.func.TVar (FunTyp (TVar x.arg.TVar, TVar x.tvar))
             | Expr.Fun x ->
