@@ -493,8 +493,8 @@ module TypeSystem =
     /// A constraint in the form: the right type must be assignable to the left type    
     type Constraint = { triviaSource: Expr<VarNum>; t1: MonoTyp; t2: MonoTyp }
 
-    type SolutionItem = { tvar: VarNum; typ: Typ }
-    type MSolutionItem = { tvar: VarNum; monoTyp: MonoTyp }
+    type Substitution = { tvar: VarNum; typ: Typ }
+    type MonoSubstitution = { tvar: VarNum; monoTyp: MonoTyp }
     type SubstThis = SubstThis of MonoTyp
     type SubstWith = SubstWith of MonoTyp
     type SubstIn = SubstIn of MonoTyp
@@ -506,7 +506,7 @@ module TypeSystem =
             cycle: int
             constraints: Constraint list
             recordRefs: RecordRefs
-            solution: SolutionItem list
+            substitutions: Substitution list
         }
 
     let rec substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn inTyp) =
@@ -551,9 +551,9 @@ module TypeSystem =
 
         let rec generateConstraints (env: Env) (expr: Expr<VarNum>) =
 
-            let appendConstraint (triviaSource: Expr<VarNum>) (tvar: VarNum) (typ: MonoTyp) =
+            let appendConstraint (tvar: VarNum) (typ: MonoTyp) =
                 printfn $"For expr {expr}, appending constraint: {TVar tvar} := {typ}"
-                do constraints.Append({ triviaSource = triviaSource; t1 = TVar tvar; t2 = typ })
+                do constraints.Append({ triviaSource = expr; t1 = TVar tvar; t2 = typ })
 
             let inst (typ: Typ) =
                 match typ with
@@ -578,7 +578,7 @@ module TypeSystem =
                     | Boolean _ -> BuiltinTypes.boolean
                     | Number _ -> BuiltinTypes.number
                     | String _ -> BuiltinTypes.string
-                appendConstraint expr x.tvar litTyp
+                appendConstraint x.tvar litTyp
 
             | Expr.Var x ->
                 (*
@@ -595,7 +595,7 @@ module TypeSystem =
                         inst typ
                     | None ->
                         failwith $"Unresolved identifier: {x.ident}"
-                appendConstraint expr x.tvar resolvedIdent
+                appendConstraint x.tvar resolvedIdent
 
             | Expr.App x ->
                 (*
@@ -605,8 +605,7 @@ module TypeSystem =
                 *)
                 generateConstraints env x.func
                 generateConstraints env x.arg
-
-                appendConstraint expr x.func.TVar (FunTyp (TVar x.arg.TVar, TVar x.tvar))
+                appendConstraint x.func.TVar (FunTyp (TVar x.arg.TVar, TVar x.tvar))
 
             | Expr.Fun x ->
                 (*
@@ -618,7 +617,7 @@ module TypeSystem =
                     (env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar))
                     x.body
 
-                appendConstraint expr x.tvar (FunTyp (TVar x.ident.tvar, TVar x.body.TVar))
+                appendConstraint x.tvar (FunTyp (TVar x.ident.tvar, TVar x.body.TVar))
             
             | Expr.Let x ->
                 (*
@@ -628,8 +627,8 @@ module TypeSystem =
                 *)
                 generateConstraints env x.value
 
-                appendConstraint expr x.ident.tvar (TVar x.value.TVar)
-                appendConstraint expr x.tvar (TVar x.body.TVar)
+                appendConstraint x.ident.tvar (TVar x.value.TVar)
+                appendConstraint x.tvar (TVar x.body.TVar)
 
                 generateConstraints
                     (env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar))
@@ -644,8 +643,8 @@ module TypeSystem =
                 generateConstraints env x.body
                 generateConstraints env x.action
 
-                appendConstraint expr x.tvar (TVar x.body.TVar)
-                appendConstraint expr x.action.TVar BuiltinTypes.unit
+                appendConstraint x.tvar (TVar x.body.TVar)
+                appendConstraint x.action.TVar BuiltinTypes.unit
 
             | Expr.PropAcc x ->
                 (*
@@ -658,18 +657,18 @@ module TypeSystem =
 
                 let (VarNum recref) = x.source.TVar
                 recordRefs.Add(recref, { fname = x.ident.identName; typ = TVar x.ident.tvar })
-                appendConstraint expr x.source.TVar (RecordRefTyp recref)
+                appendConstraint x.source.TVar (RecordRefTyp recref)
 
-                appendConstraint expr x.tvar (TVar x.ident.tvar)
+                appendConstraint x.tvar (TVar x.ident.tvar)
 
             | Expr.MkArray x ->
                 let elemTyp = TVar (newVar ())
 
                 for v in x.values do
-                    appendConstraint expr v.TVar elemTyp
+                    appendConstraint v.TVar elemTyp
                     generateConstraints env v
 
-                appendConstraint expr x.tvar (BuiltinTypes.array elemTyp)
+                appendConstraint x.tvar (BuiltinTypes.array elemTyp)
 
             | Expr.MkRecord x ->
                 for f in x.fields do
@@ -680,8 +679,8 @@ module TypeSystem =
                     x.fields
                     |> List.sortBy _.fname
                     |> List.map (fun f -> f.fname, TVar f.value.TVar)
-                appendConstraint expr x.tvar (TDef.RecordWith fields)
-                
+                appendConstraint x.tvar (TDef.RecordWith fields)
+
             | Expr.Match x ->
                 match x.cases with
                 | [] -> failwith $"Match expression must have at least one case."
@@ -696,36 +695,36 @@ module TypeSystem =
                             c.body
 
                         // the type of the case body must be the same as the type of the value expr
-                        appendConstraint expr c.body.TVar (TVar firstCase.body.TVar)
+                        appendConstraint c.body.TVar (TVar firstCase.body.TVar)
 
-                    appendConstraint expr x.tvar (TVar firstCase.body.TVar)
+                    appendConstraint x.tvar (TVar firstCase.body.TVar)
 
                 generateConstraints env x.expr
                 
                 // match is exhaustive:
                 // the type of the value expr that gets matched is a union type of all cases
-                appendConstraint expr x.expr.TVar (TDef.DiscriminatedUnionWith NameHint.Anonymous [ for c in x.cases -> c.disc, None ])
+                appendConstraint x.expr.TVar (TDef.DiscriminatedUnionWith NameHint.Anonymous [ for c in x.cases -> c.disc, None ])
 
         do generateConstraints env expr
 
         constraints.Values, exprToEnv, recordRefs.Values
 
-    let finalizeSolution (solution: MSolutionItem list) (recordRefs: RecordRefs) =
-        let rec substRecordRefInSolution solution remainingRecordRefs =
+    let finalizeSubstitutions (substitutions: MonoSubstitution list) (recordRefs: RecordRefs) =
+        let rec substRecordRefInSubstitutions substitutions remainingRecordRefs =
             match remainingRecordRefs with
-            | [] -> solution
+            | [] -> substitutions
             | (recref, fields) :: remainingRecordRefs ->
-                let rec substRecordRefInSolutionItem solution =
-                    match solution with
+                let rec substRecordRefInSubstitution substitutions =
+                    match substitutions with
                     | [] -> []
-                    | s :: solution ->
+                    | s :: substitutions ->
                         let recordInfo = { nameHint = NameHint.Given $"RECORD_{recref}"; fields = fields }
                         let substTyp = substTypWithTypInTyp (SubstThis (RecordRefTyp recref)) (SubstWith (RecordTyp recordInfo)) (SubstIn s.monoTyp)
-                        { s with monoTyp = substTyp } :: substRecordRefInSolutionItem solution
-                substRecordRefInSolution (substRecordRefInSolutionItem solution) remainingRecordRefs
+                        { s with monoTyp = substTyp } :: substRecordRefInSubstitution substitutions
+                substRecordRefInSubstitutions (substRecordRefInSubstitution substitutions) remainingRecordRefs
         [
             // TODO: Again, we need a kind-of "FinylTyp"
-            let noMoreRecordRefsHere = substRecordRefInSolution solution (Map.toList recordRefs)
+            let noMoreRecordRefsHere = substRecordRefInSubstitutions substitutions (Map.toList recordRefs)
             for s in noMoreRecordRefsHere do
                 { tvar = s.tvar; typ = Typ.gen s.monoTyp } 
         ]
@@ -736,12 +735,12 @@ module TypeSystem =
         let rec solve
             (constraints: Constraint list)
             (recordRefs: RecordRefs)
-            (solutionItems: MSolutionItem list)
+            (substitutions: MonoSubstitution list)
             =
             do
-                let solution =
+                let substitutions =
                     [
-                        for msi in solutionItems do
+                        for msi in substitutions do
                             { tvar = msi.tvar; typ = Mono msi.monoTyp }
                     ]
                 let solverRun = 
@@ -749,7 +748,7 @@ module TypeSystem =
                         cycle = solverRuns.Count
                         constraints = constraints
                         recordRefs = recordRefs
-                        solution = solution
+                        substitutions = substitutions
                     }
                 solverRuns.Add(solverRun)
 
@@ -761,10 +760,10 @@ module TypeSystem =
 
             if continueSolve then
                 match constraints with
-                | [] -> solutionItems,recordRefs
+                | [] -> substitutions,recordRefs
                 | c :: constraints ->
                     let mutable constraints = constraints
-                    let mutable solutionItems = solutionItems
+                    let mutable substitutions = substitutions
                     let nextConstraints = Mutable.fifo None
                     let recordRefs = Mutable.oneToMany (Some recordRefs)
 
@@ -849,7 +848,7 @@ module TypeSystem =
                             do recordRefs.Replace(recref2, mergedFields)
 
                             // Now, we also have to reset all references currently pointing to recref1 so that they point to recref2
-                            // in all constraints and solutions
+                            // in all constraints and Substitutions
                             do constraints <-
                                 [
                                     for c in constraints do
@@ -859,9 +858,9 @@ module TypeSystem =
                                             t2 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t2)
                                         }
                                 ]
-                            do solutionItems <-
+                            do substitutions <-
                                 [
-                                    for s in solutionItems do
+                                    for s in substitutions do
                                         {
                                             tvar = s.tvar
                                             monoTyp = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn s.monoTyp)
@@ -881,8 +880,8 @@ module TypeSystem =
                     match c.t1, c.t2 with
                     | TVar left, right ->
                         // replace tvar with t in all other constraints
-                        // replace tvar with t in all solutions
-                        // add a new solution to solutions
+                        // replace tvar with t in all substitutions
+                        // add a new substitution to substitutions
                         // continue to solve
                         for c in constraints do
                             do nextConstraints.Append
@@ -900,10 +899,10 @@ module TypeSystem =
                                 ]
                             do recordRefs.Replace(r.Key, newFields)
 
-                        do solutionItems <-
+                        do substitutions <-
                             [
                                 { tvar = left; monoTyp = right }
-                                for s in solutionItems do
+                                for s in substitutions do
                                     {
                                         tvar = s.tvar
                                         monoTyp = substVarWithTypInTyp left (SubstWith right) (SubstIn s.monoTyp)
@@ -919,21 +918,21 @@ module TypeSystem =
                             do nextConstraints.Append(c)
                         for r in recordRefs.Values do
                             do recordRefs.Replace(r.Key, r.Value)
-                        do solutionItems <- solutionItems
+                        do substitutions <- substitutions
 
-                    solve nextConstraints.Values recordRefs.Values solutionItems
+                    solve nextConstraints.Values recordRefs.Values substitutions
             else
-                solutionItems,recordRefs
+                substitutions,recordRefs
     
-        let solution =
+        let substitutions =
             try
-                let solutionItems,recordRefs = solve constraints recordRefs []
-                Ok (finalizeSolution solutionItems recordRefs)
+                let substitutions,recordRefs = solve constraints recordRefs []
+                Ok (finalizeSubstitutions substitutions recordRefs)
             with ex ->
                 Error ex.Message
 
         {|
-            solution = solution
+            substitutions = substitutions
             solverRuns = [ yield! solverRuns ]
         |}
 
@@ -941,13 +940,13 @@ module TypeSystem =
 [<RequireQualifiedAccess>]
 module Solver =
 
-    type SolverResult =
+    type Solution =
         {
             numberedExpr: Expr<VarNum>
-            finalResult:
+            result:
                 Result<
                     {|
-                        solution: TypeSystem.SolutionItem list
+                        substitutions: TypeSystem.Substitution list
                         typ: Typ option
                     |},
                     string
@@ -987,7 +986,7 @@ module Solver =
                         | FunTyp (t1, t2) -> 
                             FunTyp (reindexMono t1, reindexMono t2)
                         | RecordRefTyp _ ->
-                            failwith "Record references should not appear in the external environment (see that 'FinalTyp' comments somewhere)."
+                            failwith "Record references should not appear in the external context (see that 'FinalTyp' comments somewhere)."
                         | IntersectionTyp records -> 
                             IntersectionTyp [ for r in records do reindexRecord r ]
                         | RecordTyp record ->
@@ -1006,14 +1005,14 @@ module Solver =
 
         {
             numberedExpr = expr
-            finalResult =
-                match sr.solution with
-                | Ok solution ->
+            result =
+                match sr.substitutions with
+                | Ok substitutions ->
                     Ok {|
-                        solution = solution
+                        substitutions = substitutions
                         // we can have limited solver runs; so the result is partial
                         typ = 
-                            solution 
+                            substitutions 
                             |> List.tryFind (fun s -> s.tvar = expr.TVar) 
                             |> Option.map (fun x -> x.typ)
                     |}

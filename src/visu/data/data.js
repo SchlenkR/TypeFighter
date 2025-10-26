@@ -1226,12 +1226,12 @@ window.solverRuns = [
     ],
     "solutions": [
       {
-        "t1": "tv_2",
-        "t2": "tv_0"
-      },
-      {
         "t1": "tv_1",
         "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
       }
     ],
     "recordRefs": [],
@@ -1262,12 +1262,12 @@ window.solverRuns = [
     ],
     "solutions": [
       {
-        "t1": "tv_2",
-        "t2": "tv_0"
-      },
-      {
         "t1": "tv_1",
         "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "tv_0"
       }
     ],
     "recordRefs": [],
@@ -1298,12 +1298,12 @@ window.solverRuns = [
         "t2": "Number"
       },
       {
-        "t1": "tv_2",
-        "t2": "Number"
-      },
-      {
         "t1": "tv_1",
         "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_2",
+        "t2": "Number"
       }
     ],
     "recordRefs": [],
@@ -1326,20 +1326,20 @@ window.solverRuns = [
     ],
     "solutions": [
       {
-        "t1": "tv_3",
-        "t2": "Bool"
-      },
-      {
         "t1": "tv_0",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
       },
       {
         "t1": "tv_2",
         "t2": "Number"
       },
       {
-        "t1": "tv_1",
-        "t2": "(Number -\u003E Bool)"
+        "t1": "tv_3",
+        "t2": "Bool"
       }
     ],
     "recordRefs": [],
@@ -1358,23 +1358,23 @@ window.solverRuns = [
     ],
     "solutions": [
       {
-        "t1": "tv_4",
-        "t2": "(Number -\u003E Bool)"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "Bool"
-      },
-      {
         "t1": "tv_0",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
       },
       {
         "t1": "tv_2",
         "t2": "Number"
       },
       {
-        "t1": "tv_1",
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
         "t2": "(Number -\u003E Bool)"
       }
     ],
@@ -1390,28 +1390,28 @@ window.solverRuns = [
     ],
     "solutions": [
       {
-        "t1": "tv_5",
-        "t2": "Number"
-      },
-      {
-        "t1": "tv_4",
-        "t2": "(Number -\u003E Bool)"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "Bool"
-      },
-      {
         "t1": "tv_0",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
       },
       {
         "t1": "tv_2",
         "t2": "Number"
       },
       {
-        "t1": "tv_1",
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
         "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
       }
     ],
     "recordRefs": [],
@@ -1426,28 +1426,28 @@ window.solverRuns = [
     ],
     "solutions": [
       {
-        "t1": "tv_5",
-        "t2": "Number"
-      },
-      {
-        "t1": "tv_4",
-        "t2": "(Number -\u003E Bool)"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "Bool"
-      },
-      {
         "t1": "tv_0",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
       },
       {
         "t1": "tv_2",
         "t2": "Number"
       },
       {
-        "t1": "tv_1",
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
         "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
       }
     ],
     "recordRefs": [],
@@ -1457,32 +1457,32 @@ window.solverRuns = [
     "constraints": [],
     "solutions": [
       {
-        "t1": "tv_6",
-        "t2": "Bool"
-      },
-      {
-        "t1": "tv_5",
-        "t2": "Number"
-      },
-      {
-        "t1": "tv_4",
-        "t2": "(Number -\u003E Bool)"
-      },
-      {
-        "t1": "tv_3",
-        "t2": "Bool"
-      },
-      {
         "t1": "tv_0",
         "t2": "Number"
+      },
+      {
+        "t1": "tv_1",
+        "t2": "(Number -\u003E Bool)"
       },
       {
         "t1": "tv_2",
         "t2": "Number"
       },
       {
-        "t1": "tv_1",
+        "t1": "tv_3",
+        "t2": "Bool"
+      },
+      {
+        "t1": "tv_4",
         "t2": "(Number -\u003E Bool)"
+      },
+      {
+        "t1": "tv_5",
+        "t2": "Number"
+      },
+      {
+        "t1": "tv_6",
+        "t2": "Bool"
       }
     ],
     "recordRefs": [],

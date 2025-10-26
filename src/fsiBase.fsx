@@ -35,7 +35,7 @@ module SolverRunPrinter =
             ]
         let solutions = 
             [
-                for solutionItem in sr.solution do 
+                for solutionItem in sr.substitutions do 
                     {| 
                         t1 = (TVar solutionItem.tvar).ToString()
                         t2 = solutionItem.typ.ToString()
@@ -115,7 +115,7 @@ module Visu =
 
     let createJsNode
         (root: Expr<VarNum>)
-        (solution: TypeSystem.SolutionItem list)
+        (substitutions: TypeSystem.Substitution list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
         =
         // let rootEnv =
@@ -126,7 +126,7 @@ module Visu =
 
         let rec createNodes (expr: Expr<_>) =
             let tryGetExprTyp tvar =
-                solution 
+                substitutions 
                 |> List.tryFind (fun s -> s.tvar = tvar)
                 |> Option.map (_.typ.ToString())
             let getExprTyp tvar =
@@ -227,18 +227,18 @@ window.solverRuns = {solverRuns};
 
     let writeNumberedAst
         (root: Expr<VarNum>)
-        (solution: TypeSystem.SolutionItem list)
+        (substitutions: TypeSystem.Substitution list)
         (exprToEnv: Map<Expr<VarNum>, Env>)
         =
-        createJsNode root solution exprToEnv
+        createJsNode root substitutions exprToEnv
         |> fun node -> node, { constraints = []; solutions = []; recordRefs = []; error = None }
         |> List.singleton
         |> writeVisuData
 
-    let writeSolverRuns (solverResult: Solver.SolverResult) =
-        solverResult.solverRuns
+    let writeSolverRuns (solution: Solver.Solution) =
+        solution.solverRuns
         |> List.map (fun sr ->
-            let node = createJsNode solverResult.numberedExpr sr.solution solverResult.exprToEnv
+            let node = createJsNode solution.numberedExpr sr.substitutions solution.exprToEnv
             let jsSolverRun =
                 {
                     constraints =
@@ -249,7 +249,8 @@ window.solverRuns = {solverRuns};
                                 t2 = c.t2.ToString()
                             })
                     solutions =
-                        sr.solution
+                        sr.substitutions
+                        |> List.sortBy (fun s -> s.tvar)
                         |> List.map (fun s ->
                             {
                                 t1 = (TVar s.tvar).ToString()
@@ -271,7 +272,7 @@ window.solverRuns = {solverRuns};
                                         |})
                             })
                     error =
-                        match solverResult.finalResult with
+                        match solution.result with
                         | Ok _ -> None
                         | Error err -> Some err
                 }
