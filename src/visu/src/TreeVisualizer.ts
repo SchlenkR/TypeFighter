@@ -64,6 +64,7 @@ export class TreeVisualizer {
   private allRuns: JsNode[] = [];
   private currentRunIndex: number = 0;
   private selectedTVarName: string | null = null;
+  private maxVisibleConstraints: number | null = null; // null means "all"
 
   private addTVarHighlighting(element: HTMLElement) {
     element.addEventListener('mouseover', (event) => {
@@ -686,6 +687,37 @@ export class TreeVisualizer {
     }
   }
 
+  setMaxVisibleConstraints(max: number | null): void {
+    console.log('setMaxVisibleConstraints called with:', max);
+    this.maxVisibleConstraints = max;
+    this.updateConstraintsVisibility();
+  }
+
+  getMaxVisibleConstraints(): number | null {
+    return this.maxVisibleConstraints;
+  }
+
+  private updateConstraintsVisibility(): void {
+    const constraintElements = this.envPanelConstraintsEl.children;
+    
+    console.log('updateConstraintsVisibility - total elements:', constraintElements.length, 'max visible:', this.maxVisibleConstraints);
+    
+    for (let i = 0; i < constraintElements.length; i++) {
+      const element = constraintElements[i] as HTMLElement;
+      if (this.maxVisibleConstraints === null || i < this.maxVisibleConstraints) {
+        element.classList.remove('constraint-hidden');
+        console.log('  Showing constraint', i);
+      } else {
+        element.classList.add('constraint-hidden');
+        console.log('  Hiding constraint', i);
+      }
+    }
+  }
+
+  getTotalConstraintsCount(): number {
+    return this.envPanelConstraintsEl.children.length;
+  }
+
   toggleTVarsVisibility(visible: boolean): void {
     // Only target tvars within AST nodes, not in panels
     const tvars = Array.from(this.contentLayer.querySelectorAll('.node .tvar'));
@@ -825,6 +857,9 @@ export class TreeVisualizer {
           this.envPanelConstraintsEl.appendChild(line);
         });
         this.envPanelConstraintsEl.classList.remove('env-panel-placeholder-text');
+        
+        // Apply visibility restrictions
+        this.updateConstraintsVisibility();
       } else {
         this.envPanelConstraintsEl.textContent = '\u00a0';
         this.envPanelConstraintsEl.classList.add('env-panel-placeholder-text');

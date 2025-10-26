@@ -191,6 +191,64 @@
         user-select: none;
       }
 
+      .constraint-visibility-control {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+
+      .constraint-visibility-control label {
+        font-size: 13px;
+        color: #1a1a1a;
+        font-weight: 500;
+      }
+
+      .constraint-visibility-buttons {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .constraint-button {
+        border: 1px solid #b6beca;
+        background: #ffffff;
+        border-radius: 3px;
+        padding: 4px 10px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+        min-width: 32px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .constraint-button:hover:not(:disabled) {
+        background: #edf2ff;
+        border-color: #4a6fa5;
+      }
+
+      .constraint-button:disabled {
+        background: #f0f0f0;
+        border-color: #d0d0d0;
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      #constraint-count-display {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1a1a;
+        min-width: 40px;
+        text-align: center;
+      }
+
+      .constraint-hidden {
+        visibility: hidden !important;
+      }
+
       .control-textarea-container {
         margin-top: 16px;
         display: flex;
@@ -927,6 +985,15 @@
           <div class="control-item">
             <input type="checkbox" id="show-tvars-toggle" autocomplete="off" checked />
             <label for="show-tvars-toggle">Show tvars</label>
+          </div>
+          
+          <div class="control-item constraint-visibility-control">
+            <label for="constraint-visibility-count">Max Constraints:</label>
+            <div class="constraint-visibility-buttons">
+              <button id="constraint-down-button" class="constraint-button">-</button>
+              <span id="constraint-count-display">All</span>
+              <button id="constraint-up-button" class="constraint-button">+</button>
+            </div>
           </div>
           
           <div class="control-textarea-container">

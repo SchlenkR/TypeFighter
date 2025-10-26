@@ -36,7 +36,6 @@ type MonoTyp =
     | IntersectionTyp of RecordDefinition list
     | RecordRefTyp of int
     | DiscriminatedUnionTyp of DiscriminatedUnionDefinition
-    | InEnv of string
     override this.ToString() = ShowTyp.Show(this)
 
 and PolyTyp =
@@ -544,6 +543,7 @@ module TypeSystem =
     let generateConstraints (env: Env) (expr: Expr<VarNum>) newVar =
         let constraints = Mutable.fifo None
         let appendConstraint (triviaSource: Expr<VarNum>) (tvar: VarNum) (typ: MonoTyp) =
+            printfn $"For expr {triviaSource}, appending constraint: {TVar tvar} := {typ}"
             do constraints.Append({ triviaSource = triviaSource; t1 = TVar tvar; t2 = typ })
 
         let recordRefs = Mutable.oneToMany None
