@@ -194,19 +194,19 @@ and ShowExpr =
                 | None -> $""
             $"    | {c.disc} {binding}-> {c.body}"
         match expr with
-        | Expr.Lit x -> $"Lit {x.value}"
-        | Expr.Var x -> $"Var {x.ident}"
-        | Expr.App x -> $"App {x.func} ..."
-        | Expr.Fun x -> $"Fun {printIdent x.ident} -> (... {x.body.TVar})"
-        | Expr.Let x -> $"Let {printIdent x.ident} = ({x.value}) in {x.body}"
-        | Expr.Do x -> $"Do {x.action} {x.body}"
+        | Expr.Lit x -> $"LIT := {x.value}"
+        | Expr.Var x -> $"VAR := {x.ident}"
+        | Expr.App x -> $"APP := ({x.func}) ({x.arg})"
+        | Expr.Fun x -> $"FUN := ({printIdent x.ident}) => ... {x.body.TVar}"
+        | Expr.Let x -> $"LET := {printIdent x.ident} = {x.value}) in {x.body}"
+        | Expr.Do x -> $"DO := {x.action} {x.body}"
         | Expr.Match x ->
             let caseNames = [ for x in x.cases -> printUnionCase x ] |> String.concat " | "
             $"Match {x.expr} with | {caseNames})"
         | Expr.PropAcc x -> $"PropAcc {x.source}.{x.ident}"
         | Expr.MkArray x ->
             let values = [ for x in x.values -> ShowExpr.Expr x ] |> String.concat "; "
-            $"MkArray [ {values} ]"
+            $"MkARRAY := [ {values} ]"
         | Expr.MkRecord x ->
             let fieldNames = 
                 x.fields 

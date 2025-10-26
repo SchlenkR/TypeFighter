@@ -66,6 +66,7 @@ export class TreeVisualizer {
   private currentRunIndex: number = 0;
   private selectedTVarName: string | null = null;
   private maxVisibleConstraints: number | null = null; // null means "all"
+  private hiddenConstraintIndices: number[] = []; // Indices of constraints to hide
 
   private addTVarHighlighting(element: HTMLElement) {
     element.addEventListener('mouseover', (event) => {
@@ -346,7 +347,7 @@ export class TreeVisualizer {
       const deltaY = e.clientY - startY;
 
       const newWidth = Math.max(300, startWidth + deltaX);
-      const newHeight = Math.max(200, startHeight + deltaY);
+      const newHeight = Math.max(40, startHeight + deltaY);
 
       panel.style.width = `${newWidth}px`;
       panel.style.height = `${newHeight}px`;
@@ -461,7 +462,7 @@ export class TreeVisualizer {
       
       const row = document.createElement('div');
       row.style.display = 'grid';
-      row.style.gridTemplateColumns = '1fr auto 1fr';
+      row.style.gridTemplateColumns = '2fr auto 1fr';
       row.style.columnGap = '10px';
       row.style.alignItems = 'baseline';
       row.style.marginBottom = '2px';
@@ -469,11 +470,13 @@ export class TreeVisualizer {
       
       const parts = line.split(':::');
       
-      // Left column (expression) - left aligned
+      // Left column (expression) - left aligned, with overflow cut
       const leftCol = document.createElement('span');
       leftCol.style.textAlign = 'left';
       leftCol.style.whiteSpace = 'nowrap';
       leftCol.style.justifySelf = 'start';
+      leftCol.style.overflow = 'hidden';
+      leftCol.style.textOverflow = 'ellipsis';
       leftCol.textContent = parts[0]?.trim() || '';
       row.appendChild(leftCol);
       
@@ -485,11 +488,13 @@ export class TreeVisualizer {
       separator.textContent = '';
       row.appendChild(separator);
       
-      // Right column (type assignment) - left aligned
+      // Right column (type assignment) - left aligned, with overflow cut
       const rightCol = document.createElement('span');
       rightCol.style.textAlign = 'left';
       rightCol.style.whiteSpace = 'nowrap';
       rightCol.style.justifySelf = 'start';
+      rightCol.style.overflow = 'hidden';
+      rightCol.style.textOverflow = 'ellipsis';
       rightCol.textContent = parts[1]?.trim() || '';
       row.appendChild(rightCol);
       
@@ -798,12 +803,21 @@ export class TreeVisualizer {
     return this.maxVisibleConstraints;
   }
 
+  setHiddenConstraintIndices(indices: number[]): void {
+    this.hiddenConstraintIndices = indices;
+    this.updateConstraintsVisibility();
+  }
+
   private updateConstraintsVisibility(): void {
     const constraintElements = this.envPanelConstraintsEl.children;
     
     for (let i = 0; i < constraintElements.length; i++) {
       const element = constraintElements[i] as HTMLElement;
-      if (this.maxVisibleConstraints === null || i < this.maxVisibleConstraints) {
+      
+      // Hide if index is in the hidden list
+      if (this.hiddenConstraintIndices.includes(i)) {
+        element.classList.add('constraint-hidden');
+      } else if (this.maxVisibleConstraints === null || i < this.maxVisibleConstraints) {
         element.classList.remove('constraint-hidden');
       } else {
         element.classList.add('constraint-hidden');

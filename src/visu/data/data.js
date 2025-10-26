@@ -1489,5 +1489,5 @@ window.solverRuns = [
     "error": null
   }
 ];
-window.trace = "Var isPositive    :::     tv_1 := (Number -\u003E Bool)\nVar x    :::     tv_2 := tv_0\nApp Var isPositive ...    :::     tv_1 := (tv_2 -\u003E tv_3)\nFun x -\u003E (... tv_3)    :::     tv_4 := (tv_0 -\u003E tv_3)\nLit Number 42.0    :::     tv_5 := Number\nApp Fun x -\u003E (... tv_3) ...    :::     tv_4 := (tv_5 -\u003E tv_6)\n";
+window.trace = "VAR := isPositive    :::     tv_1 := (Number -\u003E Bool)\nVAR := x    :::     tv_2 := tv_0\nAPP := (VAR := isPositive) (VAR := x)    :::     tv_1 := (tv_2 -\u003E tv_3)\nFUN := (x) =\u003E ... tv_3    :::     tv_4 := (tv_0 -\u003E tv_3)\nLIT := Number 42.0    :::     tv_5 := Number\nAPP := (FUN := (x) =\u003E ... tv_3) (LIT := Number 42.0)    :::     tv_4 := (tv_5 -\u003E tv_6)\n";
         

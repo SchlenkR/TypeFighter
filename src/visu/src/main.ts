@@ -7,7 +7,6 @@ import GIF from 'gif.js';
 let treeViz: TreeVisualizer;
 let runButtons: HTMLButtonElement[] = [];
 let currentRunIndex = 0;
-let constraintControlsUpdateCallback: (() => void) | null = null;
 
 function getRunLabel(jsNode: JsNode, index: number): string {
   // Just use the number (1-indexed)
@@ -44,9 +43,20 @@ function selectRun(index: number): void {
     treeViz.toggleSelectFirstTVar(true);
   }
 
-  // Update constraint controls if callback is set
-  if (constraintControlsUpdateCallback) {
-    setTimeout(() => constraintControlsUpdateCallback!(), 50);
+  // Re-apply constraint hiding after run change
+  const constraintHideInput = document.getElementById('constraint-hide-input') as HTMLInputElement;
+  if (constraintHideInput && treeViz) {
+    const text = constraintHideInput.value.trim();
+    if (text !== '') {
+      const indices = text
+        .split(/[\s,]+/)
+        .map(s => s.trim())
+        .filter(s => s !== '')
+        .map(s => parseInt(s, 10))
+        .filter(n => !isNaN(n) && n >= 0);
+      
+      setTimeout(() => treeViz.setHiddenConstraintIndices(indices), 50);
+    }
   }
 }
 
@@ -198,109 +208,30 @@ function setupControlPanel(): void {
     });
   }
 
-  // Wire up constraint visibility controls
-  const constraintUpButton = document.getElementById('constraint-up-button') as HTMLButtonElement;
-  const constraintDownButton = document.getElementById('constraint-down-button') as HTMLButtonElement;
-  const constraintCountDisplay = document.getElementById('constraint-count-display') as HTMLSpanElement;
+  // Wire up constraint visibility control with text input
+  const constraintHideInput = document.getElementById('constraint-hide-input') as HTMLInputElement;
 
-  console.log('Constraint controls:', { constraintUpButton, constraintDownButton, constraintCountDisplay });
-
-  function updateConstraintControls(): void {
-    if (!treeViz) return;
-    
-    const maxVisible = treeViz.getMaxVisibleConstraints();
-    const totalCount = treeViz.getTotalConstraintsCount();
-    
-    console.log('Updating constraint controls:', { maxVisible, totalCount });
-    
-    // Update display text
-    if (maxVisible === null) {
-      if (constraintCountDisplay) {
-        constraintCountDisplay.textContent = 'All';
-      }
-    } else {
-      if (constraintCountDisplay) {
-        constraintCountDisplay.textContent = maxVisible.toString();
-      }
-    }
-    
-    // Enable/disable buttons
-    if (constraintDownButton) {
-      // Down button is disabled only when we're at 1 constraint (can't go lower)
-      constraintDownButton.disabled = maxVisible !== null && maxVisible <= 1;
-    }
-    
-    if (constraintUpButton) {
-      // Up button is disabled only when we're showing all
-      constraintUpButton.disabled = maxVisible === null || maxVisible >= totalCount;
-    }
-  }
-
-  // Set the callback so selectRun can update controls
-  constraintControlsUpdateCallback = updateConstraintControls;
-
-  if (constraintUpButton) {
-    constraintUpButton.addEventListener('click', () => {
-      console.log('Up button clicked');
+  if (constraintHideInput) {
+    constraintHideInput.addEventListener('input', () => {
       if (!treeViz) return;
       
-      const current = treeViz.getMaxVisibleConstraints();
-      const totalCount = treeViz.getTotalConstraintsCount();
-      
-      console.log('Up button - current:', current, 'total:', totalCount);
-      
-      if (current === null) {
-        // Already showing all, do nothing
-        console.log('Already showing all');
-        return;
-      }
-      
-      const newMax = current + 1;
-      if (newMax >= totalCount) {
-        // Show all
-        console.log('Setting to show all');
-        treeViz.setMaxVisibleConstraints(null);
+      const text = constraintHideInput.value.trim();
+      if (text === '') {
+        // Show all constraints
+        treeViz.setHiddenConstraintIndices([]);
       } else {
-        console.log('Setting to', newMax);
-        treeViz.setMaxVisibleConstraints(newMax);
+        // Parse the input: split by space or comma, convert to numbers
+        const indices = text
+          .split(/[\s,]+/)
+          .map(s => s.trim())
+          .filter(s => s !== '')
+          .map(s => parseInt(s, 10))
+          .filter(n => !isNaN(n) && n >= 0);
+        
+        treeViz.setHiddenConstraintIndices(indices);
       }
-      
-      updateConstraintControls();
     });
   }
-
-  if (constraintDownButton) {
-    constraintDownButton.addEventListener('click', () => {
-      console.log('Down button clicked');
-      if (!treeViz) return;
-      
-      const current = treeViz.getMaxVisibleConstraints();
-      const totalCount = treeViz.getTotalConstraintsCount();
-      
-      console.log('Down button - current:', current, 'total:', totalCount);
-      
-      if (current === null) {
-        // Currently showing all, set to total - 1
-        if (totalCount > 1) {
-          console.log('Setting from all to', totalCount - 1);
-          treeViz.setMaxVisibleConstraints(totalCount - 1);
-        } else if (totalCount === 1) {
-          console.log('Setting to 1 (only one constraint)');
-          treeViz.setMaxVisibleConstraints(1);
-        }
-      } else if (current > 1) {
-        console.log('Setting to', current - 1);
-        treeViz.setMaxVisibleConstraints(current - 1);
-      } else {
-        console.log('Already at minimum (1)');
-      }
-      
-      updateConstraintControls();
-    });
-  }
-
-  // Initial update
-  setTimeout(() => updateConstraintControls(), 100);
 
   // Wire up control panel textarea to update input panel
   const controlInputTextarea = document.getElementById('control-code-text') as HTMLTextAreaElement;
