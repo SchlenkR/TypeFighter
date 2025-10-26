@@ -129,8 +129,6 @@ module Visu =
                 substitutions 
                 |> List.tryFind (fun s -> s.tvar = tvar)
                 |> Option.map (_.typ.ToString())
-            let getExprTyp tvar =
-                tryGetExprTyp tvar |> Option.defaultValue ""
             let getIdentDetails (ident: Ident<_>) =
                 let typ = tryGetExprTyp ident.tvar |> Option.defaultValue ""
                 $"{ident.identName}: {ident.tvar}"
@@ -142,9 +140,17 @@ module Visu =
                     |> Seq.map (fun kvp -> 
                         match kvp.Value with 
                         | EnvItem.External t -> 
-                            { ident = kvp.Key; solvedTyp = t.ToString(); origin = "EXTERNAL" }
+                            { 
+                                ident = kvp.Key
+                                solvedTyp = t.ToString()
+                                origin = "EXTERNAL"
+                            }
                         | EnvItem.Internal t ->
-                            { ident = kvp.Key; solvedTyp = getExprTyp t; origin = t.ToString() }
+                            { 
+                                ident = kvp.Key
+                                solvedTyp = tryGetExprTyp t |> Option.defaultValue $"{t}"
+                                origin = t.ToString()
+                            }
                     )
                     |> Seq.toList)
                 |> Option.defaultValue []
@@ -156,7 +162,7 @@ module Visu =
                         varNum = let (VarNum x) = expr.TVar in x
                         code = code
                         additionalInfo = additionalInfo
-                        exprTyp = getExprTyp expr.TVar
+                        exprTyp = tryGetExprTyp expr.TVar |> Option.defaultValue ""
                         env = env
                         children = children
                     }

@@ -482,7 +482,7 @@ export class TreeVisualizer {
 
     const envSectionTitle = document.createElement('div');
     envSectionTitle.className = 'env-panel-section-title';
-    envSectionTitle.textContent = 'CONTEXT (ENVIRONMENT):';
+    envSectionTitle.textContent = 'VARIABLES-ENVIRONMENT:';
     envSection.appendChild(envSectionTitle);
 
     const envContent = document.createElement('div');

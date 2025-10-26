@@ -23,6 +23,12 @@ X.App
 
 
 
+(*
+    (x) => x
+*)
+X.Fun (X.Ident "x") (X.Var "x")
+|> solve [] None
+
 
 
 (*

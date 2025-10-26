@@ -45,7 +45,7 @@ window.treesForSolverRuns = [
               },
               {
                 "ident": "x",
-                "solvedTyp": "",
+                "solvedTyp": "tv_0",
                 "origin": "tv_0"
               }
             ],
@@ -65,7 +65,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -86,7 +86,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -159,7 +159,7 @@ window.treesForSolverRuns = [
               },
               {
                 "ident": "x",
-                "solvedTyp": "",
+                "solvedTyp": "tv_0",
                 "origin": "tv_0"
               }
             ],
@@ -179,7 +179,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -200,7 +200,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -273,7 +273,7 @@ window.treesForSolverRuns = [
               },
               {
                 "ident": "x",
-                "solvedTyp": "",
+                "solvedTyp": "tv_0",
                 "origin": "tv_0"
               }
             ],
@@ -293,7 +293,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -314,7 +314,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -387,7 +387,7 @@ window.treesForSolverRuns = [
               },
               {
                 "ident": "x",
-                "solvedTyp": "",
+                "solvedTyp": "tv_0",
                 "origin": "tv_0"
               }
             ],
@@ -407,7 +407,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
@@ -428,7 +428,7 @@ window.treesForSolverRuns = [
                   },
                   {
                     "ident": "x",
-                    "solvedTyp": "",
+                    "solvedTyp": "tv_0",
                     "origin": "tv_0"
                   }
                 ],
