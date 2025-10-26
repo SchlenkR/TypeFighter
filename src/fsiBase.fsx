@@ -149,7 +149,7 @@ module Visu =
                             { 
                                 ident = kvp.Key
                                 solvedTyp = tryGetExprTyp t |> Option.defaultValue $"{t}"
-                                origin = t.ToString()
+                                origin = ""
                             }
                     )
                     |> Seq.toList)
