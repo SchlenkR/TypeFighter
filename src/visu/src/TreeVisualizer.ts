@@ -688,7 +688,6 @@ export class TreeVisualizer {
   }
 
   setMaxVisibleConstraints(max: number | null): void {
-    console.log('setMaxVisibleConstraints called with:', max);
     this.maxVisibleConstraints = max;
     this.updateConstraintsVisibility();
   }
@@ -700,16 +699,12 @@ export class TreeVisualizer {
   private updateConstraintsVisibility(): void {
     const constraintElements = this.envPanelConstraintsEl.children;
     
-    console.log('updateConstraintsVisibility - total elements:', constraintElements.length, 'max visible:', this.maxVisibleConstraints);
-    
     for (let i = 0; i < constraintElements.length; i++) {
       const element = constraintElements[i] as HTMLElement;
       if (this.maxVisibleConstraints === null || i < this.maxVisibleConstraints) {
         element.classList.remove('constraint-hidden');
-        console.log('  Showing constraint', i);
       } else {
         element.classList.add('constraint-hidden');
-        console.log('  Hiding constraint', i);
       }
     }
   }
@@ -857,9 +852,6 @@ export class TreeVisualizer {
           this.envPanelConstraintsEl.appendChild(line);
         });
         this.envPanelConstraintsEl.classList.remove('env-panel-placeholder-text');
-        
-        // Apply visibility restrictions
-        this.updateConstraintsVisibility();
       } else {
         this.envPanelConstraintsEl.textContent = '\u00a0';
         this.envPanelConstraintsEl.classList.add('env-panel-placeholder-text');
