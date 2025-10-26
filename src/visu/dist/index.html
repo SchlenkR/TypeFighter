@@ -59,22 +59,22 @@
 
       #run-buttons {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
         align-content: start;
       }
 
       .run-button {
         border: 1px solid #b6beca;
         background: #ffffff;
-        border-radius: 4px;
-        padding: 4px 6px;
-        font-size: 12px;
+        border-radius: 3px;
+        padding: 2px 4px;
+        font-size: 11px;
         text-align: center;
         cursor: pointer;
         transition: background-color 0.2s ease, border-color 0.2s ease,
           color 0.2s ease;
-        height: 32px;
+        height: 26px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -96,6 +96,35 @@
         display: inline-block;
         border: 2px solid transparent;
         border-radius: 3px;
+        transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.2s ease;
+        transform-origin: center;
+      }
+
+      .tvar.hidden {
+        visibility: hidden;
+        opacity: 0;
+        transform: scale(0);
+      }
+
+      .tvar.pop-in {
+        animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      }
+
+      @keyframes popIn {
+        0% {
+          visibility: visible;
+          transform: scale(0);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.3);
+          opacity: 1;
+        }
+        100% {
+          visibility: visible;
+          transform: scale(1);
+          opacity: 1;
+        }
       }
 
       .tvar.highlight,
@@ -105,7 +134,8 @@
         background-color: #e0e0e0;
       }
 
-      .first-constraint-left.highlight .tvar {
+      .first-constraint-left .tvar,
+      .first-constraint-left .tvar.highlight {
         background-color: #37f188 !important;
         border: 2px solid #4a6fa5 !important;
       }
@@ -159,6 +189,64 @@
         color: #1a1a1a;
         cursor: pointer;
         user-select: none;
+      }
+
+      .constraint-visibility-control {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+
+      .constraint-visibility-control label {
+        font-size: 13px;
+        color: #1a1a1a;
+        font-weight: 500;
+      }
+
+      .constraint-visibility-buttons {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .constraint-button {
+        border: 1px solid #b6beca;
+        background: #ffffff;
+        border-radius: 3px;
+        padding: 4px 10px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+        min-width: 32px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .constraint-button:hover:not(:disabled) {
+        background: #edf2ff;
+        border-color: #4a6fa5;
+      }
+
+      .constraint-button:disabled {
+        background: #f0f0f0;
+        border-color: #d0d0d0;
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      #constraint-count-display {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1a1a;
+        min-width: 40px;
+        text-align: center;
+      }
+
+      .constraint-hidden {
+        visibility: hidden !important;
       }
 
       .control-textarea-container {
@@ -258,6 +346,131 @@
         background: #b6beca;
         border-color: #b6beca;
         cursor: not-allowed;
+      }
+
+      .screenshot-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #d0d7de;
+      }
+
+      .screenshot-section h2 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .screenshot-button {
+        width: 100%;
+        border: 1px solid #4a6fa5;
+        background: #4a6fa5;
+        color: white;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+
+      .screenshot-button:hover {
+        background: #36527a;
+        border-color: #36527a;
+      }
+
+      .screenshot-button:disabled {
+        background: #b6beca;
+        border-color: #b6beca;
+        cursor: not-allowed;
+      }
+
+      .downloads-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #d0d7de;
+      }
+
+      .downloads-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .downloads-section h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .download-all-button {
+        border: 1px solid #4a6fa5;
+        background: #4a6fa5;
+        color: white;
+        border-radius: 4px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .download-all-button:hover:not(:disabled) {
+        background: #36527a;
+        border-color: #36527a;
+      }
+
+      .download-all-button:disabled {
+        background: #b6beca;
+        border-color: #b6beca;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .download-links {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .download-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f5f5f5;
+        border: 1px solid #d0d7de;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #1a1a1a;
+        font-size: 13px;
+        transition: background-color 0.2s ease;
+      }
+
+      .download-link:hover {
+        background: #e8e8e8;
+        border-color: #4a6fa5;
+      }
+
+      .download-link-icon {
+        font-size: 16px;
+      }
+
+      .download-link-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .download-links-empty {
+        font-size: 13px;
+        color: #5c6370;
+        font-style: italic;
       }
 
       #tree-container {
@@ -378,10 +591,20 @@
         min-height: 800px;
       }
 
-      .env-panel {
+      .left-panels-wrapper {
         position: absolute;
         top: 50px;
         left: 50px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        z-index: 5;
+      }
+
+      .env-panel {
+        position: relative;
+        top: 0;
+        left: 0;
         box-sizing: border-box;
         background: #ffffff;
         border: 2px solid #99aacc;
@@ -391,19 +614,31 @@
         font-family: Arial, sans-serif;
         font-size: 12px;
         color: #1a1a1a;
-        z-index: 5;
-        transition: opacity 0.2s ease, width 0.2s ease, padding 0.2s ease;
+        transition: opacity 0.2s ease, width 0.2s ease, padding 0.2s ease, max-height 0.2s ease;
+      }
+
+      .input-panel > .env-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
 
       .solver-run-panel {
-        top: 350px;
-        transition: top 0.2s ease;
+        position: relative;
+        top: 0;
+        left: 0;
       }
 
       .env-panel-body {
         display: flex;
         flex-direction: column;
         gap: 14px;
+      }
+
+      .input-panel .env-panel-body {
+        flex: 1;
+        min-height: 0;
       }
 
       .solver-run-panel .env-panel-body {
@@ -472,20 +707,15 @@
       .env-panel-placeholder-text {
         font-style: italic;
         color: #666;
+        display: block !important;
       }
 
       .env-panel-hidden {
-        display: none !important;
+        visibility: hidden;
       }
 
       .env-panel.collapsed {
-        width: 0 !important;
-        min-width: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        overflow: hidden;
-        opacity: 0;
-        pointer-events: none;
+        display: none;
       }
 
       .env-panel-content {
@@ -502,6 +732,15 @@
         max-height: none;
         overflow: visible;
         user-select: text;
+      }
+
+      /* Grid layout only for environment entries */
+      .env-panel-section:last-child .env-panel-content {
+        display: grid;
+        grid-template-columns: max-content max-content auto 1fr;
+        column-gap: 8px;
+        row-gap: 4px;
+        align-items: baseline;
       }
 
       /* Keep the expression preview visually identical to AST nodes
@@ -534,20 +773,35 @@
       }
 
       .env-panel-env-row {
-        display: flex;
-        align-items: baseline;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 4px;
+        display: contents;
       }
 
       .env-panel-env-row:last-child {
         margin-bottom: 0;
       }
 
+      .env-panel-env-origin {
+        font-style: italic;
+        color: #888;
+        font-size: 11px;
+      }
+
       .env-panel-env-ident {
         font-weight: 600;
         color: #1a1a1a;
+        text-align: right;
+      }
+
+      .env-panel-env-colon {
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+
+      .env-panel-env-type-container {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .env-panel-env-type {
@@ -589,14 +843,41 @@
         height: 200px;
         z-index: 5;
         resize: none;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .trace-panel {
+        position: absolute;
+        top: 50px;
+        right: 50px;
+        width: 600px;
+        height: 250px;
+        z-index: 4;
+        resize: none;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .trace-panel.collapsed {
+        display: none;
+      }
+
+      .trace-content {
+        white-space: pre;
+        font-family: Consolas, monospace;
+        font-size: 12px;
+        overflow: auto;
+        max-height: 450px;
+        padding: 8px;
       }
 
       .code-container {
         position: relative;
         width: 100%;
-        height: 300px;
+        height: 100%;
         min-height: 200px;
-        flex: 1;
+        flex: 1 1 auto;
         overflow: hidden;
         border-radius: 4px;
       }
@@ -702,9 +983,16 @@
         border: 1px solid red;
         border-radius: 4px;
       }
+
+      /* Must come last to override all other .tvar styles */
+      .solver-run-panel .first-constraint-left .tvar,
+      .solver-run-panel .first-constraint-left .tvar.highlight {
+        background-color: #37f188 !important;
+        border: 2px solid #4a6fa5 !important;
+      }
     </style>
     <script src="./data/data.js"></script>
-    <script type="module" crossorigin src="/assets/index-awQ-v0D5.js"></script>
+    <script type="module" crossorigin src="/assets/index-Pqv5uTRl.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-H6GQsE_D.css">
   </head>
   <body>
@@ -723,12 +1011,33 @@
             <label for="env-panel-toggle">Show Type Panel</label>
           </div>
           <div class="control-item">
+            <input type="checkbox" id="solver-run-panel-toggle" autocomplete="off" checked />
+            <label for="solver-run-panel-toggle">Show Solver Run Panel</label>
+          </div>
+          <div class="control-item">
             <input type="checkbox" id="code-panel-toggle" autocomplete="off" checked />
             <label for="code-panel-toggle">Show Code Panel</label>
           </div>
           <div class="control-item">
+            <input type="checkbox" id="trace-panel-toggle" autocomplete="off" />
+            <label for="trace-panel-toggle">Show Trace Panel</label>
+          </div>
+          <div class="control-item">
             <input type="checkbox" id="select-first-tvar" autocomplete="off" />
             <label for="select-first-tvar">Select 1st tvar</label>
+          </div>
+          <div class="control-item">
+            <input type="checkbox" id="show-tvars-toggle" autocomplete="off" checked />
+            <label for="show-tvars-toggle">Show tvars</label>
+          </div>
+          
+          <div class="control-item constraint-visibility-control">
+            <label for="constraint-visibility-count">Max Constraints:</label>
+            <div class="constraint-visibility-buttons">
+              <button id="constraint-down-button" class="constraint-button">-</button>
+              <span id="constraint-count-display">All</span>
+              <button id="constraint-up-button" class="constraint-button">+</button>
+            </div>
           </div>
           
           <div class="control-textarea-container">
@@ -769,6 +1078,25 @@
             <button id="gif-create-button" class="gif-create-button">
               Create GIF
             </button>
+          </div>
+        </div>
+
+        <div class="screenshot-section">
+          <h2>Screenshot</h2>
+          <button id="screenshot-button" class="screenshot-button">
+            Take Screenshot
+          </button>
+        </div>
+
+        <div class="downloads-section">
+          <div class="downloads-header">
+            <h2>Downloads</h2>
+            <button id="download-all-button" class="download-all-button" disabled>
+              Download All
+            </button>
+          </div>
+          <div id="download-links" class="download-links">
+            <!-- Download links will be added here dynamically -->
           </div>
         </div>
       </aside>

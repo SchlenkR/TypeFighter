@@ -545,6 +545,8 @@ module TypeSystem =
 
         let recordRefs = Mutable.oneToMany None
 
+        let trace = System.Text.StringBuilder()
+
         let mutable exprToEnv = Map.empty
         let addEnv (expr: Expr<VarNum>) (env: Env) =
             do exprToEnv <- exprToEnv |> Map.add expr env
@@ -552,7 +554,7 @@ module TypeSystem =
         let rec generateConstraints (env: Env) (expr: Expr<VarNum>) =
 
             let appendConstraint (tvar: VarNum) (typ: MonoTyp) =
-                printfn $"For expr {expr}, appending constraint: {TVar tvar} := {typ}"
+                trace.AppendLine($"{expr}    :::     {TVar tvar} := {typ}") |> ignore
                 do constraints.Append({ triviaSource = expr; t1 = TVar tvar; t2 = typ })
 
             let inst (typ: Typ) =
@@ -707,7 +709,7 @@ module TypeSystem =
 
         do generateConstraints env expr
 
-        constraints.Values, exprToEnv, recordRefs.Values
+        constraints.Values, exprToEnv, recordRefs.Values, trace.ToString()
 
     let finalizeSubstitutions (substitutions: MonoSubstitution list) (recordRefs: RecordRefs) =
         let rec substRecordRefInSubstitutions substitutions remainingRecordRefs =
@@ -953,6 +955,7 @@ module Solver =
                 >
             solverRuns: list<TypeSystem.SolverRun>
             exprToEnv: Map<Expr<VarNum>, Env>
+            trace: string
         }
 
     let solve (env: (string * Typ) list) maxSolverRuns (expr: Expr<Unit>) =
@@ -1000,7 +1003,7 @@ module Solver =
             ]
             |> Map.ofList
 
-        let constraints,exprToEnv,recordRefs = TypeSystem.generateConstraints env expr newVar
+        let constraints,exprToEnv,recordRefs,trace = TypeSystem.generateConstraints env expr newVar
         let sr = TypeSystem.solveConstraints constraints recordRefs maxSolverRuns
 
         {
@@ -1019,4 +1022,5 @@ module Solver =
                 | Error message -> Error message
             solverRuns = sr.solverRuns
             exprToEnv = exprToEnv
+            trace = trace
         }

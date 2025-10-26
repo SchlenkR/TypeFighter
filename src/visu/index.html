@@ -847,6 +847,31 @@
         flex-direction: column;
       }
 
+      .trace-panel {
+        position: absolute;
+        top: 50px;
+        right: 50px;
+        width: 600px;
+        height: 250px;
+        z-index: 4;
+        resize: none;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .trace-panel.collapsed {
+        display: none;
+      }
+
+      .trace-content {
+        white-space: pre;
+        font-family: Consolas, monospace;
+        font-size: 12px;
+        overflow: auto;
+        max-height: 450px;
+        padding: 8px;
+      }
+
       .code-container {
         position: relative;
         width: 100%;
@@ -991,6 +1016,10 @@
           <div class="control-item">
             <input type="checkbox" id="code-panel-toggle" autocomplete="off" checked />
             <label for="code-panel-toggle">Show Code Panel</label>
+          </div>
+          <div class="control-item">
+            <input type="checkbox" id="trace-panel-toggle" autocomplete="off" />
+            <label for="trace-panel-toggle">Show Trace Panel</label>
           </div>
           <div class="control-item">
             <input type="checkbox" id="select-first-tvar" autocomplete="off" />

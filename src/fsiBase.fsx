@@ -212,7 +212,7 @@ module Visu =
                 createExprNode "MK-RECORD" "" $"fields = {fieldNames}" [ for f in x.fields do createNodes f.value ]
         createNodes root
 
-    let writeVisuData (runs: (JsNode * JsSolverRun) list) =
+    let writeVisuData (runs: (JsNode * JsSolverRun) list) (trace: string) =
         let treesForSolverRuns =
             runs
             |> List.map fst
@@ -223,9 +223,12 @@ module Visu =
             |> List.map snd
             |> fun v -> JsonSerializer.Serialize(v, JsonSerializerOptions(WriteIndented = true))
         
+        let traceJson = JsonSerializer.Serialize(trace, JsonSerializerOptions(WriteIndented = true))
+        
         let json = $"
 window.treesForSolverRuns = {treesForSolverRuns};
 window.solverRuns = {solverRuns};
+window.trace = {traceJson};
         "
 
         let dataPath = Path.Combine(__SOURCE_DIRECTORY__, "visu/data/data.js")
@@ -239,7 +242,7 @@ window.solverRuns = {solverRuns};
         createJsNode root substitutions exprToEnv
         |> fun node -> node, { constraints = []; solutions = []; recordRefs = []; error = None }
         |> List.singleton
-        |> writeVisuData
+        |> fun runs -> writeVisuData runs ""
 
     let writeSolverRuns (solution: Solver.Solution) =
         solution.solverRuns
@@ -283,7 +286,7 @@ window.solverRuns = {solverRuns};
                         | Error err -> Some err
                 }
             node, jsSolverRun)
-        |> writeVisuData
+        |> fun runs -> writeVisuData runs solution.trace
 
     let writeAst (root: Expr<unit>) solution exprToEnvMap = 
         let numGen = NumGen.mkGenerator ()

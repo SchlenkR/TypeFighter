@@ -165,6 +165,21 @@ function setupControlPanel(): void {
     });
   }
 
+  const tracePanelToggle = document.getElementById('trace-panel-toggle') as HTMLInputElement;
+  
+  if (tracePanelToggle) {
+    // Set initial state
+    if (treeViz) {
+      treeViz.toggleTracePanel(tracePanelToggle.checked);
+    }
+
+    tracePanelToggle.addEventListener('change', () => {
+      if (treeViz) {
+        treeViz.toggleTracePanel(tracePanelToggle.checked);
+      }
+    });
+  }
+
   const selectFirstTVarCheckbox = document.getElementById('select-first-tvar') as HTMLInputElement;
   if (selectFirstTVarCheckbox) {
     selectFirstTVarCheckbox.addEventListener('change', () => {

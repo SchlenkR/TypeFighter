@@ -40,6 +40,7 @@ export class TreeVisualizer {
   private solverRunPanel: HTMLElement;
   private envPanel: HTMLElement;
   private inputPanel: HTMLElement;
+  private tracePanel: HTMLElement;
   private contentLayer: HTMLElement;
   private measurementContainer: HTMLElement;
 
@@ -107,6 +108,7 @@ export class TreeVisualizer {
     this.solverRunPanel = this.createSolverRunPanel();
     this.envPanel = this.createEnvPanel();
     this.inputPanel = this.createInputPanel();
+    this.tracePanel = this.createTracePanel();
     this.contentLayer = this.createContentLayer();
     
     // Add panels to wrapper
@@ -116,12 +118,14 @@ export class TreeVisualizer {
     // Add wrapper and other elements to container
     this.container.appendChild(leftPanelsWrapper);
     this.container.appendChild(this.inputPanel);
+    this.container.appendChild(this.tracePanel);
     this.container.appendChild(this.contentLayer);
     this.measurementContainer = this.createMeasurementContainer();
 
     this.addTVarHighlighting(this.solverRunPanel);
     this.addTVarHighlighting(this.envPanel);
     this.addTVarHighlighting(this.inputPanel);
+    this.addTVarHighlighting(this.tracePanel);
     this.addTVarHighlighting(this.contentLayer);
 
     this.handleEnvPanelMouseLeave = this.handleEnvPanelMouseLeave.bind(this);
@@ -332,6 +336,7 @@ export class TreeVisualizer {
 
       handle.setPointerCapture(e.pointerId);
       e.preventDefault();
+      e.stopPropagation(); // Prevent drag handler from triggering
     });
 
     window.addEventListener('pointermove', (e: PointerEvent) => {
@@ -345,12 +350,16 @@ export class TreeVisualizer {
 
       panel.style.width = `${newWidth}px`;
       panel.style.height = `${newHeight}px`;
+
+      e.preventDefault();
+      e.stopPropagation(); // Prevent tree panning
     });
 
     window.addEventListener('pointerup', (e: PointerEvent) => {
       if (isResizing) {
         isResizing = false;
         handle.releasePointerCapture(e.pointerId);
+        e.stopPropagation(); // Prevent tree panning
       }
     });
   }
@@ -411,6 +420,91 @@ export class TreeVisualizer {
 
     window.addEventListener('pointermove', moveHandler);
     window.addEventListener('pointerup', upHandler);
+  }
+
+  private createTracePanel(): HTMLElement {
+    const panel = document.createElement('div');
+    panel.className = 'env-panel trace-panel';
+
+    const body = document.createElement('div');
+    body.className = 'env-panel-body';
+    panel.appendChild(body);
+
+    // Make entire panel draggable
+    this.makeDraggable(panel, panel);
+
+    const traceSection = document.createElement('div');
+    traceSection.className = 'env-panel-section';
+    body.appendChild(traceSection);
+
+    const traceTitle = document.createElement('div');
+    traceTitle.className = 'env-panel-section-title';
+    traceTitle.textContent = 'TRACE';
+    traceSection.appendChild(traceTitle);
+
+    const traceContent = document.createElement('div');
+    traceContent.className = 'env-panel-box env-panel-content trace-content';
+    traceContent.style.fontFamily = 'Consolas, monospace';
+    traceContent.style.fontSize = '12px';
+    traceContent.style.overflow = 'auto';
+    traceContent.style.maxHeight = '400px';
+    traceContent.style.display = 'flex';
+    traceContent.style.flexDirection = 'column';
+    traceSection.appendChild(traceContent);
+
+    // Load trace from window if available and split into columns
+    const trace = (window as any).trace || '';
+    const lines = trace.split('\n');
+    
+    lines.forEach((line: string) => {
+      if (!line.trim()) return;
+      
+      const row = document.createElement('div');
+      row.style.display = 'grid';
+      row.style.gridTemplateColumns = '1fr auto 1fr';
+      row.style.columnGap = '10px';
+      row.style.alignItems = 'baseline';
+      row.style.marginBottom = '2px';
+      row.style.width = '100%';
+      
+      const parts = line.split(':::');
+      
+      // Left column (expression) - left aligned
+      const leftCol = document.createElement('span');
+      leftCol.style.textAlign = 'left';
+      leftCol.style.whiteSpace = 'nowrap';
+      leftCol.style.justifySelf = 'start';
+      leftCol.textContent = parts[0]?.trim() || '';
+      row.appendChild(leftCol);
+      
+      // Separator (hidden, just for grid spacing)
+      const separator = document.createElement('span');
+      separator.style.fontWeight = '700';
+      separator.style.color = '#666';
+      separator.style.whiteSpace = 'nowrap';
+      separator.textContent = '';
+      row.appendChild(separator);
+      
+      // Right column (type assignment) - left aligned
+      const rightCol = document.createElement('span');
+      rightCol.style.textAlign = 'left';
+      rightCol.style.whiteSpace = 'nowrap';
+      rightCol.style.justifySelf = 'start';
+      rightCol.textContent = parts[1]?.trim() || '';
+      row.appendChild(rightCol);
+      
+      traceContent.appendChild(row);
+    });
+
+    // Resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle';
+    panel.appendChild(resizeHandle);
+
+    // Handle resizing
+    this.makeResizable(panel, resizeHandle);
+
+    return panel;
   }
 
   private createEnvPanel(): HTMLElement {
@@ -684,6 +778,14 @@ export class TreeVisualizer {
       this.solverRunPanel.classList.remove('collapsed');
     } else {
       this.solverRunPanel.classList.add('collapsed');
+    }
+  }
+
+  toggleTracePanel(visible: boolean): void {
+    if (visible) {
+      this.tracePanel.classList.remove('collapsed');
+    } else {
+      this.tracePanel.classList.add('collapsed');
     }
   }
 
