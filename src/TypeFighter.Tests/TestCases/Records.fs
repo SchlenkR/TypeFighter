@@ -168,7 +168,7 @@ let [<Test>] ``let bound record and access prop 2`` () =
             age = 22
             name = "John"
         }
-    myRecord.xxxxxxxx
+    myRecord.xxxxxxxx // "return"
 *)
 // ERROR: Member 'xxxxxxxx' is missing in type { age: Number; name: String }
 let [<Test>] ``error - let bound record and access non existing prop`` () =
