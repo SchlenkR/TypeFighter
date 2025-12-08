@@ -6,7 +6,115 @@ window.treesForSolverRuns = [
     "varNum": 5,
     "code": "(identity: tv_0) = ...",
     "additionalInfo": "identity: tv_0",
-    "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
+    "exprTyp": "",
+    "env": [],
+    "children": [
+      {
+        "key": 3,
+        "name": "FUN",
+        "varNum": 3,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_1",
+        "exprTyp": "",
+        "env": [],
+        "children": [
+          {
+            "key": 2,
+            "name": "VAR",
+            "varNum": 2,
+            "code": "x",
+            "additionalInfo": "",
+            "exprTyp": "",
+            "env": [
+              {
+                "ident": "x",
+                "solvedTyp": "tv_1",
+                "origin": ""
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 4,
+        "name": "VAR",
+        "varNum": 4,
+        "code": "identity",
+        "additionalInfo": "",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "identity",
+            "solvedTyp": "tv_0",
+            "origin": ""
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 5,
+    "name": "LET",
+    "varNum": 5,
+    "code": "(identity: tv_0) = ...",
+    "additionalInfo": "identity: tv_0",
+    "exprTyp": "",
+    "env": [],
+    "children": [
+      {
+        "key": 3,
+        "name": "FUN",
+        "varNum": 3,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_1",
+        "exprTyp": "",
+        "env": [],
+        "children": [
+          {
+            "key": 2,
+            "name": "VAR",
+            "varNum": 2,
+            "code": "x",
+            "additionalInfo": "",
+            "exprTyp": "\u003Ctv_1\u003E.tv_1",
+            "env": [
+              {
+                "ident": "x",
+                "solvedTyp": "tv_1",
+                "origin": ""
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 4,
+        "name": "VAR",
+        "varNum": 4,
+        "code": "identity",
+        "additionalInfo": "",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "identity",
+            "solvedTyp": "tv_0",
+            "origin": ""
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 5,
+    "name": "LET",
+    "varNum": 5,
+    "code": "(identity: tv_0) = ...",
+    "additionalInfo": "identity: tv_0",
+    "exprTyp": "",
     "env": [],
     "children": [
       {
@@ -42,7 +150,61 @@ window.treesForSolverRuns = [
         "varNum": 4,
         "code": "identity",
         "additionalInfo": "",
+        "exprTyp": "",
+        "env": [
+          {
+            "ident": "identity",
+            "solvedTyp": "tv_0",
+            "origin": ""
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "key": 5,
+    "name": "LET",
+    "varNum": 5,
+    "code": "(identity: tv_0) = ...",
+    "additionalInfo": "identity: tv_0",
+    "exprTyp": "",
+    "env": [],
+    "children": [
+      {
+        "key": 3,
+        "name": "FUN",
+        "varNum": 3,
+        "code": "x -\u003E ...",
+        "additionalInfo": "x: tv_1",
         "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
+        "env": [],
+        "children": [
+          {
+            "key": 2,
+            "name": "VAR",
+            "varNum": 2,
+            "code": "x",
+            "additionalInfo": "",
+            "exprTyp": "\u003Ctv_1\u003E.tv_1",
+            "env": [
+              {
+                "ident": "x",
+                "solvedTyp": "tv_1",
+                "origin": ""
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "key": 4,
+        "name": "VAR",
+        "varNum": 4,
+        "code": "identity",
+        "additionalInfo": "",
+        "exprTyp": "",
         "env": [
           {
             "ident": "identity",
@@ -60,7 +222,7 @@ window.treesForSolverRuns = [
     "varNum": 5,
     "code": "(identity: tv_0) = ...",
     "additionalInfo": "identity: tv_0",
-    "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
+    "exprTyp": "\u003Ctv_4\u003E.tv_4",
     "env": [],
     "children": [
       {
@@ -96,169 +258,7 @@ window.treesForSolverRuns = [
         "varNum": 4,
         "code": "identity",
         "additionalInfo": "",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-        "env": [
-          {
-            "ident": "identity",
-            "solvedTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-            "origin": ""
-          }
-        ],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 5,
-    "name": "LET",
-    "varNum": 5,
-    "code": "(identity: tv_0) = ...",
-    "additionalInfo": "identity: tv_0",
-    "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-    "env": [],
-    "children": [
-      {
-        "key": 3,
-        "name": "FUN",
-        "varNum": 3,
-        "code": "x -\u003E ...",
-        "additionalInfo": "x: tv_1",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-        "env": [],
-        "children": [
-          {
-            "key": 2,
-            "name": "VAR",
-            "varNum": 2,
-            "code": "x",
-            "additionalInfo": "",
-            "exprTyp": "\u003Ctv_1\u003E.tv_1",
-            "env": [
-              {
-                "ident": "x",
-                "solvedTyp": "tv_1",
-                "origin": ""
-              }
-            ],
-            "children": []
-          }
-        ]
-      },
-      {
-        "key": 4,
-        "name": "VAR",
-        "varNum": 4,
-        "code": "identity",
-        "additionalInfo": "",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-        "env": [
-          {
-            "ident": "identity",
-            "solvedTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-            "origin": ""
-          }
-        ],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 5,
-    "name": "LET",
-    "varNum": 5,
-    "code": "(identity: tv_0) = ...",
-    "additionalInfo": "identity: tv_0",
-    "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-    "env": [],
-    "children": [
-      {
-        "key": 3,
-        "name": "FUN",
-        "varNum": 3,
-        "code": "x -\u003E ...",
-        "additionalInfo": "x: tv_1",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-        "env": [],
-        "children": [
-          {
-            "key": 2,
-            "name": "VAR",
-            "varNum": 2,
-            "code": "x",
-            "additionalInfo": "",
-            "exprTyp": "\u003Ctv_1\u003E.tv_1",
-            "env": [
-              {
-                "ident": "x",
-                "solvedTyp": "tv_1",
-                "origin": ""
-              }
-            ],
-            "children": []
-          }
-        ]
-      },
-      {
-        "key": 4,
-        "name": "VAR",
-        "varNum": 4,
-        "code": "identity",
-        "additionalInfo": "",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-        "env": [
-          {
-            "ident": "identity",
-            "solvedTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-            "origin": ""
-          }
-        ],
-        "children": []
-      }
-    ]
-  },
-  {
-    "key": 5,
-    "name": "LET",
-    "varNum": 5,
-    "code": "(identity: tv_0) = ...",
-    "additionalInfo": "identity: tv_0",
-    "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-    "env": [],
-    "children": [
-      {
-        "key": 3,
-        "name": "FUN",
-        "varNum": 3,
-        "code": "x -\u003E ...",
-        "additionalInfo": "x: tv_1",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
-        "env": [],
-        "children": [
-          {
-            "key": 2,
-            "name": "VAR",
-            "varNum": 2,
-            "code": "x",
-            "additionalInfo": "",
-            "exprTyp": "\u003Ctv_1\u003E.tv_1",
-            "env": [
-              {
-                "ident": "x",
-                "solvedTyp": "tv_1",
-                "origin": ""
-              }
-            ],
-            "children": []
-          }
-        ]
-      },
-      {
-        "key": 4,
-        "name": "VAR",
-        "varNum": 4,
-        "code": "identity",
-        "additionalInfo": "",
-        "exprTyp": "\u003Ctv_1\u003E.(tv_1 -\u003E tv_1)",
+        "exprTyp": "",
         "env": [
           {
             "ident": "identity",

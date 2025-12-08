@@ -1284,12 +1284,15 @@ export class TreeVisualizer {
 
         // Update solved/intermediate class based on type annotation
         if (node.exprTyp && node.exprTyp.trim() !== '') {
-          if (node.exprTyp.includes('tv_')) {
-            // Has type variables - intermediate state
+          const hasTVars = node.exprTyp.includes('tv_');
+          const isQuantified = node.exprTyp.trim().startsWith('<');
+          
+          if (hasTVars && !isQuantified) {
+            // Has unquantified type variables - intermediate state
             nodeElement.classList.remove('solved');
             nodeElement.classList.add('intermediate');
           } else {
-            // Fully solved - no type variables
+            // Fully solved - no type variables OR quantified polytypes
             nodeElement.classList.remove('intermediate');
             nodeElement.classList.add('solved');
           }
@@ -1829,11 +1832,14 @@ export class TreeVisualizer {
 
     // Add solved/intermediate class based on type annotation
     if (node.exprTyp && node.exprTyp.trim() !== '') {
-      if (node.exprTyp.includes('tv_')) {
-        // Has type variables - intermediate state
+      const hasTVars = node.exprTyp.includes('tv_');
+      const isQuantified = node.exprTyp.trim().startsWith('<');
+      
+      if (hasTVars && !isQuantified) {
+        // Has unquantified type variables - intermediate state
         nodeElement.classList.add('intermediate');
       } else {
-        // Fully solved - no type variables
+        // Fully solved - no type variables OR quantified polytypes
         nodeElement.classList.add('solved');
       }
     }

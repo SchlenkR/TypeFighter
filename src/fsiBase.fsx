@@ -6,9 +6,6 @@ open System.IO
 open System.Text.Json
 open TypeFighter
 
-/// Set to true to show polytypes with <vars>.type notation in the web visualization
-let mutable showPolytypesInVisualization = true
-
 module SolverRunPrinter =
     open TypeFighter.TypeSystem
 
@@ -248,24 +245,9 @@ window.trace = {traceJson};
         |> fun runs -> writeVisuData runs ""
 
     let writeSolverRuns (solution: Solver.Solution) =
-        // Get the finalized substitutions (with polytypes) if available and if enabled
-        let finalSubstitutions =
-            if showPolytypesInVisualization then
-                match solution.result with
-                | Ok res -> res.substitutions
-                | Error _ -> []
-            else
-                []
-        
         solution.solverRuns
         |> List.map (fun sr ->
-            // Use finalized substitutions for display (they contain polytypes) if enabled
-            let substitutionsForDisplay = 
-                if showPolytypesInVisualization && not (List.isEmpty finalSubstitutions) then 
-                    finalSubstitutions 
-                else 
-                    sr.substitutions
-            let node = createJsNode solution.numberedExpr substitutionsForDisplay solution.exprToEnv
+            let node = createJsNode solution.numberedExpr sr.substitutions solution.exprToEnv
             let jsSolverRun =
                 {
                     constraints =
