@@ -232,6 +232,8 @@ export class TreeVisualizer {
     const recordsContent = document.createElement('div');
     recordsContent.className = 'env-panel-box env-panel-content';
     recordsContent.textContent = '\u00a0';
+    // Override the grid layout that applies to the last child section
+    recordsContent.style.display = 'block';
     recordsSection.appendChild(recordsContent);
 
     this.envPanelRecordsEl = recordsContent;
@@ -244,6 +246,7 @@ export class TreeVisualizer {
     if (this.inputPanelTextarea) {
       this.inputPanelTextarea.value = text;
       this.updateHighlighting(text, this.inputPanelHighlighted);
+      this.autoResizeTextarea(this.inputPanelTextarea);
     }
   }
 
@@ -286,6 +289,7 @@ export class TreeVisualizer {
     // Handle textarea input and sync with highlighted output
     textarea.addEventListener('input', () => {
       this.updateHighlighting(textarea.value, highlightedOutput);
+      this.autoResizeTextarea(textarea);
     });
 
     textarea.addEventListener('scroll', () => {
@@ -320,6 +324,13 @@ export class TreeVisualizer {
         .replace(/>/g, '&gt;');
       output.innerHTML = `<pre>${escaped}</pre>`;
     }
+  }
+
+  private autoResizeTextarea(textarea: HTMLTextAreaElement): void {
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    // Set the height to match the content
+    textarea.style.height = textarea.scrollHeight + 'px';
   }
 
   private makeResizable(panel: HTMLElement, handle: HTMLElement): void {

@@ -7,7 +7,9 @@ open TypeFighter
 
 
 (*
-    ((x) => isPositive x) 42
+
+((x) => isPositive x) 42
+
 *)
 let env =
     [
@@ -24,7 +26,9 @@ X.App
 
 
 (*
-    (x) => x
+
+(x) => x
+
 *)
 X.Fun (X.Ident "x") (X.Var "x")
 |> solve [] None
@@ -43,7 +47,9 @@ ERROR cases:
 
 
 (*
-    [ 1; 2; 3 ]
+
+[ 1; 2; 3 ]
+
 *)
 
 X.MkArray [ X.Lit 1; X.Lit 2; X.Lit 3 ]
@@ -53,7 +59,9 @@ X.MkArray [ X.Lit 1; X.Lit 2; X.Lit 3 ]
 
 
 (*
-    [ "a"; "b"; "c" ]
+
+[ "a"; "b"; "c" ]
+
 *)
 
 X.MkArray [ X.Lit "a"; X.Lit "b"; X.Lit "c" ]
@@ -64,7 +72,9 @@ X.MkArray [ X.Lit "a"; X.Lit "b"; X.Lit "c" ]
 
 
 (*
-    [ "a"; 1; "c" ]
+
+[ "a"; 1; "c" ]
+
 *)
 // ERROR: Can't unify String and Number
 
@@ -77,10 +87,12 @@ X.MkArray [ X.Lit "a"; X.Lit 1; X.Lit "c" ]
 
 
 (*
-    [
-        { validFrom = MkThing "foo1" };
-        { validFrom = MkThing "foo2" };
-    ]
+
+[
+    { validFrom = MkThing "foo1" };
+    { validFrom = MkThing "foo2" };
+]
+
 *)
 
 let defaultTcEnv =
@@ -88,28 +100,42 @@ let defaultTcEnv =
         "MkThing", TDef.Generalize (BuiltinTypes.string ^-> %1)
     ]
 
-let ast =
-    X.MkArray
-        [
-            X.MkRecord [
-                X.Field
-                    "validFrom"
-                    (X.App
-                        (X.Var "MkThing")
-                        (X.Lit "foo1")) 
-            ]
-            X.MkRecord [
-                X.Field
-                    "validFrom"
-                    (X.App
-                        (X.Var "MkThing")
-                        (X.Lit "foo2")) 
-            ]
-        ]
-
 // TODO: Comparison of poly types according to poly type params naming/numbering has to be implemented correctly
 //       + apply reindexing of vars (see reindex vars for external envs)
 //       %14 - that's the thing here.
-ast 
+X.MkArray
+    [
+        X.MkRecord [
+            X.Field
+                "validFrom"
+                (X.App
+                    (X.Var "MkThing")
+                    (X.Lit "foo1")) 
+        ]
+        X.MkRecord [
+            X.Field
+                "validFrom"
+                (X.App
+                    (X.Var "MkThing")
+                    (X.Lit "foo2")) 
+        ]
+    ]
 |> solve defaultTcEnv None
-|> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %12 ])))
+|> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %10 ])))
+
+
+
+
+
+(*
+
+let identity = (x) => x
+identity
+
+*)
+
+X.Let (X.Ident "identity")
+    (X.Fun (X.Ident "x") (X.Var "x"))
+    (X.Var "identity")
+|> solve [] None
+|> shouldSolveType (TDef.Generalize (%1 ^-> %1))
