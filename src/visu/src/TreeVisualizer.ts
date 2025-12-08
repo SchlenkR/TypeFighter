@@ -269,7 +269,7 @@ export class TreeVisualizer {
 
     const textarea = document.createElement('textarea');
     textarea.className = 'code-textarea';
-    textarea.placeholder = 'Enter your code here...';
+    textarea.placeholder = '';
     textarea.spellcheck = false;
     inputContainer.appendChild(textarea);
 
