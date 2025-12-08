@@ -114,8 +114,8 @@ export class TreeVisualizer {
     this.contentLayer = this.createContentLayer();
     
     // Add panels to wrapper
-    leftPanelsWrapper.appendChild(this.envPanel);
     leftPanelsWrapper.appendChild(this.solverRunPanel);
+    leftPanelsWrapper.appendChild(this.envPanel);
     
     // Add wrapper and other elements to container
     this.container.appendChild(leftPanelsWrapper);
