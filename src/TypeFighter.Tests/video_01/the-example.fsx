@@ -7,7 +7,7 @@ open TypeFighter
 
 
 (*
-        
+    ((x) => isPositive x) 42
 *)
 let env =
     [

@@ -248,10 +248,10 @@ export class TreeVisualizer {
 
   private createInputPanel(): HTMLElement {
     const panel = document.createElement('div');
-    panel.className = 'env-panel input-panel';
+    panel.className = 'input-panel';
 
     const body = document.createElement('div');
-    body.className = 'env-panel-body';
+    body.className = 'code-panel-body';
     panel.appendChild(body);
 
     // Make entire panel draggable

@@ -110,8 +110,10 @@ window.addEventListener('load', () => {
   treeViz = new TreeVisualizer(treesForSolverRuns, 0);
   setupRunButtons(treesForSolverRuns);
   setupGifCreation(treesForSolverRuns);
+  setupPngExport(treesForSolverRuns);
   setupScreenshot();
   setupDownloadAll();
+  setupClearDownloads();
   setupControlPanel();
 
   // Expose selectRun globally for solver panel buttons
@@ -293,10 +295,10 @@ function setupGifCreation(runs: JsNode[]): void {
 
 async function createGif(runNumbers: number[], duration: number): Promise<void> {
   const createButton = document.getElementById('gif-create-button') as HTMLButtonElement;
-  const treeContainer = document.getElementById('tree-container');
+  const containerInner = document.getElementById('container-inner');
   
-  if (!treeContainer) {
-    alert('Tree container not found');
+  if (!containerInner) {
+    alert('Container not found');
     return;
   }
 
@@ -325,12 +327,9 @@ async function createGif(runNumbers: number[], duration: number): Promise<void> 
       // Wait a bit for the render to complete
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Get the background color from the body element
-      const bodyBgColor = window.getComputedStyle(document.body).backgroundColor;
-      
-      // Capture the tree container as an image with higher resolution
-      const canvas = await html2canvas(treeContainer, {
-        backgroundColor: bodyBgColor,
+      // Capture the container-inner with its background
+      const canvas = await html2canvas(containerInner, {
+        backgroundColor: null, // Use the element's own background
         scale: 2, // Capture at 2x resolution for better quality
         logging: false
       });
@@ -382,16 +381,108 @@ async function createGif(runNumbers: number[], duration: number): Promise<void> 
   }
 }
 
+function setupPngExport(runs: JsNode[]): void {
+  const exportButton = document.getElementById('export-pngs-button') as HTMLButtonElement;
+  const runsInput = document.getElementById('gif-runs-input') as HTMLInputElement;
+
+  exportButton.addEventListener('click', () => {
+    const runsText = runsInput.value.trim();
+    let runNumbers: number[];
+
+    if (!runsText) {
+      // If no numbers entered, use all solver runs
+      runNumbers = Array.from({ length: runs.length }, (_, i) => i + 1);
+    } else {
+      runNumbers = runsText
+        .split(/\s+/)
+        .map(s => parseInt(s, 10))
+        .filter(n => !isNaN(n) && n >= 1 && n <= runs.length);
+
+      if (runNumbers.length === 0) {
+        alert('Please enter valid run numbers (1-' + runs.length + ')');
+        return;
+      }
+    }
+
+    exportPngs(runNumbers);
+  });
+}
+
+async function exportPngs(runNumbers: number[]): Promise<void> {
+  const exportButton = document.getElementById('export-pngs-button') as HTMLButtonElement;
+  const containerInner = document.getElementById('container-inner');
+  
+  if (!containerInner) {
+    alert('Container not found');
+    return;
+  }
+
+  // Disable button and show progress
+  exportButton.disabled = true;
+  exportButton.textContent = 'Exporting PNGs...';
+
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+
+    // Capture PNG for each specified run
+    for (let i = 0; i < runNumbers.length; i++) {
+      const runIndex = runNumbers[i] - 1; // Convert to 0-based index
+      
+      // Update button to show progress
+      exportButton.textContent = `Exporting ${i + 1}/${runNumbers.length}...`;
+      
+      // Switch to the specified run
+      selectRun(runIndex);
+      
+      // Wait a bit for the render to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Capture the container-inner with its background
+      const canvas = await html2canvas(containerInner, {
+        backgroundColor: null, // Use the element's own background
+        scale: 2, // Capture at 2x resolution for better quality
+        logging: false
+      });
+      
+      // Convert canvas to blob
+      await new Promise<void>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            console.error('Failed to create PNG for run ' + runNumbers[i]);
+            resolve();
+            return;
+          }
+
+          const filename = `run-${runNumbers[i]}-${timestamp}.png`;
+          addDownloadLink(blob, filename, '🖼️');
+          resolve();
+        }, 'image/png');
+      });
+    }
+
+    // Reset button
+    exportButton.disabled = false;
+    exportButton.textContent = 'Export PNGs';
+
+  } catch (error) {
+    console.error('Error exporting PNGs:', error);
+    alert('Error exporting PNGs: ' + (error instanceof Error ? error.message : String(error)));
+    
+    exportButton.disabled = false;
+    exportButton.textContent = 'Export PNGs';
+  }
+}
+
 function setupScreenshot(): void {
   const screenshotButton = document.getElementById('screenshot-button') as HTMLButtonElement;
 
   if (!screenshotButton) return;
 
   screenshotButton.addEventListener('click', async () => {
-    const treeContainer = document.getElementById('tree-container');
+    const containerInner = document.getElementById('container-inner');
     
-    if (!treeContainer) {
-      alert('Tree container not found');
+    if (!containerInner) {
+      alert('Container not found');
       return;
     }
 
@@ -400,12 +491,9 @@ function setupScreenshot(): void {
     screenshotButton.textContent = 'Capturing...';
 
     try {
-      // Get the background color from the body element
-      const bodyBgColor = window.getComputedStyle(document.body).backgroundColor;
-      
-      // Capture the tree container as an image with high resolution
-      const canvas = await html2canvas(treeContainer, {
-        backgroundColor: bodyBgColor,
+      // Capture the container-inner with its background
+      const canvas = await html2canvas(containerInner, {
+        backgroundColor: null, // Use the element's own background
         scale: 2, // 2x resolution for crisp screenshots
         logging: false
       });
@@ -479,8 +567,8 @@ function addDownloadLink(blob: Blob, filename: string, icon: string = '💾'): v
     setTimeout(() => URL.revokeObjectURL(url), 100);
   });
 
-  // Update download all button state
-  updateDownloadAllButton();
+  // Update download button states
+  updateDownloadButtons();
 }
 
 function setupDownloadAll(): void {
@@ -505,12 +593,33 @@ function setupDownloadAll(): void {
   });
 }
 
-function updateDownloadAllButton(): void {
+function setupClearDownloads(): void {
+  const clearButton = document.getElementById('clear-downloads-button') as HTMLButtonElement;
+  
+  if (!clearButton) return;
+
+  clearButton.addEventListener('click', () => {
+    const downloadLinksContainer = document.getElementById('download-links');
+    if (!downloadLinksContainer) return;
+
+    // Clear all download links
+    downloadLinksContainer.innerHTML = '';
+    
+    // Update button states
+    updateDownloadButtons();
+  });
+}
+
+function updateDownloadButtons(): void {
   const downloadAllButton = document.getElementById('download-all-button') as HTMLButtonElement;
+  const clearButton = document.getElementById('clear-downloads-button') as HTMLButtonElement;
   const downloadLinksContainer = document.getElementById('download-links');
   
-  if (!downloadAllButton || !downloadLinksContainer) return;
+  if (!downloadAllButton || !clearButton || !downloadLinksContainer) return;
 
   const links = downloadLinksContainer.querySelectorAll('.download-link');
-  downloadAllButton.disabled = links.length === 0;
+  const hasLinks = links.length > 0;
+  
+  downloadAllButton.disabled = !hasLinks;
+  clearButton.disabled = !hasLinks;
 }
