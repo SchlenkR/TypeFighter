@@ -8,6 +8,8 @@
         /* AST Tree visualization */
         --ast-line-color: white;
         --ast-box-background: white;
+        --ast-box-solved-background: hsl(119, 100%, 84%);
+        --ast-box-intermediate-background: hsl(59, 100%, 78%);
         --ast-box-border-color: black;
         --ast-box-border-width: 1px;
         --ast-text-color: #222;
@@ -608,6 +610,14 @@
         box-shadow: var(--ast-node-selected-shadow);
       }
 
+      .node.solved {
+        background: var(--ast-box-solved-background) !important;
+      }
+
+      .node.intermediate {
+        background: var(--ast-box-intermediate-background) !important;
+      }
+
       .node.node-preview {
         position: relative;
         left: 0;
@@ -672,6 +682,7 @@
         font-size: 12px;
         color: green;
         font-family: Consolas, monospace;
+        font-weight: bold;
         margin-top: 4px;
         overflow: hidden;
         text-overflow: ellipsis;

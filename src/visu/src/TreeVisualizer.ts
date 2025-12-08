@@ -1228,6 +1228,23 @@ export class TreeVisualizer {
           newTypeEl.textContent = node.exprTyp;
           nodeElement.appendChild(newTypeEl);
         }
+
+        // Update solved/intermediate class based on type annotation
+        if (node.exprTyp && node.exprTyp.trim() !== '') {
+          if (node.exprTyp.includes('tv_')) {
+            // Has type variables - intermediate state
+            nodeElement.classList.remove('solved');
+            nodeElement.classList.add('intermediate');
+          } else {
+            // Fully solved - no type variables
+            nodeElement.classList.remove('intermediate');
+            nodeElement.classList.add('solved');
+          }
+        } else {
+          // No type annotation - unsolved
+          nodeElement.classList.remove('solved');
+          nodeElement.classList.remove('intermediate');
+        }
       }
     });
   }
@@ -1752,6 +1769,17 @@ export class TreeVisualizer {
     const nodeElement = document.createElement('div');
     nodeElement.className = 'node';
     nodeElement.dataset.key = String(node.key);
+
+    // Add solved/intermediate class based on type annotation
+    if (node.exprTyp && node.exprTyp.trim() !== '') {
+      if (node.exprTyp.includes('tv_')) {
+        // Has type variables - intermediate state
+        nodeElement.classList.add('intermediate');
+      } else {
+        // Fully solved - no type variables
+        nodeElement.classList.add('solved');
+      }
+    }
 
     const header = document.createElement('div');
     header.className = 'node-header';
