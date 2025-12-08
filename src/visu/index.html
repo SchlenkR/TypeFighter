@@ -46,6 +46,8 @@
       --panel-content-border-color: #d6d9e2;
       --panel-content-border-width: 1px;
       --panel-content-text-color: #222;
+      --panel-left-margin: 100px;
+      --panel-top-margin: 50px;
 
       /* Control labels and text */
       --control-label-color: #1a1a1a;
@@ -698,8 +700,8 @@
 
     .left-panels-wrapper {
       position: absolute;
-      top: 50px;
-      left: 50px;
+      top: var(--panel-top-margin);
+      left: var(--panel-left-margin);
       display: flex;
       flex-direction: column;
       gap: 20px;
