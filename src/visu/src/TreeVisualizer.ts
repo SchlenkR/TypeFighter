@@ -67,6 +67,7 @@ export class TreeVisualizer {
   private selectedTVarName: string | null = null;
   private maxVisibleConstraints: number | null = null; // null means "all"
   private hiddenConstraintIndices: number[] = []; // Indices of constraints to hide
+  private hiddenTVarNumbers: number[] = []; // TVar numbers to hide nodes for
 
   private addTVarHighlighting(element: HTMLElement) {
     element.addEventListener('mouseover', (event) => {
@@ -889,6 +890,47 @@ export class TreeVisualizer {
     return tvars.length;
   }
 
+  setHiddenTVarNumbers(tvarNumbers: number[]): void {
+    this.hiddenTVarNumbers = tvarNumbers;
+    this.updateNodeVisibility();
+  }
+
+  private updateNodeVisibility(): void {
+    // Update visibility of nodes based on hidden tvars
+    this.nodes.forEach(node => {
+      const nodeElement = this.contentLayer.querySelector<HTMLElement>(
+        `.node[data-key="${node.key}"]`
+      );
+      
+      if (nodeElement) {
+        const tvarNum = typeof node.varNum === 'string' ? parseInt(node.varNum) : node.varNum;
+        const shouldHide = this.hiddenTVarNumbers.includes(tvarNum);
+        
+        if (shouldHide) {
+          nodeElement.style.display = 'none';
+          
+          // Also hide all connection lines and arrows from this node
+          const connectionElements = this.contentLayer.querySelectorAll(
+            `.connection-line[data-parent-key="${node.key}"], .connection-arrow[data-parent-key="${node.key}"]`
+          );
+          connectionElements.forEach(el => {
+            (el as HTMLElement).style.display = 'none';
+          });
+        } else {
+          nodeElement.style.display = '';
+          
+          // Show connection lines and arrows from this node
+          const connectionElements = this.contentLayer.querySelectorAll(
+            `.connection-line[data-parent-key="${node.key}"], .connection-arrow[data-parent-key="${node.key}"]`
+          );
+          connectionElements.forEach(el => {
+            (el as HTMLElement).style.display = '';
+          });
+        }
+      }
+    });
+  }
+
   loadRun(jsNode: JsNode, runIndex?: number): void {
     // Update current run index if provided
     if (runIndex !== undefined) {
@@ -1622,6 +1664,7 @@ export class TreeVisualizer {
 
       const parentVerticalLine = document.createElement('div');
       parentVerticalLine.className = 'connection-line';
+      parentVerticalLine.dataset.parentKey = String(parentKey);
       parentVerticalLine.style.left = parentCenterX + 'px';
       parentVerticalLine.style.top = parentBottomY + 'px';
       parentVerticalLine.style.width = '2px';
@@ -1633,6 +1676,7 @@ export class TreeVisualizer {
 
       const horizontalLine = document.createElement('div');
       horizontalLine.className = 'connection-line';
+      horizontalLine.dataset.parentKey = String(parentKey);
       horizontalLine.style.left = minChildX + 'px';
       horizontalLine.style.top = horizontalLineY + 'px';
       horizontalLine.style.width = maxChildX - minChildX + 'px';
@@ -1642,6 +1686,7 @@ export class TreeVisualizer {
       childDetails.forEach(detail => {
         const childVerticalLine = document.createElement('div');
         childVerticalLine.className = 'connection-line';
+        childVerticalLine.dataset.parentKey = String(parentKey);
         childVerticalLine.style.left = detail.centerX + 'px';
         childVerticalLine.style.top = horizontalLineY + 'px';
         childVerticalLine.style.width = '2px';
@@ -1650,6 +1695,7 @@ export class TreeVisualizer {
 
         const arrow = document.createElement('div');
         arrow.className = 'connection-arrow';
+        arrow.dataset.parentKey = String(parentKey);
         arrow.style.left = detail.centerX - 6 + 'px';
         arrow.style.top = detail.topY - 8 + 'px';
         this.contentLayer.appendChild(arrow);

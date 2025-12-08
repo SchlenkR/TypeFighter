@@ -230,6 +230,30 @@ function setupControlPanel(): void {
     });
   }
 
+  // Wire up hide tvars input
+  const hideTVarsInput = document.getElementById('hide-tvars-input') as HTMLInputElement;
+  if (hideTVarsInput) {
+    hideTVarsInput.addEventListener('input', () => {
+      if (!treeViz) return;
+      
+      const text = hideTVarsInput.value.trim();
+      if (text === '') {
+        // Show all nodes
+        treeViz.setHiddenTVarNumbers([]);
+      } else {
+        // Parse the input: split by space, convert to numbers
+        const tvarNumbers = text
+          .split(/\s+/)
+          .map(s => s.trim())
+          .filter(s => s !== '')
+          .map(s => parseInt(s, 10))
+          .filter(n => !isNaN(n));
+        
+        treeViz.setHiddenTVarNumbers(tvarNumbers);
+      }
+    });
+  }
+
   // Wire up constraint visibility control with text input
   const constraintHideInput = document.getElementById('constraint-hide-input') as HTMLInputElement;
 
