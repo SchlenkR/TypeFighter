@@ -8,6 +8,25 @@ let treeViz: TreeVisualizer;
 let runButtons: HTMLButtonElement[] = [];
 let currentRunIndex = 0;
 
+const TARGET_WIDTH = 3424;
+const TARGET_HEIGHT = 1926;
+
+function upscaleCanvas(sourceCanvas: HTMLCanvasElement): HTMLCanvasElement {
+  const targetCanvas = document.createElement('canvas');
+  targetCanvas.width = TARGET_WIDTH;
+  targetCanvas.height = TARGET_HEIGHT;
+  
+  const ctx = targetCanvas.getContext('2d');
+  if (!ctx) return sourceCanvas;
+  
+  // Draw the source canvas scaled up to the target size
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(sourceCanvas, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+  
+  return targetCanvas;
+}
+
 function getRunLabel(jsNode: JsNode, index: number): string {
   // Just use the number (1-indexed)
   return `${index + 1}`;
@@ -112,6 +131,7 @@ window.addEventListener('load', () => {
   setupGifCreation(treesForSolverRuns);
   setupPngExport(treesForSolverRuns);
   setupScreenshot();
+  setupTVarAnimationCapture();
   setupDownloadAll();
   setupClearDownloads();
   setupControlPanel();
@@ -334,8 +354,11 @@ async function createGif(runNumbers: number[], duration: number): Promise<void> 
         logging: false
       });
       
+      // Upscale to target resolution
+      const upscaledCanvas = upscaleCanvas(canvas);
+      
       // Add frame to GIF
-      gif.addFrame(canvas, { delay: duration });
+      gif.addFrame(upscaledCanvas, { delay: duration });
     }
 
     // Show encoding progress
@@ -444,9 +467,12 @@ async function exportPngs(runNumbers: number[]): Promise<void> {
         logging: false
       });
       
+      // Upscale to target resolution
+      const upscaledCanvas = upscaleCanvas(canvas);
+      
       // Convert canvas to blob
       await new Promise<void>((resolve) => {
-        canvas.toBlob((blob) => {
+        upscaledCanvas.toBlob((blob) => {
           if (!blob) {
             console.error('Failed to create PNG for run ' + runNumbers[i]);
             resolve();
@@ -498,8 +524,11 @@ function setupScreenshot(): void {
         logging: false
       });
 
+      // Upscale to target resolution
+      const upscaledCanvas = upscaleCanvas(canvas);
+
       // Convert canvas to blob
-      canvas.toBlob((blob) => {
+      upscaledCanvas.toBlob((blob) => {
         if (!blob) {
           alert('Failed to create screenshot');
           screenshotButton.disabled = false;
@@ -525,6 +554,107 @@ function setupScreenshot(): void {
       
       screenshotButton.disabled = false;
       screenshotButton.textContent = 'Take Screenshot';
+    }
+  });
+}
+
+function setupTVarAnimationCapture(): void {
+  const captureButton = document.getElementById('capture-tvar-animation-button') as HTMLButtonElement;
+  
+  if (!captureButton) return;
+
+  captureButton.addEventListener('click', async () => {
+    const containerInner = document.getElementById('container-inner');
+    const durationInput = document.getElementById('gif-duration-input') as HTMLInputElement;
+    
+    if (!containerInner || !treeViz) {
+      alert('Required elements not found');
+      return;
+    }
+
+    // Get frame duration from input
+    const frameDuration = parseInt(durationInput.value, 10);
+    if (isNaN(frameDuration) || frameDuration < 100) {
+      alert('Please enter a valid duration (minimum 100ms)');
+      return;
+    }
+
+    // Disable button during capture
+    captureButton.disabled = true;
+    captureButton.textContent = 'Capturing...';
+
+    try {
+      // Get total number of tvars
+      const totalTVars = treeViz.getTotalTVarCount();
+      
+      if (totalTVars === 0) {
+        alert('No tvars found in current visualization');
+        captureButton.disabled = false;
+        captureButton.textContent = 'Capture TVar Animation';
+        return;
+      }
+
+      // Initialize GIF encoder
+      const gif = new GIF({
+        workers: 2,
+        quality: 5,
+        workerScript: '/gif.worker.js'
+      });
+
+      // Start with no tvars visible
+      treeViz.showTVarsUpToIndex(0);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Capture one frame per tvar (plus one initial frame with no tvars)
+      for (let i = 0; i <= totalTVars; i++) {
+        captureButton.textContent = `Capturing frame ${i + 1}/${totalTVars + 1}...`;
+        
+        // Show tvars up to current index
+        treeViz.showTVarsUpToIndex(i);
+        
+        // Wait a bit for render
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Capture frame
+        const canvas = await html2canvas(containerInner, {
+          backgroundColor: null,
+          scale: 2,
+          logging: false
+        });
+        
+        // Upscale to target resolution
+        const upscaledCanvas = upscaleCanvas(canvas);
+        
+        gif.addFrame(upscaledCanvas, { delay: frameDuration });
+      }
+
+      // Show encoding progress
+      captureButton.textContent = 'Encoding GIF...';
+
+      // Render the GIF
+      gif.on('finished', (blob: Blob) => {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `tvar-animation-${timestamp}.gif`;
+        
+        addDownloadLink(blob, filename, '✨');
+        
+        // Reset button
+        captureButton.disabled = false;
+        captureButton.textContent = 'Capture TVar Animation';
+      });
+
+      gif.on('progress', (progress: number) => {
+        captureButton.textContent = `Encoding: ${Math.round(progress * 100)}%`;
+      });
+
+      gif.render();
+
+    } catch (error) {
+      console.error('Error capturing tvar animation:', error);
+      alert('Error capturing animation: ' + (error instanceof Error ? error.message : String(error)));
+      
+      captureButton.disabled = false;
+      captureButton.textContent = 'Capture TVar Animation';
     }
   });
 }

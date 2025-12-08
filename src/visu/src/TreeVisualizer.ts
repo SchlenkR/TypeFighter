@@ -863,6 +863,32 @@ export class TreeVisualizer {
     }
   }
 
+  showTVarsUpToIndex(count: number): void {
+    // Get all tvars within AST nodes, not in panels
+    const tvars = Array.from(this.contentLayer.querySelectorAll('.node .tvar'));
+    
+    // Sort tvars by their number (extract from "tv_123" format)
+    const sortedTvars = tvars.sort((a, b) => {
+      const numA = parseInt((a.textContent || '').replace('tv_', '')) || 0;
+      const numB = parseInt((b.textContent || '').replace('tv_', '')) || 0;
+      return numA - numB;
+    });
+
+    // Show only the first 'count' tvars, hide the rest
+    sortedTvars.forEach((tvar, index) => {
+      if (index < count) {
+        tvar.classList.remove('hidden');
+      } else {
+        tvar.classList.add('hidden');
+      }
+    });
+  }
+
+  getTotalTVarCount(): number {
+    const tvars = Array.from(this.contentLayer.querySelectorAll('.node .tvar'));
+    return tvars.length;
+  }
+
   loadRun(jsNode: JsNode, runIndex?: number): void {
     // Update current run index if provided
     if (runIndex !== undefined) {
