@@ -9,8 +9,8 @@
 
       
       
-      --panel-min-width: 450px;
-      --panel-max-width: 450px;
+      --panel-min-width: 550px;
+      --panel-max-width: 550px;
 
 
 
@@ -54,7 +54,7 @@
       --panel-content-border-color: #d6d9e2;
       --panel-content-border-width: 1px;
       --panel-content-text-color: #222;
-      --panel-left-margin: 100px;
+      --panel-left-margin: 50px;
       --panel-top-margin: 50px;
 
       /* Control labels and text */
@@ -86,7 +86,7 @@
       --tvar-highlight-background: #dce400;
 
       /* Sidebar */
-      --sidebar-background: #fafafa;
+      --sidebar-background: #aaa;
       --sidebar-border-color: #d0d7de;
       --sidebar-border-width: 1px;
       --sidebar-heading-color: #1a1a1a;
@@ -158,7 +158,7 @@
     }
 
     #sidebar {
-      flex: 0 0 400px;
+      flex: 0 0 250px;
       box-sizing: border-box;
       padding: 40px 24px;
       border-left: var(--sidebar-border-width) solid var(--sidebar-border-color);
@@ -174,6 +174,10 @@
     #sidebar::-webkit-scrollbar {
       width: 0;
       height: 0;
+    }
+
+    #sidebar.hidden {
+      display: none;
     }
 
     #sidebar h2 {
@@ -1130,7 +1134,7 @@
         <div id="tree-container"></div>
       </div>
     </div>
-    <aside id="sidebar">
+    <aside id="sidebar" class="hidden">
       <h2>Solver Runs</h2>
       <div id="run-buttons"></div>
 
@@ -1141,11 +1145,11 @@
           <label for="env-panel-toggle">Show Type Panel</label>
         </div>
         <div class="control-item">
-          <input type="checkbox" id="solver-run-panel-toggle" autocomplete="off" checked />
+          <input type="checkbox" id="solver-run-panel-toggle" autocomplete="off" />
           <label for="solver-run-panel-toggle">Show Solver Run Panel</label>
         </div>
         <div class="control-item">
-          <input type="checkbox" id="code-panel-toggle" autocomplete="off" checked />
+          <input type="checkbox" id="code-panel-toggle" autocomplete="off" />
           <label for="code-panel-toggle">Show Code Panel</label>
         </div>
         <div class="control-item">

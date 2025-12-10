@@ -413,14 +413,14 @@ let [<Test>] ``anonymous function taking record solves on correct field usage`` 
 
 
 
-
-
-
-
 (*
-    let myFunc =
-        fun r -> EQUALS r.IntField r.BooleanField
-    myFunc { IntField = 3, BooleanField = true }
+// function with record argument
+// comparing 2 different typed fields
+// should fail
+
+let myFunc =
+    fun r -> EQUALS r.IntField r.BooleanField
+myFunc { IntField = 3, BooleanField = true }
 *)
 let [<Test>] ``function with record argument comparing 2 different typed fields should fail`` () =
 

@@ -22,7 +22,9 @@ export class TreeVisualizer {
   private readonly tvarPopOrderPauseInMs = 160;
 
   private zoomLevel = 1;
-  private panX = this.envPanelWidth;
+
+  // private panX = this.envPanelWidth;
+  private panX = 200;
   private panY = 0;
   private isPanning = false;
   private activePointerId: number | null = null;
@@ -102,21 +104,21 @@ export class TreeVisualizer {
 
   constructor(allRuns: JsNode[], initialRunIndex: number = 0) {
     this.container = document.getElementById('tree-container')!;
-    
+
     // Create wrapper for left panels
     const leftPanelsWrapper = document.createElement('div');
     leftPanelsWrapper.className = 'left-panels-wrapper';
-    
+
     this.solverRunPanel = this.createSolverRunPanel();
     this.envPanel = this.createEnvPanel();
     this.inputPanel = this.createInputPanel();
     this.tracePanel = this.createTracePanel();
     this.contentLayer = this.createContentLayer();
-    
+
     // Add panels to wrapper
     leftPanelsWrapper.appendChild(this.solverRunPanel);
     leftPanelsWrapper.appendChild(this.envPanel);
-    
+
     // Add wrapper and other elements to container
     this.container.appendChild(leftPanelsWrapper);
     this.container.appendChild(this.inputPanel);
@@ -468,10 +470,10 @@ export class TreeVisualizer {
     // Load trace from window if available and split into columns
     const trace = (window as any).trace || '';
     const lines = trace.split('\n');
-    
+
     lines.forEach((line: string) => {
       if (!line.trim()) return;
-      
+
       const row = document.createElement('div');
       row.style.display = 'grid';
       row.style.gridTemplateColumns = '2fr auto 1fr';
@@ -479,9 +481,9 @@ export class TreeVisualizer {
       row.style.alignItems = 'baseline';
       row.style.marginBottom = '2px';
       row.style.width = '100%';
-      
+
       const parts = line.split(':::');
-      
+
       // Left column (expression) - left aligned, with overflow cut
       const leftCol = document.createElement('span');
       leftCol.style.textAlign = 'left';
@@ -491,7 +493,7 @@ export class TreeVisualizer {
       leftCol.style.textOverflow = 'ellipsis';
       leftCol.textContent = parts[0]?.trim() || '';
       row.appendChild(leftCol);
-      
+
       // Separator (hidden, just for grid spacing)
       const separator = document.createElement('span');
       separator.style.fontWeight = '700';
@@ -499,7 +501,7 @@ export class TreeVisualizer {
       separator.style.whiteSpace = 'nowrap';
       separator.textContent = '';
       row.appendChild(separator);
-      
+
       // Right column (type assignment) - left aligned, with overflow cut
       const rightCol = document.createElement('span');
       rightCol.style.textAlign = 'left';
@@ -509,7 +511,7 @@ export class TreeVisualizer {
       rightCol.style.textOverflow = 'ellipsis';
       rightCol.textContent = parts[1]?.trim() || '';
       row.appendChild(rightCol);
-      
+
       traceContent.appendChild(row);
     });
 
@@ -822,10 +824,10 @@ export class TreeVisualizer {
 
   private updateConstraintsVisibility(): void {
     const constraintElements = this.envPanelConstraintsEl.children;
-    
+
     for (let i = 0; i < constraintElements.length; i++) {
       const element = constraintElements[i] as HTMLElement;
-      
+
       // Hide if index is in the hidden list
       if (this.hiddenConstraintIndices.includes(i)) {
         element.classList.add('constraint-hidden');
@@ -844,7 +846,7 @@ export class TreeVisualizer {
   toggleTVarsVisibility(visible: boolean): void {
     // Only target tvars within AST nodes, not in panels
     const tvars = Array.from(this.contentLayer.querySelectorAll('.node .tvar'));
-    
+
     if (!visible) {
       // Hide immediately
       tvars.forEach(tvar => {
@@ -865,7 +867,7 @@ export class TreeVisualizer {
         setTimeout(() => {
           tvar.classList.remove('hidden');
           tvar.classList.add('pop-in');
-          
+
           // Remove pop-in class after animation completes
           setTimeout(() => {
             tvar.classList.remove('pop-in');
@@ -878,7 +880,7 @@ export class TreeVisualizer {
   showTVarsUpToIndex(count: number): void {
     // Get all tvars within AST nodes, not in panels
     const tvars = Array.from(this.contentLayer.querySelectorAll('.node .tvar'));
-    
+
     // Sort tvars by their number (extract from "tv_123" format)
     const sortedTvars = tvars.sort((a, b) => {
       const numA = parseInt((a.textContent || '').replace('tv_', '')) || 0;
@@ -912,14 +914,14 @@ export class TreeVisualizer {
       const nodeElement = this.contentLayer.querySelector<HTMLElement>(
         `.node[data-key="${node.key}"]`
       );
-      
+
       if (nodeElement) {
         const tvarNum = typeof node.varNum === 'string' ? parseInt(node.varNum) : node.varNum;
         const shouldHide = this.hiddenTVarNumbers.includes(tvarNum);
-        
+
         if (shouldHide) {
           nodeElement.style.display = 'none';
-          
+
           // Also hide all connection lines and arrows from this node
           const connectionElements = this.contentLayer.querySelectorAll(
             `.connection-line[data-parent-key="${node.key}"], .connection-arrow[data-parent-key="${node.key}"]`
@@ -929,7 +931,7 @@ export class TreeVisualizer {
           });
         } else {
           nodeElement.style.display = '';
-          
+
           // Show connection lines and arrows from this node
           const connectionElements = this.contentLayer.querySelectorAll(
             `.connection-line[data-parent-key="${node.key}"], .connection-arrow[data-parent-key="${node.key}"]`
@@ -1286,7 +1288,7 @@ export class TreeVisualizer {
         if (node.exprTyp && node.exprTyp.trim() !== '') {
           const hasTVars = node.exprTyp.includes('tv_');
           const isQuantified = node.exprTyp.trim().startsWith('<');
-          
+
           if (hasTVars && !isQuantified) {
             // Has unquantified type variables - intermediate state
             nodeElement.classList.remove('solved');
@@ -1625,6 +1627,56 @@ export class TreeVisualizer {
     this.applyTransform();
   }
 
+  private centerTreeInitial(): void {
+    if (this.nodes.size === 0) {
+      console.log('No nodes to center');
+      return;
+    }
+
+    // Find bounding box of all nodes
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    this.nodes.forEach(node => {
+      const pos = this.nodePositions.get(node.key);
+      if (pos) {
+        const width = this.nodeWidths.get(node.key) || 0;
+        const height = this.nodeHeights.get(node.key) || 100;
+
+        minX = Math.min(minX, pos.x);
+        maxX = Math.max(maxX, pos.x + width);
+        minY = Math.min(minY, pos.y);
+        maxY = Math.max(maxY, pos.y + height);
+      }
+    });
+
+    // Calculate tree dimensions and center
+    const treeWidth = maxX - minX;
+    const treeHeight = maxY - minY;
+    const treeCenterX = minX + treeWidth / 2;
+    const treeCenterY = minY + treeHeight / 2;
+
+    // Get viewport dimensions and center
+    const viewportWidth = this.container.clientWidth;
+    const viewportHeight = this.container.clientHeight;
+    const viewportCenterX = viewportWidth / 2;
+    const viewportCenterY = viewportHeight / 2;
+
+    console.log('Tree bounds:', { minX, maxX, minY, maxY, treeWidth, treeHeight });
+    console.log('Tree center:', { treeCenterX, treeCenterY });
+    console.log('Viewport:', { viewportWidth, viewportHeight, viewportCenterX, viewportCenterY });
+
+    // Use current zoom level (1), just center the tree
+    this.panX = viewportCenterX - treeCenterX;
+    this.panY = viewportCenterY - treeCenterY;
+
+    console.log('Setting pan:', { panX: this.panX, panY: this.panY });
+
+    this.applyTransform();
+  }
+
   private updateActualNodeHeights(): void {
     this.nodes.forEach(node => {
       const nodeElement = this.contentLayer.querySelector<HTMLElement>(
@@ -1834,7 +1886,7 @@ export class TreeVisualizer {
     if (node.exprTyp && node.exprTyp.trim() !== '') {
       const hasTVars = node.exprTyp.includes('tv_');
       const isQuantified = node.exprTyp.trim().startsWith('<');
-      
+
       if (hasTVars && !isQuantified) {
         // Has unquantified type variables - intermediate state
         nodeElement.classList.add('intermediate');

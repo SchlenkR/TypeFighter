@@ -147,6 +147,12 @@ window.addEventListener('load', () => {
     } else if (event.key === 'ArrowRight') {
       nextRun();
       event.preventDefault();
+    } else if (event.key === 'h' || event.key === 'H') {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebar.classList.toggle('hidden');
+      }
+      event.preventDefault();
     }
   });
 });
