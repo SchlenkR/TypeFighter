@@ -7,23 +7,6 @@ open TypeFighter
 
 
 (*
-    ((x) => isPositive x) 42
-*)
-let env =
-    [
-        "isPositive", Mono (BuiltinTypes.number ^-> BuiltinTypes.boolean)
-    ]
-X.App
-    (X.Fun (X.Ident "x")
-        (X.App
-            (X.Var "isPositive")
-            (X.Var "x")))
-    (X.Lit 42)
-|> solve env None
-
-
-
-(*
     let x = 42
     x > 0
 *)
@@ -100,6 +83,7 @@ X.MkArray [ X.Lit "a"; X.Lit 1; X.Lit "c" ]
 |> shouldFail
 
 
+
 (*
     let name = "Alice"
     let age = 30
@@ -117,7 +101,7 @@ X.Let (X.Ident "name") (X.Lit "Alice")
 
 
 (*
-addNumbers 41 "one"
+    addNumbers 41 "one"
 *)
 X.App
     (X.App
@@ -168,8 +152,6 @@ X.MkArray
     ]
 |> solve defaultTcEnv None
 |> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %10 ])))
-
-
 
 
 
@@ -263,11 +245,8 @@ X.Match
 
 
 (*
-let identity = (x) => x
-identity
-
-Final type after generalization:
-    Some(<tv_1>.(tv_1 -> tv_1))
+    let identity = (x) => x
+    identity
 *)
 
 X.Let (X.Ident "identity")
@@ -275,3 +254,4 @@ X.Let (X.Ident "identity")
     (X.Var "identity")
 |> solve [] None
 |> shouldSolveType (TDef.Generalize (%1 ^-> %1))
+
