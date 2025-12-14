@@ -2,30 +2,26 @@ import type { JsNode, LinkData, TreeNode, Link, Position, EnvEntry } from './typ
 import hljs from 'highlight.js/lib/core';
 import fsharp from 'highlight.js/lib/languages/fsharp';
 import 'highlight.js/styles/atom-one-dark.css';
+import { CONFIG } from './constants';
 
 // Register F# language
 hljs.registerLanguage('fsharp', fsharp);
 
 export class TreeVisualizer {
-  private readonly levelHeight = 140;
-  private readonly minNodeWidth = 90;
-  private readonly maxNodeWidth = 850;
-  private readonly minNodeSpacing = 50;
-  private readonly subtreeSpacing = 50;
-  private readonly minLevelHeight = 40;
-  private readonly maxLevelHeight = 320;
-  private readonly envPanelWidth = 550;
-  private readonly envPanelSpacing = 80;
-  private readonly minZoom = 0.25;
-  private readonly maxZoom = 4;
+  private readonly levelHeight = CONFIG.levelHeight;
+  private readonly minNodeWidth = CONFIG.minNodeWidth;
+  private readonly maxNodeWidth = CONFIG.maxNodeWidth;
+  private readonly minNodeSpacing = CONFIG.minNodeSpacing;
+  private readonly subtreeSpacing = CONFIG.subtreeSpacing;
+  private readonly minZoom = CONFIG.minZoom;
+  private readonly maxZoom = CONFIG.maxZoom;
 
-  private readonly tvarPopOrderPauseInMs = 160;
+  private readonly tvarPopOrderPauseInMs = CONFIG.tvarPopOrderPauseInMs;
 
-  private zoomLevel = 1;
+  private zoomLevel: number = CONFIG.defaultZoomLevel;
 
-  // private panX = this.envPanelWidth;
-  private panX = 200;
-  private panY = 0;
+  private panX: number = CONFIG.defaultPanX;
+  private panY: number = CONFIG.defaultPanY;
   private isPanning = false;
   private activePointerId: number | null = null;
   private lastPanPosition = { x: 0, y: 0 };

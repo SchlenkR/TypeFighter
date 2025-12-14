@@ -980,6 +980,10 @@
       box-sizing: border-box;
     }
 
+    .input-panel.collapsed {
+      display: none;
+    }
+
     .trace-panel {
       position: absolute;
       top: 50px;
@@ -1134,7 +1138,7 @@
         <div id="tree-container"></div>
       </div>
     </div>
-    <aside id="sidebar" class="hidden">
+    <aside id="sidebar">
       <h2>Solver Runs</h2>
       <div id="run-buttons"></div>
 
@@ -1161,7 +1165,7 @@
           <label for="select-first-tvar">Select 1st tvar</label>
         </div>
         <div class="control-item">
-          <input type="checkbox" id="show-tvars-toggle" autocomplete="off" checked />
+          <input type="checkbox" id="show-tvars-toggle" autocomplete="off" />
           <label for="show-tvars-toggle">Show tvars</label>
         </div>
 

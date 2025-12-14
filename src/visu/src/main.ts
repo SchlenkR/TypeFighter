@@ -3,6 +3,7 @@ import type { JsNode } from './types';
 import html2canvas from 'html2canvas';
 // @ts-ignore - gif.js doesn't have proper TypeScript types
 import GIF from 'gif.js';
+import { CONFIG } from './constants';
 
 let treeViz: TreeVisualizer;
 let runButtons: HTMLButtonElement[] = [];
@@ -136,6 +137,20 @@ window.addEventListener('load', () => {
   setupClearDownloads();
   setupControlPanel();
 
+  // Set sidebar width and visibility from config
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    // Set width from config
+    sidebar.style.flex = `0 0 ${CONFIG.sidebarWidth}px`;
+    
+    // Set visibility
+    if (CONFIG.sidebar) {
+      sidebar.classList.remove('hidden');
+    } else {
+      sidebar.classList.add('hidden');
+    }
+  }
+
   // Expose selectRun globally for solver panel buttons
   (window as any).selectRunFromPanel = selectRun;
 
@@ -161,6 +176,9 @@ function setupControlPanel(): void {
   const envPanelToggle = document.getElementById('env-panel-toggle') as HTMLInputElement;
   
   if (envPanelToggle) {
+    // Set checkbox state from config
+    envPanelToggle.checked = CONFIG.typePanel;
+    
     // Set initial state
     if (treeViz) {
       treeViz.toggleEnvPanel(envPanelToggle.checked);
@@ -176,6 +194,9 @@ function setupControlPanel(): void {
   const solverRunPanelToggle = document.getElementById('solver-run-panel-toggle') as HTMLInputElement;
   
   if (solverRunPanelToggle) {
+    // Set checkbox state from config
+    solverRunPanelToggle.checked = CONFIG.solverRunPanel;
+    
     // Set initial state
     if (treeViz) {
       treeViz.toggleSolverRunPanel(solverRunPanelToggle.checked);
@@ -191,6 +212,9 @@ function setupControlPanel(): void {
   const inputPanelToggle = document.getElementById('code-panel-toggle') as HTMLInputElement;
   
   if (inputPanelToggle) {
+    // Set checkbox state from config
+    inputPanelToggle.checked = CONFIG.codePanel;
+    
     // Set initial state
     if (treeViz) {
       treeViz.toggleInputPanel(inputPanelToggle.checked);
@@ -206,6 +230,9 @@ function setupControlPanel(): void {
   const tracePanelToggle = document.getElementById('trace-panel-toggle') as HTMLInputElement;
   
   if (tracePanelToggle) {
+    // Set checkbox state from config
+    tracePanelToggle.checked = CONFIG.tracePanel;
+    
     // Set initial state
     if (treeViz) {
       treeViz.toggleTracePanel(tracePanelToggle.checked);
@@ -220,6 +247,9 @@ function setupControlPanel(): void {
 
   const selectFirstTVarCheckbox = document.getElementById('select-first-tvar') as HTMLInputElement;
   if (selectFirstTVarCheckbox) {
+    // Set checkbox state from config
+    selectFirstTVarCheckbox.checked = CONFIG.selectFirstTVar;
+    
     selectFirstTVarCheckbox.addEventListener('change', () => {
       if (treeViz) {
         treeViz.toggleSelectFirstTVar(selectFirstTVarCheckbox.checked);
@@ -229,6 +259,16 @@ function setupControlPanel(): void {
 
   const showTVarsToggle = document.getElementById('show-tvars-toggle') as HTMLInputElement;
   if (showTVarsToggle) {
+    // Set checkbox state from config
+    showTVarsToggle.checked = CONFIG.showTVars;
+    
+    // Set initial state after a short delay to ensure DOM is ready
+    setTimeout(() => {
+      if (treeViz) {
+        treeViz.toggleTVarsVisibility(showTVarsToggle.checked);
+      }
+    }, 100);
+    
     showTVarsToggle.addEventListener('change', () => {
       if (treeViz) {
         treeViz.toggleTVarsVisibility(showTVarsToggle.checked);
