@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Functions — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item active" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>Functions</h1>
+      <p class="intro">Lambda abstractions, application, partial application, and the shape of higher-order types. A lambda without usage constraints generalizes to a polymorphic type at its enclosing let binding (or at the top level, if there is no such binding).</p>
+      <div class="tests">
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">identity generalizes to forall a. a -&gt; a</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun x -&gt; x</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">forall a. a -&gt; a</code></pre>
+    </div>
+  </div>
+  <p class="test-note">The identity function has no constraints on <code>x</code>, so its type is quantified over all <code>a</code>. Read <code>forall a. a -&gt; a</code> as <em>&quot;for any type <code>a</code> you pick, this is a function that takes an <code>a</code> and returns an <code>a</code>&quot;</em> — so <code>id</code> can be called on a number and return a number, on a string and return a string, etc. The <code>a</code> is chosen fresh at every use site. The <code>-&gt;</code> arrow reads &quot;takes … returns&quot;.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)
+|&gt; solve [] None
+|&gt; shouldSolveType (TDef.Generalize (%0 ^-&gt; %0))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">identity applied to String returns String</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">(fun x -&gt; x) &quot;hello&quot;</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">String</code></pre>
+    </div>
+  </div>
+  <p class="test-note">The companion to the generalization test: now that identity has the polytype <code>forall a. a -&gt; a</code>, applying it to a string should pin <code>a</code> to <code>String</code> at this call. This is the first time we see the instantiation step at work — the generic <code>a</code> gets fixed from the argument type flowing in.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.App (X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)) (X.Lit &quot;hello&quot;)
+|&gt; solve [] None
+|&gt; shouldSolveType (Mono BuiltinTypes.string)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">identity applied to Number returns Number</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">(fun x -&gt; x) 42</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Same instantiation trick, now with a number. Having the two cases side by side (String and Number) is the whole point — it shows that each application picks its own type for <code>a</code> independently, which is what polymorphism promises.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.App (X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)) (X.Lit 42)
+|&gt; solve [] None
+|&gt; shouldSolveType (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">fully applied binary function</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">add : Number -&gt; Number -&gt; Number</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">add 100 10</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Arrows are right-associative: <code>Number -&gt; Number -&gt; Number</code> reads as <code>Number -&gt; (Number -&gt; Number)</code>. So <code>add</code> takes a number and returns <em>another function</em> that takes a number and returns a number. Applying both arguments here therefore gives back a <code>Number</code>.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.App (X.App (X.Var &quot;add&quot;) (X.Lit 100)) (X.Lit 10)
+|&gt; solve
+    [ &quot;add&quot;, Mono (BuiltinTypes.number ^-&gt; BuiltinTypes.number ^-&gt; BuiltinTypes.number) ]
+    None
+|&gt; shouldSolveType (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">partial application yields a function</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">add : Number -&gt; Number -&gt; Number</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">add 100</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number -&gt; Number</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Partial application returns a function waiting for the remaining args.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.App (X.Var &quot;add&quot;) (X.Lit 100)
+|&gt; solve
+    [ &quot;add&quot;, Mono (BuiltinTypes.number ^-&gt; BuiltinTypes.number ^-&gt; BuiltinTypes.number) ]
+    None
+|&gt; shouldSolveType (Mono (BuiltinTypes.number ^-&gt; BuiltinTypes.number))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">apply combinator generalizes to (a -&gt; b) -&gt; a -&gt; b</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun f x -&gt; f x</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">forall a b. (a -&gt; b) -&gt; a -&gt; b</code></pre>
+    </div>
+  </div>
+  <p class="test-note">The apply-combinator. A <em>higher-order function</em> is one that takes another function as an argument (or returns one) — here <code>f</code> is a parameter that gets applied to <code>x</code>. A <em>combinator</em> is just a self-contained function that refers only to its parameters (no outside names). From <code>f x</code>, the inferencer learns that <code>f</code> must accept whatever type <code>x</code> has and produce <em>some</em> return — so <code>f : a -&gt; b</code>, with <code>a</code> and <code>b</code> both free. The whole expression generalizes over both.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;f&quot;)
+    (X.Fun (X.Ident &quot;x&quot;)
+        (X.App (X.Var &quot;f&quot;) (X.Var &quot;x&quot;)))
+|&gt; solve [] None
+|&gt; shouldSolveType (TDef.Generalize ((%0 ^-&gt; %1) ^-&gt; %0 ^-&gt; %1))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">double application constrains f to a -&gt; a</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun f x -&gt; f (f x)</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">forall a. (a -&gt; a) -&gt; a -&gt; a</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Feeding <code>f x</code> back into <code>f</code> forces input and output of <code>f</code> to have the same type — constraining to <code>a -&gt; a</code>.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;f&quot;)
+    (X.Fun (X.Ident &quot;x&quot;)
+        (X.App (X.Var &quot;f&quot;) (X.App (X.Var &quot;f&quot;) (X.Var &quot;x&quot;))))
+|&gt; solve [] None
+|&gt; shouldSolveType (TDef.Generalize ((%0 ^-&gt; %0) ^-&gt; %0 ^-&gt; %0))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">function rejects mismatched argument type</h3>
+    <span class="badge badge-error">Expected error</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">add : Number -&gt; Number -&gt; Number</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">add 10 &quot;hello&quot;</code></pre>
+    </div>
+    <div class="doc-section doc-error">
+      <span class="doc-label">Error</span>
+      <pre class="doc-value">Can't unify Number and String</pre>
+    </div>
+  </div>
+  <p class="test-note">&quot;Unify&quot; is type-checker jargon for &quot;make these two types agree&quot;. When the inferencer meets <code>add</code>'s signature (second arg: Number) and a string literal at that position, it tries to unify <code>Number</code> with <code>String</code> — and fails, because they're plainly different.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.App (X.App (X.Var &quot;add&quot;) (X.Lit 10)) (X.Lit &quot;hello&quot;)
+|&gt; solve
+    [ &quot;add&quot;, Mono (BuiltinTypes.number ^-&gt; BuiltinTypes.number ^-&gt; BuiltinTypes.number) ]
+    None
+|&gt; shouldFail</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

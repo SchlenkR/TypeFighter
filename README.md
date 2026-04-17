@@ -1,112 +1,57 @@
 # TypeFighter
 
-> **Companion repository for the YouTube video:** [Type Inference Explained](https://www.youtube.com/watch?v=fSRTVrjvo70)
+> **📖 [Browse the generated docs site →](https://schlenkr.github.io/TypeFighter/)**
 
-TypeFighter is an educational type inference system implementation in F# that demonstrates how type systems work internally. This repository allows you to explore and experiment with type inference concepts interactively.
+TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is **structural records instead of nominal ones**: records are compared by the fields they actually have, not by a declared name — so a function that needs `{ name: String }` accepts *any* record with that field, no boilerplate declarations required.
 
-## 🎯 Purpose
+On top of that: row polymorphism, set-theoretic literal and union types, and classical polymorphic functions — all figured out by the type checker with (almost) no annotations.
 
-This project helps you understand type inference by:
-- Providing runnable examples that visualize type inference steps
-- Demonstrating various type system features (polymorphism, records, pattern matching, etc.)
-- Offering an interactive AST visualization tool
+> Companion repository for the YouTube video: [Type Inference Explained](https://www.youtube.com/watch?v=fSRTVrjvo70)
 
-## 🚀 Getting Started
+## Documentation
 
-### Prerequisites
+The [documentation site](https://schlenkr.github.io/TypeFighter/) is generated directly from the test suite under `src/TypeFighter.Tests/TestCases/`. Every test is a minimal example of what the type system can — and can't yet — do, grouped into categories:
 
-- [.NET SDK](https://dotnet.microsoft.com/download) (version 8.0 or higher)
-- [VS Code](https://code.visualstudio.com/) with [Ionide](https://ionide.io/) extension
-- [Node.js](https://nodejs.org/) and npm
+Literals · Functions · Let bindings · Generalization · Arrays · Records · Rows · Polymorphism · Intersections · Type hierarchies
 
-### Installation
+To build the site locally:
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/SchlenkR/TypeFighter.git
-   cd TypeFighter
-   ```
+```bash
+dotnet fsi docs/build.fsx
+open docs/output/index.html
+```
 
-2. **Restore .NET dependencies**
-   ```bash
-   dotnet restore
-   ```
+## Running the test suite
 
-3. **Install visualization dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+dotnet test
+```
 
-4. **Start the visualization server**
-   ```bash
-   npm start
-   ```
-   This launches the AST visualizer at `http://localhost:5173` (or similar).
-
-### Running Examples
-
-#### Start Here: The Introduction Example
-
-1. Open `src/TypeFighter.Tests/video_00/the-example.fsx` in VS Code
-2. Select the top section (the setup code)
-3. Press `Alt+Enter` (or `Cmd+Enter` on macOS) to evaluate it in F# Interactive
-4. Now evaluate each small program block individually to see type inference in action
-5. Check the visualization webpage to see the AST and type inference steps
-
-#### Explore More Examples
-
-The `src/TypeFighter.Tests/TestCases/` directory contains comprehensive examples:
-
-- `Base.fs` - Basic type inference
-- `Polymorphism.fs` - Generic types and polymorphism
-- `Records.fs` - Record types
-- `Arrays.fs` - Array and collection types
-- `PatternMatching.fs` - Pattern matching with types
-- `IntersectionTypes.fs` - Intersection type features
-- `TypeHierarchies.fs` - Type hierarchies and subtyping
-- `Misc.fs` - Additional scenarios
-
-All test files are executable in F# Interactive following the same pattern as `the-example.fsx`.
-
-## 📁 Project Structure
+## Project layout
 
 ```
 TypeFighter/
+├── docs/
+│   ├── build.fsx              # Site generator (reads tests → emits HTML)
+│   └── output/                # Generated site (gitignored)
 ├── src/
-│   ├── TypeFighter/          # Core type inference engine
-│   │   ├── Lang.fs           # Language definition and types
-│   │   ├── ExpressionDsl.fs  # DSL for building expressions
-│   │   └── Utils.fs          # Utilities
-│   ├── TypeFighter.Tests/    # Examples and test cases
-│   │   ├── video_00/         # Video companion examples
-│   │   └── TestCases/        # Feature examples
-│   └── visu/                 # AST visualization tool (TypeScript)
-├── package.json              # npm dependencies for visualization
-└── TypeFighter.sln           # .NET solution file
+│   ├── TypeFighter/           # Type inference engine
+│   │   ├── Lang.fs            # Core types, constraints, solver
+│   │   └── ExpressionDsl.fs   # AST-building DSL used in tests
+│   ├── TypeFighter.Tests/     # NUnit tests; one file per feature area
+│   └── visu/                  # Optional AST visualizer (TypeScript + Vite)
+└── .github/workflows/docs.yml # CI: builds and deploys the docs site
 ```
 
-## 🔧 Building
+## Visualizer (optional)
+
+A legacy AST visualizer lives under `src/visu/`. To start it:
 
 ```bash
-dotnet build
+npm install
+npm start
 ```
 
-Or use the VS Code build task: `TypeFighter (NonGraphBased): build dotnet solution`
+## License
 
-## 🎨 Visualization
-
-The visualization tool displays the Abstract Syntax Tree (AST) and type inference process. After starting the dev server with `npm start`, it automatically updates as you evaluate expressions in F# Interactive.
-
-## 📜 License
-
-**⚠️ Important:** This project is **NOT available for use** in any projects, whether commercial or non-commercial. 
-
-If you are interested in using this project, please [contact me](https://github.com/SchlenkR) directly for permission.
-
-## 🙏 Acknowledgments
-
-This project was created as educational material to accompany the type inference video tutorial. Feel free to explore, learn, and experiment with the code for educational purposes.
-
----
-
-**Questions or feedback?** Feel free to open an issue or reach out!
+This project is **not available for use** in any projects, whether commercial or non-commercial. If you are interested in using it, please [contact me](https://github.com/SchlenkR) directly.

@@ -22,24 +22,26 @@ type NameHint =
     interface System.IComparable<NameHint> with
         member _.CompareTo(_) = 0
 
-// TODO: Set<TField> and Set<TCase> are not well-suited for the concrete constraints these types represent.
+type Literal =
+    | Number of float
+    | String of string
+    | Boolean of bool
 
 // This is not a type in the final sense, but a constraint.
 // Some of the elements may not even appear in the final type
-// (e.g. TVar, TRequireFields).
-// TODO: Map to a final type.
+// (e.g. TVar).
 type MonoTyp =
     | TVar of VarNum
-    | LeafTyp of {| name: string; args: MonoTyp list |}
+    | SaturatedTyp of {| name: string; args: MonoTyp list |}
     | FunTyp of MonoTyp * MonoTyp
     | RecordTyp of RecordDefinition
     | IntersectionTyp of RecordDefinition list
-    | RecordRefTyp of int
-    | DiscriminatedUnionTyp of DiscriminatedUnionDefinition
+    | LiteralTyp of Literal
+    | UnionTyp of Set<MonoTyp>
     override this.ToString() = ShowTyp.Show(this)
 
 and PolyTyp =
-    { 
+    {
         vars: Set<VarNum>
         monoTyp: MonoTyp
     }
@@ -50,29 +52,19 @@ and Typ =
     | Poly of PolyTyp
     override this.ToString() = ShowTyp.Show(this)
 
-and RecordDefinition = 
-    { 
+and RecordDefinition =
+    {
         nameHint: NameHint
         fields: Set<FieldDefinition>
     }
     override this.ToString() = ShowTyp.Show(this)
 
 and FieldDefinition =
-    { 
+    {
         fname: string
         typ: MonoTyp
     }
     override this.ToString() = ShowTyp.Show(this)
-
-and DiscriminatedUnionDefinition = 
-    {
-        nameHint: NameHint
-        cases: Set<
-            {| 
-                disc: string
-                payloadTyp: MonoTyp option
-            |}>
-    }
 
 and ShowTyp =
     static let printers = ResizeArray()
@@ -104,7 +96,7 @@ and ShowTyp =
         printOrShow typ (fun () ->
             match typ with
             | TVar x -> x.ToString()
-            | LeafTyp x ->
+            | SaturatedTyp x ->
                 match x.args with
                 | [] -> x.name
                 | args ->
@@ -116,17 +108,16 @@ and ShowTyp =
                 records
                 |> List.map ShowTyp.Show
                 |> String.concat " & "
-            | RecordRefTyp recref ->
-                $"recordRef_({recref})"
-            | DiscriminatedUnionTyp union ->
-                [
-                    for c in union.cases do
-                        let payload = c.payloadTyp |> Option.map (fun t -> $"({t})") |> Option.defaultValue "_"
-                        $"{c.disc}: {payload}"
-                ]
-                |> String.concat "; "
-                |> fun s ->
-                    $"{getNameHint union.nameHint} {{ {s} }}"
+            | LiteralTyp lit ->
+                match lit with
+                | Number n -> n.ToString()
+                | String s -> $"\"{s}\""
+                | Boolean b -> b.ToString()
+            | UnionTyp members ->
+                members
+                |> Set.toList
+                |> List.map ShowTyp.Show
+                |> String.concat " | "
         )
     
     static member Show (typ: PolyTyp) =
@@ -143,11 +134,6 @@ and [<RequireQualifiedAccess>] EnvItem =
     | Internal of VarNum 
     | External of Typ
 
-type Literal = 
-    | Number of float 
-    | String of string 
-    | Boolean of bool
-
 [<RequireQualifiedAccess>]
 type Expr<'noneOrVarnum> =
     // many exprs are non-elementary, but we don't care about that here,
@@ -159,11 +145,10 @@ type Expr<'noneOrVarnum> =
     | Fun of {| ident: Ident<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                    // fun ident -> body
     | Let of {| ident: Ident<'noneOrVarnum>; value: Expr<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}        // let ident = value in body
     | Do of {| action: Expr<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                     // do value body
-    | Match of {| expr: Expr<'noneOrVarnum>; cases: UnionCase<'noneOrVarnum> list; tvar: 'noneOrVarnum |}                         // match expr with | cases
     | PropAcc of {| source: Expr<'noneOrVarnum>; ident: Ident<'noneOrVarnum>; tvar: 'noneOrVarnum |}
     | MkArray of {| values: Expr<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
     | MkRecord of {| fields: Field<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
-    
+
     member this.TVar =
         match this with
         | Lit x -> x.tvar
@@ -172,7 +157,6 @@ type Expr<'noneOrVarnum> =
         | Fun x -> x.tvar
         | Let x -> x.tvar
         | Do x -> x.tvar
-        | Match x -> x.tvar
         | PropAcc x -> x.tvar
         | MkArray x -> x.tvar
         | MkRecord x -> x.tvar
@@ -181,18 +165,11 @@ type Expr<'noneOrVarnum> =
 
 and Ident<'noneOrVarnum> = internal { identName: string; tvar: 'noneOrVarnum }
 and Field<'noneOrVarnum> = internal { fname: string; value: Expr<'noneOrVarnum> }
-and UnionCase<'noneOrVarnum> = internal { disc: string; ident: Ident<'noneOrVarnum> option; body: Expr<'noneOrVarnum> }
 
 and ShowExpr =
     static member Expr (expr: Expr<'noneOrVarnum>) =
         let printIdent (ident: Ident<'noneOrVarnum>) = ident.identName
         let printField (f: Field<'noneOrVarnum>) = $"{f.fname}: {f.value}"
-        let printUnionCase (c: UnionCase<'noneOrVarnum>) =
-            let binding =
-                match c.ident with
-                | Some ident -> $"as {printIdent ident}"
-                | None -> $""
-            $"    | {c.disc} {binding}-> {c.body}"
         match expr with
         | Expr.Lit x -> $"LIT := {x.value}"
         | Expr.Var x -> $"VAR := {x.ident}"
@@ -200,9 +177,6 @@ and ShowExpr =
         | Expr.Fun x -> $"FUN := ({printIdent x.ident}) => ... {x.body.TVar}"
         | Expr.Let x -> $"LET := {printIdent x.ident} = {x.value}) in {x.body}"
         | Expr.Do x -> $"DO := {x.action} {x.body}"
-        | Expr.Match x ->
-            let caseNames = [ for x in x.cases -> printUnionCase x ] |> String.concat " | "
-            $"Match {x.expr} with | {caseNames})"
         | Expr.PropAcc x -> $"PropAcc {x.source}.{x.ident}"
         | Expr.MkArray x ->
             let values = [ for x in x.values -> ShowExpr.Expr x ] |> String.concat "; "
@@ -251,20 +225,7 @@ module Expr =
             | Expr.Fun x -> Expr.Fun {| ident = numberIdent x.ident; body = loop x.body; tvar = newVar () |}
             | Expr.Let x -> Expr.Let {| ident = numberIdent x.ident; value = loop x.value; body = loop x.body; tvar = newVar () |}
             | Expr.Do x -> Expr.Do {| action = loop x.action; body = loop x.body; tvar = newVar () |}
-            | Expr.Match x -> 
-                Expr.Match 
-                    {|
-                        expr = loop x.expr; 
-                        cases = [ 
-                            for c in x.cases do 
-                                { 
-                                    disc = c.disc
-                                    ident = Option.map (fun i -> { identName = i.identName; tvar = newVar () }) c.ident
-                                    body = loop c.body }
-                            ]
-                        tvar = newVar ()
-                    |}
-            | Expr.PropAcc x -> 
+            | Expr.PropAcc x ->
                 Expr.PropAcc 
                     {| 
                         source = loop x.source
@@ -319,13 +280,6 @@ module Expr =
                     yield! loop x.action acc
                     yield! loop x.body acc
                 ]
-            | Expr.Match x -> 
-                [
-                    yield x.tvar
-                    yield! loop x.expr acc
-                    for c in x.cases do
-                        yield! loop c.body acc
-                ]
             | Expr.PropAcc x ->
                 [
                     yield x.tvar
@@ -365,7 +319,7 @@ module Typ =
         and loopMono (typ: MonoTyp) (acc: VarNum list) =
             match typ with
             | TVar x -> x :: acc
-            | LeafTyp x ->
+            | SaturatedTyp x ->
                 [
                     for arg in x.args do
                         yield! loopMono arg acc
@@ -382,13 +336,11 @@ module Typ =
                     for r in records do
                         yield! loopRecord r acc
                 ]
-            | RecordRefTyp _ -> []
-            | DiscriminatedUnionTyp union ->
+            | LiteralTyp _ -> acc
+            | UnionTyp members ->
                 [
-                    for c in union.cases do
-                        match c.payloadTyp with
-                        | Some payloadTyp -> yield! loopMono payloadTyp acc
-                        | None -> ()
+                    for m in members do
+                        yield! loopMono m acc
                 ]
         and loopPoly (typ: PolyTyp) (acc: VarNum list) =
             [
@@ -403,11 +355,43 @@ module Typ =
     let maxVar (typ: Typ) =
         0 :: collectTVars typ |> List.max
 
+    // Generalizes a MonoTyp into a PolyTyp.
+    //
+    // Bound TVars are renumbered canonically (0, 1, 2, …) in traversal order so
+    // that alpha-equivalent polytypes compare equal under structural F# equality
+    // (e.g. `%5 -> %5` and `%10 -> %10` both become `%0 -> %0`).
+    //
+    // This is the cheap normalization approach. If it ever gets in the way we
+    // can switch to one of:
+    //   - Custom equivalence: keep original TVars, implement alpha-aware
+    //     equality/hashing on PolyTyp.
+    //   - De Bruijn indices: drop named TVars in bound positions entirely.
     let gen (typ: MonoTyp) =
-        let tvars = collectTVars (Mono typ) |> List.map (fun v -> VarNum v)
+        let tvars = collectTVars (Mono typ) |> List.map VarNum
         match tvars with
         | [] -> Mono typ
-        | tvars -> Poly { vars = set tvars; monoTyp = typ }
+        | tvars ->
+            let renaming =
+                tvars
+                |> List.mapi (fun i v -> v, VarNum i)
+                |> Map.ofList
+            let rec renameMono t =
+                match t with
+                | TVar v -> TVar (Map.find v renaming)
+                | SaturatedTyp x ->
+                    SaturatedTyp {| name = x.name; args = x.args |> List.map renameMono |}
+                | FunTyp (a, b) -> FunTyp (renameMono a, renameMono b)
+                | RecordTyp r -> RecordTyp (renameRecord r)
+                | IntersectionTyp rs -> IntersectionTyp (rs |> List.map renameRecord)
+                | LiteralTyp l -> LiteralTyp l
+                | UnionTyp ms -> UnionTyp (ms |> Set.map renameMono)
+            and renameRecord (r: RecordDefinition) : RecordDefinition =
+                { r with
+                    fields =
+                        r.fields
+                        |> Set.map (fun f -> { f with typ = renameMono f.typ }) }
+            let canonicalVars = renaming |> Map.toSeq |> Seq.map snd |> Set.ofSeq
+            Poly { vars = canonicalVars; monoTyp = renameMono typ }
 
 module Env =
     let collectTVars (env: Env) =
@@ -449,14 +433,8 @@ module TDef =
     let RecordWith (fields: (string * MonoTyp) list) =
         RecordTyp (RecordDefWith NameHint.Anonymous fields)
 
-    let DiscriminatedUnionWith nameHint (cases: (string * MonoTyp option) list) =
-        let cases =
-            [ for (disc, payloadTyp) in cases do {| disc = disc; payloadTyp = payloadTyp |} ]
-            |> set
-        DiscriminatedUnionTyp { nameHint = nameHint; cases = cases }
-    
-    let LeafWith (name: string) (args: MonoTyp list) =
-        LeafTyp {| name = name; args = args |}
+    let SaturatedWith (name: string) (args: MonoTyp list) =
+        SaturatedTyp {| name = name; args = args |}
 
     let Generalize (monoTyp: MonoTyp) =
         Typ.gen monoTyp
@@ -470,12 +448,12 @@ module BuiltinTypes =
         let [<Literal>] array = "Array"
         let [<Literal>] bool = "Bool"
 
-    let unit = TDef.LeafWith Names.unit []
-    let boolean = TDef.DiscriminatedUnionWith (NameHint.Given Names.bool) [ "True", None; "False", None ]
-    let number = TDef.LeafWith Names.number []
-    let string = TDef.LeafWith Names.string []
+    let unit = TDef.SaturatedWith Names.unit []
+    let boolean = UnionTyp (set [ LiteralTyp (Boolean true); LiteralTyp (Boolean false) ])
+    let number = TDef.SaturatedWith Names.number []
+    let string = TDef.SaturatedWith Names.string []
     
-    let array elemTyp = TDef.LeafWith Names.array [ elemTyp ]
+    let array elemTyp = TDef.SaturatedWith Names.array [ elemTyp ]
 
     ShowTyp.AddPrinter(fun typ ->
         match typ with
@@ -490,8 +468,15 @@ module BuiltinValues =
 module TypeSystem =
     open TypeFighter.Utils
 
-    /// A constraint in the form: the right type must be assignable to the left type    
-    type Constraint = { triviaSource: Expr<VarNum>; t1: MonoTyp; t2: MonoTyp }
+    /// A constraint represents a relation between types that the solver must satisfy.
+    /// Each variant is a different relation; the solver dispatches over them.
+    type ConstraintKind =
+        | CEq of MonoTyp * MonoTyp
+        | CHasField of {| row: MonoTyp; fname: string; ftyp: MonoTyp |}
+        | CHasMember of {| row: MonoTyp; memberTyp: MonoTyp |}
+
+    type Constraint =
+        { triviaSource: Expr<VarNum>; kind: ConstraintKind }
 
     type Substitution = { tvar: VarNum; typ: Typ }
     type MonoSubstitution = { tvar: VarNum; monoTyp: MonoTyp }
@@ -500,12 +485,14 @@ module TypeSystem =
     type SubstIn = SubstIn of MonoTyp
 
     type RecordRefs = Map<int, Set<FieldDefinition>>
+    type MemberRefs = Map<int, Set<MonoTyp>>
 
     type SolverRun =
         {
             cycle: int
             constraints: Constraint list
             recordRefs: RecordRefs
+            memberRefs: MemberRefs
             substitutions: Substitution list
         }
 
@@ -516,9 +503,9 @@ module TypeSystem =
         match inTyp with
         | t when t = typToReplace -> withTyp
         | TVar _ -> inTyp
-        | LeafTyp app ->
+        | SaturatedTyp app ->
             let substitutedArgs = [ for arg in app.args do substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn arg) ]
-            LeafTyp {| app with args = substitutedArgs |}
+            SaturatedTyp {| app with args = substitutedArgs |}
         | FunTyp (t1, t2) ->
             let t1 = substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn t1)
             let t2 = substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn t2)
@@ -527,23 +514,18 @@ module TypeSystem =
             RecordTyp (substRecord record)
         | IntersectionTyp records ->
             IntersectionTyp [ for record in records do substRecord record ]
-        | RecordRefTyp recref ->
-            RecordRefTyp recref
-        | DiscriminatedUnionTyp union ->
-            TDef.DiscriminatedUnionWith
-                union.nameHint
-                [ for c in union.cases do 
-                    c.disc, 
-                    c.payloadTyp |> Option.map (fun inTyp -> substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn inTyp)) 
-                ]
+        | LiteralTyp _ -> inTyp
+        | UnionTyp members ->
+            UnionTyp (set [
+                for m in members do
+                    substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn m)
+            ])
     
     let rec substVarWithTypInTyp (tvarToReplace: VarNum) withTyp inTyp =
         substTypWithTypInTyp (SubstThis (TVar tvarToReplace)) withTyp inTyp
 
     let generateConstraints (env: Env) (expr: Expr<VarNum>) newVar =
         let constraints = Mutable.fifo None
-
-        let recordRefs = Mutable.oneToMany None
 
         let trace = System.Text.StringBuilder()
 
@@ -555,7 +537,7 @@ module TypeSystem =
 
             let appendConstraint (tvar: VarNum) (typ: MonoTyp) =
                 trace.AppendLine($"{expr}    :::     {TVar tvar} := {typ}") |> ignore
-                do constraints.Append({ triviaSource = expr; t1 = TVar tvar; t2 = typ })
+                do constraints.Append({ triviaSource = expr; kind = CEq (TVar tvar, typ) })
 
             let inst (typ: Typ) =
                 match typ with
@@ -657,9 +639,11 @@ module TypeSystem =
 
                 generateConstraints env x.source
 
-                let (VarNum recref) = x.source.TVar
-                recordRefs.Add(recref, { fname = x.ident.identName; typ = TVar x.ident.tvar })
-                appendConstraint x.source.TVar (RecordRefTyp recref)
+                do constraints.Append
+                    { triviaSource = expr
+                      kind = CHasField {| row = TVar x.source.TVar
+                                          fname = x.ident.identName
+                                          ftyp = TVar x.ident.tvar |} }
 
                 appendConstraint x.tvar (TVar x.ident.tvar)
 
@@ -683,60 +667,48 @@ module TypeSystem =
                     |> List.map (fun f -> f.fname, TVar f.value.TVar)
                 appendConstraint x.tvar (TDef.RecordWith fields)
 
-            | Expr.Match x ->
-                match x.cases with
-                | [] -> failwith $"Match expression must have at least one case."
-                | firstCase :: otherCases ->
-                    for c in x.cases do
-                        generateConstraints 
-                            (
-                                match c.ident with
-                                | Some ident -> env |> Map.add ident.identName (EnvItem.Internal ident.tvar)
-                                | None -> env
-                            )
-                            c.body
-
-                        // the type of the case body must be the same as the type of the value expr
-                        appendConstraint c.body.TVar (TVar firstCase.body.TVar)
-
-                    appendConstraint x.tvar (TVar firstCase.body.TVar)
-
-                generateConstraints env x.expr
-                
-                // match is exhaustive:
-                // the type of the value expr that gets matched is a union type of all cases
-                appendConstraint x.expr.TVar (TDef.DiscriminatedUnionWith NameHint.Anonymous [ for c in x.cases -> c.disc, None ])
-
         do generateConstraints env expr
 
-        constraints.Values, exprToEnv, recordRefs.Values, trace.ToString()
+        constraints.Values, exprToEnv, trace.ToString()
 
-    let finalizeSubstitutions (substitutions: MonoSubstitution list) (recordRefs: RecordRefs) =
-        let rec substRecordRefInSubstitutions substitutions remainingRecordRefs =
-            match remainingRecordRefs with
-            | [] -> substitutions
-            | (recref, fields) :: remainingRecordRefs ->
-                let rec substRecordRefInSubstitution substitutions =
-                    match substitutions with
-                    | [] -> []
-                    | s :: substitutions ->
-                        let recordInfo = { nameHint = NameHint.Given $"RECORD_{recref}"; fields = fields }
-                        let substTyp = substTypWithTypInTyp (SubstThis (RecordRefTyp recref)) (SubstWith (RecordTyp recordInfo)) (SubstIn s.monoTyp)
-                        { s with monoTyp = substTyp } :: substRecordRefInSubstitution substitutions
-                substRecordRefInSubstitutions (substRecordRefInSubstitution substitutions) remainingRecordRefs
+    /// After the main solver loop, any row var that accumulated CHasField
+    /// constraints but was never pinned to a concrete record gets closed
+    /// into a RecordTyp carrying the collected fields. Any tvar that
+    /// accumulated CHasMember constraints but was never pinned gets closed
+    /// into a UnionTyp of the collected members.
+    let finalizeSubstitutions (substitutions: MonoSubstitution list) (pendingFields: RecordRefs) (pendingMembers: MemberRefs) =
+        let closeRecord (subs: MonoSubstitution list) (varNum: int, fields: Set<FieldDefinition>) =
+            let recordTyp =
+                RecordTyp { nameHint = NameHint.Given $"RECORD_{varNum}"; fields = fields }
+            let alpha = VarNum varNum
+            let substituted =
+                [ for s in subs ->
+                    { s with monoTyp = substVarWithTypInTyp alpha (SubstWith recordTyp) (SubstIn s.monoTyp) } ]
+            { tvar = alpha; monoTyp = recordTyp } :: substituted
+        let closeUnion (subs: MonoSubstitution list) (varNum: int, members: Set<MonoTyp>) =
+            let unionTyp = UnionTyp members
+            let alpha = VarNum varNum
+            let substituted =
+                [ for s in subs ->
+                    { s with monoTyp = substVarWithTypInTyp alpha (SubstWith unionTyp) (SubstIn s.monoTyp) } ]
+            { tvar = alpha; monoTyp = unionTyp } :: substituted
         [
-            // TODO: Again, we need a kind-of "FinylTyp"
-            let noMoreRecordRefsHere = substRecordRefInSubstitutions substitutions (Map.toList recordRefs)
-            for s in noMoreRecordRefsHere do
-                { tvar = s.tvar; typ = Typ.gen s.monoTyp } 
+            let withRecords = pendingFields |> Map.toList |> List.fold closeRecord substitutions
+            let closed = pendingMembers |> Map.toList |> List.fold closeUnion withRecords
+            for s in closed do
+                { tvar = s.tvar; typ = Typ.gen s.monoTyp }
         ]
-                
-    let solveConstraints (constraints: Constraint list) (recordRefs: RecordRefs) maxSolverRuns =
+
+    let solveConstraints (constraints: Constraint list) maxSolverRuns =
         let mutable solverRuns = ResizeArray()
-   
+
+        // Internal solver state: rows (TVars whose VarNum is the key)
+        // accumulate field requirements here as CHasField constraints are
+        // processed. Not exposed in MonoTyp — it's just an efficient index.
         let rec solve
             (constraints: Constraint list)
-            (recordRefs: RecordRefs)
+            (pendingFields: RecordRefs)
+            (pendingMembers: MemberRefs)
             (substitutions: MonoSubstitution list)
             =
             do
@@ -745,11 +717,12 @@ module TypeSystem =
                         for msi in substitutions do
                             { tvar = msi.tvar; typ = Mono msi.monoTyp }
                     ]
-                let solverRun = 
+                let solverRun =
                     {
                         cycle = solverRuns.Count
                         constraints = constraints
-                        recordRefs = recordRefs
+                        recordRefs = pendingFields
+                        memberRefs = pendingMembers
                         substitutions = substitutions
                     }
                 solverRuns.Add(solverRun)
@@ -762,12 +735,29 @@ module TypeSystem =
 
             if continueSolve then
                 match constraints with
-                | [] -> substitutions,recordRefs
+                | [] -> substitutions, pendingFields, pendingMembers
                 | c :: constraints ->
                     let mutable constraints = constraints
                     let mutable substitutions = substitutions
                     let nextConstraints = Mutable.fifo None
-                    let recordRefs = Mutable.oneToMany (Some recordRefs)
+                    let pendingFields = Mutable.oneToMany (Some pendingFields)
+                    let pendingMembers = Mutable.oneToMany (Some pendingMembers)
+
+                    let applySubstToKind left right k =
+                        match k with
+                        | CEq (t1, t2) ->
+                            CEq (
+                                substVarWithTypInTyp left (SubstWith right) (SubstIn t1),
+                                substVarWithTypInTyp left (SubstWith right) (SubstIn t2)
+                            )
+                        | CHasField r ->
+                            CHasField {| r with
+                                          row = substVarWithTypInTyp left (SubstWith right) (SubstIn r.row)
+                                          ftyp = substVarWithTypInTyp left (SubstWith right) (SubstIn r.ftyp) |}
+                        | CHasMember r ->
+                            CHasMember {| r with
+                                            row = substVarWithTypInTyp left (SubstWith right) (SubstIn r.row)
+                                            memberTyp = substVarWithTypInTyp left (SubstWith right) (SubstIn r.memberTyp) |}
 
                     let rec unifyTypes (source: Expr<VarNum>) (t1: MonoTyp) (t2: MonoTyp) =
                         let throwUniError message = raise (UnificationError(source, t1, t2, Some message))
@@ -793,113 +783,198 @@ module TypeSystem =
                                     | :? UnificationError as uniErr ->
                                         let detail = match uniErr.Reason with Some r -> $": {r}" | None -> ""
                                         raise (UnificationError(
-                                            source, 
-                                            uniErr.T1, 
-                                            uniErr.T2, 
+                                            source,
+                                            uniErr.T1,
+                                            uniErr.T2,
                                             Some $"Type mismatch in record field '{requiredField.fname}'{detail}"))
 
-                        match t1,t2 with
+                        match t1, t2 with
                         | t1, t2 when t1 = t2 -> ()
                         | t, TVar tvar
-                        | TVar tvar, t -> nextConstraints.Append({ triviaSource = source; t1 = TVar tvar; t2 = t })
-                        | LeafTyp app1, LeafTyp app2 when app1.name = app2.name ->
+                        | TVar tvar, t -> nextConstraints.Append({ triviaSource = source; kind = CEq (TVar tvar, t) })
+                        | SaturatedTyp app1, SaturatedTyp app2 when app1.name = app2.name ->
                             let rec loop funArgs1 funArgs2 =
                                 match funArgs1, funArgs2 with
                                 | [], [] -> ()
                                 | a1 :: args1, a2 :: args2 ->
                                     do loop args1 args2
                                     do unifyTypes source a1 a2
-                                | [], args
-                                | args, [] -> throwUniError "Type parameters count mismatch."
+                                | [], _
+                                | _, [] -> throwUniError "Type parameters count mismatch."
                             do loop app1.args app2.args
                         | FunTyp (ta, tb), FunTyp (tc, td) ->
                             do unifyTypes source ta tc
                             do unifyTypes source tb td
-                        | RecordRefTyp recref, RecordTyp providedRecord
-                        | RecordTyp providedRecord, RecordRefTyp recref ->
-                            let requiredFields = recordRefs.Find(recref)
-                            do unifyRecordFields requiredFields providedRecord.fields
                         | RecordTyp _, IntersectionTyp _
                         | IntersectionTyp _, RecordTyp _ ->
                             failwith "TRecord and TIntersection: We need to tweak that, too."
-                            // [
-                            //     for providedRecord in providedRecords do
-                            //         yield! unifyRecordFields requiredFields.fields providedRecord.fields
-                            // ]
-                        | RecordRefTyp recref1, RecordRefTyp recref2 ->
-                            let fields1 = recordRefs.Find(recref1)
-                            let fields2 = recordRefs.Find(recref2)
-
-                            // unify the fields by name of of both records
-                            let groupedFieldsByName =
-                                [
-                                    yield! recordRefs.Find(recref1)
-                                    yield! recordRefs.Find(recref2)
-                                ]
-                                |> List.groupBy _.fname
-                            let unifyableFields = groupedFieldsByName |> List.choose (fun (fname, fields) ->
-                                match fields with
-                                | [f1;f2] -> Some (fname, f1, f2)
-                                | _ -> None)
-                            for fname, f1, f2 in unifyableFields do
-                                do unifyTypes source f1.typ f2.typ
-
-                            // merge the fields of both records
-                            let mergedFields = set [ yield! fields1; yield! fields2 ]
-                            do recordRefs.Remove(recref1)
-                            do recordRefs.Replace(recref2, mergedFields)
-
-                            // Now, we also have to reset all references currently pointing to recref1 so that they point to recref2
-                            // in all constraints and Substitutions
-                            do constraints <-
-                                [
-                                    for c in constraints do
-                                        {
-                                            triviaSource = c.triviaSource
-                                            t1 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t1)
-                                            t2 = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn c.t2)
-                                        }
-                                ]
-                            do substitutions <-
-                                [
-                                    for s in substitutions do
-                                        {
-                                            tvar = s.tvar
-                                            monoTyp = substTypWithTypInTyp (SubstThis (RecordRefTyp recref1)) (SubstWith (RecordRefTyp recref2)) (SubstIn s.monoTyp)
-                                        }
-                                ]
                         | RecordTyp rec1, RecordTyp rec2 ->
                             unifyRecordFields rec1.fields rec2.fields
-                        | t1, t2 ->
-                            let getCaseLabel (du: 'T) =
-                                let case, _ = Reflection.FSharpValue.GetUnionFields(du, typeof<'T>)
-                                case.Name
+                        | LiteralTyp lit, UnionTyp members
+                        | UnionTyp members, LiteralTyp lit ->
+                            if not (Set.contains (LiteralTyp lit) members) then
+                                throwUniError $"Literal '{LiteralTyp lit}' is not a member of union '{UnionTyp members}'"
+                        | UnionTyp ms1, UnionTyp ms2 when ms1 = ms2 -> ()
+                        | _, _ ->
                             throwUniError $"Can't unify types '{t1}' and '{t2}'"
-                            // throwUniError $"Can't unify types: '{t1}' ({getCaseLabel t1}) and '{t2}' ({getCaseLabel t2})"
 
-                    // we try to keep only the constraints mutable, because we could otherwise easily forget
-                    // adding elements in all branches (this happened right now, and it was a pain to find out).
-                    match c.t1, c.t2 with
-                    | TVar left, right ->
-                        // replace tvar with t in all other constraints
-                        // replace tvar with t in all substitutions
-                        // add a new substitution to substitutions
-                        // continue to solve
-                        for c in constraints do
+                    match c.kind with
+
+                    // ---- CHasField: accumulate or resolve ----
+                    | CHasField req ->
+                        match req.row with
+                        | TVar (VarNum rowN) ->
+                            // Add to pending; if same fname is already required with a
+                            // different type, emit CEq to force the types to unify.
+                            let current =
+                                pendingFields.Values
+                                |> Map.tryFind rowN
+                                |> Option.defaultValue Set.empty
+                            let existing =
+                                current |> Set.toSeq |> Seq.tryFind (fun f -> f.fname = req.fname)
+                            match existing with
+                            | Some f when f.typ <> req.ftyp ->
+                                nextConstraints.Append
+                                    { triviaSource = c.triviaSource
+                                      kind = CEq (req.ftyp, f.typ) }
+                            | _ -> ()
+                            let updated = Set.add { fname = req.fname; typ = req.ftyp } current
+                            do pendingFields.Replace(rowN, updated)
+                            for c' in constraints do
+                                do nextConstraints.Append c'
+
+                        | RecordTyp record ->
+                            // Row is already a concrete record — check field exists and emit CEq.
+                            let found =
+                                record.fields
+                                |> Set.toSeq
+                                |> Seq.tryFind (fun f -> f.fname = req.fname)
+                            match found with
+                            | Some f ->
+                                nextConstraints.Append
+                                    { triviaSource = c.triviaSource
+                                      kind = CEq (req.ftyp, f.typ) }
+                            | None ->
+                                raise (UnificationError(
+                                    c.triviaSource, req.row, req.ftyp,
+                                    Some $"Member '{req.fname}' is missing in record type {req.row}"))
+                            for c' in constraints do
+                                do nextConstraints.Append c'
+
+                        | other ->
+                            raise (UnificationError(
+                                c.triviaSource, other, req.ftyp,
+                                Some $"Can't access field '{req.fname}' on non-record type {other}"))
+
+                    // ---- CHasMember: accumulate or resolve ----
+                    | CHasMember req ->
+                        match req.row with
+                        | TVar (VarNum rowN) ->
+                            let current =
+                                pendingMembers.Values
+                                |> Map.tryFind rowN
+                                |> Option.defaultValue Set.empty
+                            do pendingMembers.Replace(rowN, Set.add req.memberTyp current)
+                            for c' in constraints do
+                                do nextConstraints.Append c'
+
+                        | UnionTyp members ->
+                            if not (Set.contains req.memberTyp members) then
+                                raise (UnificationError(
+                                    c.triviaSource, req.row, req.memberTyp,
+                                    Some $"'{req.memberTyp}' is not a member of union '{req.row}'"))
+                            for c' in constraints do
+                                do nextConstraints.Append c'
+
+                        | LiteralTyp _ when req.row = req.memberTyp ->
+                            for c' in constraints do
+                                do nextConstraints.Append c'
+
+                        | other ->
+                            raise (UnificationError(
+                                c.triviaSource, other, req.memberTyp,
+                                Some $"'{req.memberTyp}' is not a member of non-union type {other}"))
+
+                    // ---- CEq with TVar on the left: substitute everywhere ----
+                    | CEq (TVar left, right) ->
+                        let (VarNum leftN) = left
+
+                        // Interact pending[left] with right BEFORE rewriting constraints.
+                        let leftPending =
+                            pendingFields.Values
+                            |> Map.tryFind leftN
+                            |> Option.defaultValue Set.empty
+
+                        if not (Set.isEmpty leftPending) then
+                            match right with
+                            | TVar (VarNum rightN) ->
+                                // Merge leftPending into rightPending; unify same-name fields.
+                                let rightPending =
+                                    pendingFields.Values
+                                    |> Map.tryFind rightN
+                                    |> Option.defaultValue Set.empty
+                                let groupedByName =
+                                    [ yield! leftPending; yield! rightPending ]
+                                    |> List.groupBy _.fname
+                                for _, fs in groupedByName do
+                                    match fs with
+                                    | [f1; f2] ->
+                                        nextConstraints.Append
+                                            { triviaSource = c.triviaSource
+                                              kind = CEq (f1.typ, f2.typ) }
+                                    | _ -> ()
+                                let merged = set [ yield! leftPending; yield! rightPending ]
+                                do pendingFields.Remove(leftN)
+                                do pendingFields.Replace(rightN, merged)
+                            | RecordTyp record ->
+                                let pendingAsRecord =
+                                    RecordTyp { nameHint = NameHint.Anonymous; fields = leftPending }
+                                do unifyTypes c.triviaSource pendingAsRecord (RecordTyp record)
+                                do pendingFields.Remove(leftN)
+                            | other ->
+                                raise (UnificationError(
+                                    c.triviaSource, TVar left, other,
+                                    Some $"Row-constrained type var cannot be unified with non-record type {other}"))
+
+                        // Interact pending member requirements with the resolved right.
+                        let leftPendingMembers =
+                            pendingMembers.Values
+                            |> Map.tryFind leftN
+                            |> Option.defaultValue Set.empty
+
+                        if not (Set.isEmpty leftPendingMembers) then
+                            match right with
+                            | TVar (VarNum rightN) ->
+                                let rightPending =
+                                    pendingMembers.Values
+                                    |> Map.tryFind rightN
+                                    |> Option.defaultValue Set.empty
+                                let merged = Set.union leftPendingMembers rightPending
+                                do pendingMembers.Remove(leftN)
+                                do pendingMembers.Replace(rightN, merged)
+                            | _ ->
+                                for m in leftPendingMembers do
+                                    do nextConstraints.Append
+                                        { triviaSource = c.triviaSource
+                                          kind = CHasMember {| row = right; memberTyp = m |} }
+                                do pendingMembers.Remove(leftN)
+
+                        // Rewrite remaining constraints with the substitution.
+                        for c' in constraints do
                             do nextConstraints.Append
-                                {
-                                    triviaSource = c.triviaSource //if c.t1 = otherC.t1 then otherC.source else c.source
-                                    t1 = substVarWithTypInTyp left (SubstWith right) (SubstIn c.t1)
-                                    t2 = substVarWithTypInTyp left (SubstWith right) (SubstIn c.t2)
-                                }
+                                { triviaSource = c'.triviaSource
+                                  kind = applySubstToKind left right c'.kind }
 
-                        for r in recordRefs.Values do
+                        for r in pendingFields.Values do
                             let newFields =
-                                [ 
-                                    for f in r.Value do
-                                        { f with typ = substVarWithTypInTyp left (SubstWith right) (SubstIn f.typ) }
-                                ]
-                            do recordRefs.Replace(r.Key, newFields)
+                                [ for f in r.Value ->
+                                    { f with typ = substVarWithTypInTyp left (SubstWith right) (SubstIn f.typ) } ]
+                            do pendingFields.Replace(r.Key, newFields)
+
+                        for r in pendingMembers.Values do
+                            let newMembers =
+                                set [ for m in r.Value -> substVarWithTypInTyp left (SubstWith right) (SubstIn m) ]
+                            do pendingMembers.Replace(r.Key, newMembers)
 
                         do substitutions <-
                             [
@@ -911,30 +986,26 @@ module TypeSystem =
                                     }
                             ]
 
-                    | left, right ->
-                        // unify left and right
-                        // add new constraints to constraints
-                        // continue to solve
+                    // ---- CEq with concrete left and right: structurally unify ----
+                    | CEq (left, right) ->
                         do unifyTypes c.triviaSource left right
-                        for c in constraints do
-                            do nextConstraints.Append(c)
-                        for r in recordRefs.Values do
-                            do recordRefs.Replace(r.Key, r.Value)
+                        for c' in constraints do
+                            do nextConstraints.Append(c')
                         do substitutions <- substitutions
 
-                    solve nextConstraints.Values recordRefs.Values substitutions
+                    solve nextConstraints.Values pendingFields.Values pendingMembers.Values substitutions
             else
-                substitutions,recordRefs
-    
-        let substitutions =
+                substitutions, pendingFields, pendingMembers
+
+        let result =
             try
-                let substitutions,recordRefs = solve constraints recordRefs []
-                Ok (finalizeSubstitutions substitutions recordRefs)
+                let substitutions, pendingFields, pendingMembers = solve constraints Map.empty Map.empty []
+                Ok (finalizeSubstitutions substitutions pendingFields pendingMembers)
             with ex ->
                 Error ex.Message
 
         {|
-            substitutions = substitutions
+            substitutions = result
             solverRuns = [ yield! solverRuns ]
         |}
 
@@ -984,27 +1055,24 @@ module Solver =
                         match typ with
                         | TVar (VarNum n) ->
                             TVar (VarNum (n + varOffset))
-                        | LeafTyp app -> 
-                            LeafTyp {| app with args = app.args |> List.map reindexMono |}
+                        | SaturatedTyp app -> 
+                            SaturatedTyp {| app with args = app.args |> List.map reindexMono |}
                         | FunTyp (t1, t2) -> 
                             FunTyp (reindexMono t1, reindexMono t2)
-                        | RecordRefTyp _ ->
-                            failwith "Record references should not appear in the external context (see that 'FinalTyp' comments somewhere)."
-                        | IntersectionTyp records -> 
+                        | IntersectionTyp records ->
                             IntersectionTyp [ for r in records do reindexRecord r ]
                         | RecordTyp record ->
                             RecordTyp (reindexRecord record)
-                        | DiscriminatedUnionTyp union -> 
-                            TDef.DiscriminatedUnionWith
-                                union.nameHint
-                                [ for c in union.cases do c.disc, c.payloadTyp |> Option.map reindexMono ]
+                        | LiteralTyp _ -> typ
+                        | UnionTyp members ->
+                            UnionTyp (set [ for m in members -> reindexMono m ])
 
                     ident, EnvItem.External (reindexedVarNums typ)
             ]
             |> Map.ofList
 
-        let constraints,exprToEnv,recordRefs,trace = TypeSystem.generateConstraints env expr newVar
-        let sr = TypeSystem.solveConstraints constraints recordRefs maxSolverRuns
+        let constraints,exprToEnv,trace = TypeSystem.generateConstraints env expr newVar
+        let sr = TypeSystem.solveConstraints constraints maxSolverRuns
 
         {
             numberedExpr = expr

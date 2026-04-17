@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Polymorphism (via env-supplied polytypes) — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item active" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>Polymorphism (via env-supplied polytypes)</h1>
+      <p class="intro">Polytypes provided through the environment are instantiated fresh at every use site — the same name can be used at different types. For AST-level <code>let</code> generalization, see Let.fs.</p>
+      <div class="tests">
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">polymorphic &quot;log&quot;</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">log : forall a. a -&gt; Unit</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">log &quot;Hello&quot;;
+log 88;
+42</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number</code></pre>
+    </div>
+  </div>
+  <p class="test-note"><code>log</code> is polymorphic, so its two usages can take different types. <em>Fresh instantiation</em>: every time a polytype like <code>forall a. a -&gt; Unit</code> is looked up, the <code>a</code> gets replaced by a brand-new type variable — one for this use site, one for the next. That's what lets the first call fix <code>a</code> to <code>String</code> while the second fixes it to <code>Number</code> without the two use sites clashing.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Do (X.App (X.Var &quot;log&quot;) (X.Lit &quot;Hello&quot;)) (
+    X.Do (X.App (X.Var &quot;log&quot;) (X.Lit 88)) (
+        X.Lit 42
+    )
+)
+|&gt; solve
+    [
+        yield &quot;log&quot;, TDef.Generalize (%1 ^-&gt; BuiltinTypes.unit)
+    ]
+    None
+|&gt; shouldSolveType (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">polymorphic &quot;mkPoly&quot; with infered record</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">mkPoly : forall a. a -&gt; a</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">{
+    r1 = mkPoly true
+    r2 = mkPoly 33
+}</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">{ r1: Bool; r2: Number }</code></pre>
+    </div>
+  </div>
+  <p class="test-note">The more interesting shape of fresh instantiation: both uses of <code>mkPoly</code> appear inside the <em>same</em> record literal, side by side. Yet each call gets its own fresh instantiation — one at <code>Bool</code>, one at <code>Number</code> — and the record assembles their results into a heterogeneous shape. If instantiation weren't fresh per use, the two calls would have to agree and the record couldn't hold different types.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.MkRecord [
+    X.Field &quot;r1&quot; (X.App (X.Var &quot;mkPoly&quot;) (X.Lit true))
+    X.Field &quot;r2&quot; (X.App (X.Var &quot;mkPoly&quot;) (X.Lit 33))
+]
+|&gt; solve
+    [
+        &quot;mkPoly&quot;, TDef.Generalize (%1 ^-&gt; %1)
+    ]
+    None
+|&gt; shouldSolveType (
+    Mono (TDef.RecordWith [
+        &quot;r1&quot;, BuiltinTypes.boolean
+        &quot;r2&quot;, BuiltinTypes.number
+    ]))</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

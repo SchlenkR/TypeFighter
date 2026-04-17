@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Intersection types — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item active" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>Intersection types</h1>
+      <p class="intro">An intersection <code>R1 &amp; R2</code> behaves as a value that conforms to <em>both</em> record shapes. Field access is only allowed when both sides agree on the field name and its type.</p>
+      <div class="tests">
+<article class="test-card test-ignored">
+  <header class="test-head">
+    <h3 class="test-name">Shared prop on intersection type</h3>
+    <span class="badge badge-ignored" title="">Not yet implemented</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">oneAndTwo : { sharedProp: Number; sharedPropDiffType: Bool; oneProp: String }
+          &amp; { sharedProp: Number; sharedPropDiffType: Number; twoProp: String }</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">oneAndTwo.sharedProp</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number   (field present in both, same type)</code></pre>
+    </div>
+  </div>
+  <p class="test-note">NOT YET IMPLEMENTED: intersection field resolution.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.PropAccN [ &quot;oneAndTwo&quot;; &quot;sharedProp&quot; ]
+|&gt; solve env None
+|&gt; shouldSolveType (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">Disjoint prop on intersection type</h3>
+    <span class="badge badge-error">Expected error</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">oneAndTwo : { sharedProp: Number; sharedPropDiffType: Bool; oneProp: String }
+          &amp; { sharedProp: Number; sharedPropDiffType: Number; twoProp: String }</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">oneAndTwo.oneProp</code></pre>
+    </div>
+    <div class="doc-section doc-error">
+      <span class="doc-label">Error</span>
+      <pre class="doc-value">'oneProp' only exists on one side of the intersection</pre>
+    </div>
+  </div>
+  <p class="test-note">Open design question: should this fail, or return a bottom-type?</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.PropAccN [ &quot;oneAndTwo&quot;; &quot;oneProp&quot; ]
+|&gt; solve env None
+|&gt; shouldFail</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">Shared prop, diff type on intersection type</h3>
+    <span class="badge badge-error">Expected error</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">oneAndTwo : { sharedProp: Number; sharedPropDiffType: Bool; oneProp: String }
+          &amp; { sharedProp: Number; sharedPropDiffType: Number; twoProp: String }</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">oneAndTwo.sharedPropDiffType</code></pre>
+    </div>
+    <div class="doc-section doc-error">
+      <span class="doc-label">Error</span>
+      <pre class="doc-value">Field present on both sides but with incompatible types (Bool vs Number)</pre>
+    </div>
+  </div>
+  <p class="test-note">Open design question: could be widened to a common base type if one existed (e.g. <code>Object</code>). For now we fail.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.PropAccN [ &quot;oneAndTwo&quot;; &quot;sharedPropDiffType&quot; ]
+|&gt; solve env None
+|&gt; shouldFail</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

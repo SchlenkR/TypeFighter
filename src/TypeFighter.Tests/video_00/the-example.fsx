@@ -215,36 +215,6 @@ X.App
 
 
 (*
-    if (isPositive 42)
-        return "yes";
-
-    let x = "hello";
-    return x + " world";
-*)
-
-// Desugared (early return becomes match on boolean):
-// match (isPositive 42) with
-// | True -> "yes"
-// | False -> let x = "hello" in x + " world"
-
-X.Match
-    (X.App (X.Var "isPositive") (X.Lit 42))
-    [
-        X.Case "True" None (X.Lit "yes")
-        X.Case "False" None 
-            (X.Let (X.Ident "x") (X.Lit "hello")
-                (X.App (X.App (X.Var "concat") (X.Var "x")) (X.Lit " world")))
-    ]
-|> solve
-    [
-        "isPositive", Mono (BuiltinTypes.number ^-> BuiltinTypes.boolean)
-        "concat", Mono (BuiltinTypes.string ^-> BuiltinTypes.string ^-> BuiltinTypes.string)
-    ]
-    None
-
-
-
-(*
     let identity = (x) => x
     identity
 *)

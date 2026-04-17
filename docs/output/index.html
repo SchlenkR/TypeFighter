@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>TypeFighter</h1>
+      <p class="intro">TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is <strong>structural records instead of nominal ones</strong>: records are compared by the fields they actually have, not by a declared name — so a function that needs <code class="inline-code">{ name: String }</code> accepts <em>any</em> record with that field, no boilerplate declarations required. On top of that: row polymorphism, set-theoretic literal and union types, and classical polymorphic functions — all figured out by the type checker with (almost) no annotations. This site is generated from the test suite: each test is a minimal example of what the type system can — and can't yet — do.</p>
+
+      <section class="features">
+        <h2>What's in, what's not</h2>
+        <p>A quick comparison against concepts you'll recognize from Rust, Haskell, Scala, TypeScript, Swift, or F#:</p>
+        <div class="feature-grid">
+          <div class="feature-col has">
+            <h3>In today</h3>
+            <ul>
+              <li><strong>Structural records</strong> — matched by fields, not by name</li>
+              <li><strong>Row polymorphism</strong> — "has at least field X"</li>
+              <li><strong>Literal &amp; union types</strong> — booleans are modelled as the union <code>true | false</code>; each literal is a type on its own</li>
+              <li><strong>Intersection types</strong> (partial)</li>
+              <li><strong>Polymorphic functions</strong> — fresh instantiation at every use</li>
+              <li><strong>Higher-order &amp; partial application</strong></li>
+              <li><strong>Arrays</strong> as a built-in type constructor</li>
+              <li><strong>Inference with (almost) no annotations</strong></li>
+            </ul>
+          </div>
+          <div class="feature-col lacks">
+            <h3>Not yet (or absent by design)</h3>
+            <ul>
+              <li><strong>Let-generalization</strong> — inner <code>let</code> bindings don't auto-generalize the way classical Hindley–Milner does</li>
+              <li><strong>Traits / type classes / protocols</strong> — no ad-hoc polymorphism (see below)</li>
+              <li><strong>Sum types / ADTs</strong> — no <code>Option</code>/<code>Result</code>-style constructors; literal unions cover a subset</li>
+              <li><strong>Pattern matching</strong> — no <code>match … with</code> construct</li>
+              <li><strong>Recursion</strong> — no <code>let rec</code> or fix-point combinator</li>
+              <li><strong>Implicit conversions / subtyping</strong> — <code>Number</code> is never silently a <code>String</code></li>
+              <li><strong>Nominal types</strong> — everything is structural (by design, not a gap)</li>
+              <li><strong>Surface syntax</strong> — programs are built via the F# DSL, there is no parser from text</li>
+              <li><strong>Effect system</strong> — effects aren't tracked</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="traits-note">
+          <h3>A note on Traits</h3>
+          <p>In languages like Rust (<em>traits</em>), Haskell (<em>type classes</em>), Swift (<em>protocols</em>), or Scala (<em>given</em>/implicits), you can write a function like <code>show : a -&gt; String</code> that works on <em>any</em> type <code>a</code> which implements a <code>Show</code> constraint. TypeFighter has no such mechanism — there is no way to say "any type that supports <code>toString</code>" or "any <code>Num</code>". The closest thing TypeFighter offers is <strong>row polymorphism</strong>: a function <code>fun r -&gt; r.name</code> works on any record that <em>structurally</em> has a <code>name</code> field. That gives you "works on anything with field X" — but not "works on anything supporting operation X".</p>
+        </div>
+      </section>
+
+      <section class="about">
+        <h2>How to read these pages</h2>
+        <p>Every test is shown with three things:</p>
+        <ul>
+          <li>A short <strong>doc block</strong> giving the environment, source expression, and inferred type (or expected error).</li>
+          <li>An optional <strong>note</strong> with extra context about what the test demonstrates.</li>
+          <li>The raw <strong>F# test body</strong> — toggle it open to see the AST construction.</li>
+        </ul>
+        <p>Tests marked <span class="badge badge-ignored">Not yet implemented</span> document features that are deliberately not supported today.</p>
+      </section>
+
+      <h2>Categories (49 tests total)</h2>
+      <div class="cat-grid">
+<a class="cat-card" href="literals.html">
+  <div class="cat-head">
+    <span class="cat-name">Literals</span>
+    <span class="cat-count">4 tests</span>
+  </div>
+  <p class="cat-intro">Numbers, strings, and booleans are the primitive literal forms. Booleans are modeled set-theoretically as the union of the two literal values <code>true</code> and <code>false</code> — so every boole…</p>
+</a>
+<a class="cat-card" href="functions.html">
+  <div class="cat-head">
+    <span class="cat-name">Functions</span>
+    <span class="cat-count">8 tests</span>
+  </div>
+  <p class="cat-intro">Lambda abstractions, application, partial application, and the shape of higher-order types. A lambda without usage constraints generalizes to a polymorphic type at its enclosing…</p>
+</a>
+<a class="cat-card" href="let.html">
+  <div class="cat-head">
+    <span class="cat-name">Let bindings</span>
+    <span class="cat-count">5 tests</span>
+  </div>
+  <p class="cat-intro"><code>let</code> introduces a name with two key properties: 1. Scope — the name is in scope only within the body. 2. Generalization — if the bound value has free type variables, those are…</p>
+</a>
+<a class="cat-card" href="generalization.html">
+  <div class="cat-head">
+    <span class="cat-name">Generalization</span>
+    <span class="cat-count">4 tests</span>
+  </div>
+  <p class="cat-intro">Turning a MonoTyp with free type variables into a PolyTyp binds those variables as forall-quantified. Alpha-equivalent polytypes (same shape, different var numbers) are normaliz…</p>
+</a>
+<a class="cat-card" href="arrays.html">
+  <div class="cat-head">
+    <span class="cat-name">Arrays</span>
+    <span class="cat-count">4 tests</span>
+  </div>
+  <p class="cat-intro">Arrays are homogeneous — all elements must unify to a single element type. Mixing incompatible element types is a static error.</p>
+</a>
+<a class="cat-card" href="records.html">
+  <div class="cat-head">
+    <span class="cat-name">Records</span>
+    <span class="cat-count">8 tests</span>
+  </div>
+  <p class="cat-intro">This file covers record <em>creation</em> and <em>flat property access</em> on fully-known records. For row-polymorphic access through lambda parameters, see Rows.fs.</p>
+</a>
+<a class="cat-card" href="rows.html">
+  <div class="cat-head">
+    <span class="cat-name">Rows (row-polymorphic record access)</span>
+    <span class="cat-count">10 tests</span>
+  </div>
+  <p class="cat-intro">When a function accesses fields of a record it receives as an argument, the inferencer collects the <em>required</em> fields and reconstructs a record type that contains exactly those…</p>
+</a>
+<a class="cat-card" href="polymorphism.html">
+  <div class="cat-head">
+    <span class="cat-name">Polymorphism (via env-supplied polytypes)</span>
+    <span class="cat-count">2 tests</span>
+  </div>
+  <p class="cat-intro">Polytypes provided through the environment are instantiated fresh at every use site — the same name can be used at different types. For AST-level <code>let</code> generalization, see Let.fs.</p>
+</a>
+<a class="cat-card" href="intersections.html">
+  <div class="cat-head">
+    <span class="cat-name">Intersection types</span>
+    <span class="cat-count">3 tests</span>
+  </div>
+  <p class="cat-intro">An intersection <code>R1 &amp; R2</code> behaves as a value that conforms to <em>both</em> record shapes. Field access is only allowed when both sides agree on the field name and its type.</p>
+</a>
+<a class="cat-card" href="typehierarchies.html">
+  <div class="cat-head">
+    <span class="cat-name">Type hierarchies / implicit conversions</span>
+    <span class="cat-count">1 tests</span>
+  </div>
+  <p class="cat-intro">Scenarios where one type could be coerced to another — for example where a <code>String</code> is expected but a <code>Number</code> is given. Currently unsupported: unification rejects the mismatch…</p>
+</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -11,7 +11,6 @@ type X =
     static member Fun ident body = Expr.Fun {| ident = ident; body = body; tvar = () |}
     static member Let ident value body = Expr.Let {| ident = ident; value = value; body = body; tvar = () |}
     static member Do action body = Expr.Do {| action = action; body = body; tvar = () |}
-    static member Match expr cases = Expr.Match {| expr = expr; cases = cases; tvar = () |}
     static member PropAcc source ident = Expr.PropAcc {| source = source; ident = { identName = ident; tvar = () } ; tvar = () |}
     static member PropAccN segments =
         match segments with
@@ -26,4 +25,3 @@ type X =
     static member MkArray values = Expr.MkArray {| values = values; tvar = ()  |}
     static member MkRecord fields = Expr.MkRecord {| fields = fields; tvar = ()  |}
     static member Field field value = { fname = field; value = value; }
-    static member Case disc ident body = { disc = disc; ident = ident; body = body }

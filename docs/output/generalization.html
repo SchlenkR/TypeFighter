@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Generalization — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item active" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>Generalization</h1>
+      <p class="intro">Turning a MonoTyp with free type variables into a PolyTyp binds those variables as forall-quantified. Alpha-equivalent polytypes (same shape, different var numbers) are normalized to a canonical numbering 0, 1, 2, … in traversal order, so structural F# equality on polytypes directly reflects type equality. These tests work on <code>Typ.gen</code> directly — no expression, no solver.</p>
+      <div class="tests">
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">gen of a ground type stays Mono</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Input</span>
+      <pre class="doc-value"><code class="language-fsharp">Number</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Output</span>
+      <pre class="doc-value"><code class="language-fsharp">Number           (stays Mono — no free vars to bind)</code></pre>
+    </div>
+  </div>
+  <p class="test-note">A few words of vocabulary: • <em>Type variable</em> (written <code>%0</code>, <code>%1</code>, …): an unknown type, like a placeholder <code>?</code>. The inferencer makes one whenever it can't yet tell what a type should be. • <em>Ground type</em>: a type with no variables in it — <code>Number</code>, <code>String</code>, <code>Array&lt;Bool&gt;</code>. There's nothing left to fill in. • <em>Mono</em> / <em>Poly</em>: <code>Mono τ</code> is a plain type. <code>Poly</code> wraps a type in <code>forall …</code> quantifiers that declare which variables are free to be chosen at each use site. <code>gen</code> is the function that <em>promotes</em> a Mono to a Poly by quantifying its free variables. Since <code>Number</code> has nothing to quantify, <code>gen</code> returns it as-is.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">Typ.gen BuiltinTypes.number
+|&gt; should equal (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">alpha-equivalent polytypes are equal after gen</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Input</span>
+      <pre class="doc-value"><code class="language-fsharp">%5 -&gt; %5   and   %7 -&gt; %7</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Output</span>
+      <pre class="doc-value"><code class="language-fsharp">both canonicalize to   forall a. a -&gt; a</code></pre>
+    </div>
+  </div>
+  <p class="test-note"><em>Alpha-equivalence</em>: two types that differ only in the <em>names</em> of their quantified variables are considered the same. <code>%5 -&gt; %5</code> and <code>%7 -&gt; %7</code> both describe &quot;a function from some type to the same type&quot; — the specific number attached to the variable is arbitrary label, not type content. <code>gen</code> canonicalises these labels so that structural equality on polytypes reflects real equivalence.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let a = Typ.gen (%5 ^-&gt; %5)
+let b = Typ.gen (%7 ^-&gt; %7)
+a |&gt; should equal b</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">two distinct TVars are renumbered to 0 and 1</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Input</span>
+      <pre class="doc-value"><code class="language-fsharp">%10 -&gt; %5</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Output</span>
+      <pre class="doc-value"><code class="language-fsharp">forall a b. a -&gt; b</code></pre>
+    </div>
+  </div>
+  <p class="test-note"><em>Canonical numbering</em>: after generalization, the first type variable the traversal meets becomes 0, the next distinct one becomes 1, and so on. This is why two alpha-equivalent polytypes end up <em>literally identical</em> — they share the same numbering scheme.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">Typ.gen (%10 ^-&gt; %5)
+|&gt; should equal (TDef.Generalize (%0 ^-&gt; %1))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">higher-order polytype canonicalizes</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Input</span>
+      <pre class="doc-value"><code class="language-fsharp">(%9 -&gt; %4) -&gt; %9 -&gt; %4</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Output</span>
+      <pre class="doc-value"><code class="language-fsharp">forall a b. (a -&gt; b) -&gt; a -&gt; b</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Canonical numbering still works when the same variables appear in several positions of a more complex type. The variable <code>%9</code> is seen first (inside the inner arrow and again in the second argument), so it becomes <code>a</code>; <code>%4</code> is seen second, so it becomes <code>b</code>. The repetition across positions is preserved — both occurrences of <code>%9</code> map to the <em>same</em> <code>a</code>.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">Typ.gen ((%9 ^-&gt; %4) ^-&gt; %9 ^-&gt; %4)
+|&gt; should equal (TDef.Generalize ((%0 ^-&gt; %1) ^-&gt; %0 ^-&gt; %1))</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

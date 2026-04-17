@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Let bindings — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item active" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>Let bindings</h1>
+      <p class="intro"><code>let</code> introduces a name with two key properties: 1. Scope — the name is in scope only within the body. 2. Generalization — if the bound value has free type variables, those are quantified, and every use of the name instantiates the polytype fresh. This is &quot;let-polymorphism&quot;.</p>
+      <div class="tests">
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">nested lets introduce scoped names</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-env">
+      <span class="doc-label">Env</span>
+      <pre class="doc-value"><code class="language-fsharp">add : Number -&gt; Number -&gt; Number</code></pre>
+    </div>
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">let x = 10 in
+let y = 20 in
+add x y</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Reading tip: <code>let name = value in body</code> introduces <code>name</code> so that <code>body</code> can refer to it. The name's <em>scope</em> is the body — outside the <code>let</code>, the name doesn't exist. Nesting is how you bind several names one after the other, each visible to everything to its right.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Let (X.Ident &quot;x&quot;) (X.Lit 10) (
+    X.Let (X.Ident &quot;y&quot;) (X.Lit 20) (
+        X.App (X.App (X.Var &quot;add&quot;) (X.Var &quot;x&quot;)) (X.Var &quot;y&quot;)))
+|&gt; solve
+    [ &quot;add&quot;, Mono (BuiltinTypes.number ^-&gt; BuiltinTypes.number ^-&gt; BuiltinTypes.number) ]
+    None
+|&gt; shouldSolveType (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">let-bound identity can be applied</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">let id = fun x -&gt; x in
+id 42</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">Number</code></pre>
+    </div>
+  </div>
+  <p class="test-note">A sanity check: binding the identity function to a name and using it via that name should work just like using the lambda inline. Without this baseline holding, nothing else in <code>Let.fs</code> would be meaningful — <code>let</code> must at least preserve the type of what it binds.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Let (X.Ident &quot;id&quot;) (X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)) (
+    X.App (X.Var &quot;id&quot;) (X.Lit 42))
+|&gt; solve [] None
+|&gt; shouldSolveType (Mono BuiltinTypes.number)</code></pre>
+  </details>
+</article>
+<article class="test-card test-ignored">
+  <header class="test-head">
+    <h3 class="test-name">let-polymorphism allows use at different types</h3>
+    <span class="badge badge-ignored" title="let-polymorphism not yet implemented for AST-level let bindings">Not yet implemented</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">let id = fun x -&gt; x in
+let n = id 42 in
+let s = id &quot;hello&quot; in
+s</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">String  (once let-polymorphism is implemented)</code></pre>
+    </div>
+  </div>
+  <p class="test-note"><em>Let-polymorphism</em> means: at the moment a <code>let</code> binds a value, any still-free type variables become universally quantified, and every later use of the name picks its own fresh copy of the type. In plainer words — after <code>let id = fun x -&gt; x</code>, the two calls <code>id 42</code> and <code>id &quot;hello&quot;</code> get <em>independent</em> type variables, so they don't have to agree. Without this, the first use would pin <code>id</code>'s type and the second would be rejected. NOT YET IMPLEMENTED: the inferencer currently binds a let-ident to a raw TVar (EnvItem.Internal), not to a generalized polytype, so the second use unifies with the first. See Lang.fs Expr.Let branch in generateConstraints. Env-provided polytypes (EnvItem.External) already instantiate fresh — see Polymorphism.fs.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Let (X.Ident &quot;id&quot;) (X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)) (
+    X.Let (X.Ident &quot;n&quot;) (X.App (X.Var &quot;id&quot;) (X.Lit 42)) (
+        X.Let (X.Ident &quot;s&quot;) (X.App (X.Var &quot;id&quot;) (X.Lit &quot;hello&quot;)) (
+            X.Var &quot;s&quot;)))
+|&gt; solve [] None
+|&gt; shouldSolveType (Mono BuiltinTypes.string)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">inner let shadows the outer binding</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">let x = 1 in
+let x = &quot;hello&quot; in
+x</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">String</code></pre>
+    </div>
+  </div>
+  <p class="test-note"><em>Shadowing</em>: a binding with the same name as an outer one hides the outer one inside its own scope. It's a reuse of the name, not a mutation — the outer <code>x</code> is still a <code>Number</code>, it's just unreachable from here. Different types on the two bindings is fine.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Let (X.Ident &quot;x&quot;) (X.Lit 1) (
+    X.Let (X.Ident &quot;x&quot;) (X.Lit &quot;hello&quot;) (
+        X.Var &quot;x&quot;))
+|&gt; solve [] None
+|&gt; shouldSolveType (Mono BuiltinTypes.string)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">let-bound value keeps its polymorphic type</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">let identity = fun x -&gt; x in
+identity</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">forall a. a -&gt; a</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Returning a polymorphic let-bound value preserves its polytype.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Let (X.Ident &quot;identity&quot;) (X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)) (
+    X.Var &quot;identity&quot;)
+|&gt; solve [] None
+|&gt; shouldSolveType (TDef.Generalize (%0 ^-&gt; %0))</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

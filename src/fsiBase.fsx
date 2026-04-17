@@ -11,36 +11,43 @@ module SolverRunPrinter =
 
     let indent = "    "
 
+    let constraintToPair (c: Constraint) =
+        match c.kind with
+        | CEq (t1, t2) -> t1.ToString(), "= " + t2.ToString()
+        | CHasField r -> r.row.ToString() + "." + r.fname, ": " + r.ftyp.ToString()
+        | CHasMember r -> r.row.ToString(), "∋ " + r.memberTyp.ToString()
+
     let printEquations (elements: list<{| t1: string; t2: string; trivia: string |}>) widthColLeft widthColRight =
         let sb = System.Text.StringBuilder()
         match elements with
         | [] -> sb.AppendLine($"{indent}<empty>") |> ignore
-        | _ -> 
+        | _ ->
             for e in elements do
-                sb.AppendLine($"""{indent}{e.t1.PadRight(widthColLeft, ' ')} = {e.t2.PadRight(widthColRight, ' ')}  {e.trivia}""") |> ignore
+                sb.AppendLine($"""{indent}{e.t1.PadRight(widthColLeft, ' ')}   {e.t2.PadRight(widthColRight, ' ')}  {e.trivia}""") |> ignore
         sb.ToString()
 
     let printSolverRun (sr: SolverRun) =
         let constraints =
             [
                 for c in sr.constraints do
-                    {| 
-                        t1 = c.t1.ToString()
-                        t2 = c.t2.ToString()
+                    let t1Str, t2Str = constraintToPair c
+                    {|
+                        t1 = t1Str
+                        t2 = t2Str
                         trivia =
                             let (VarNum var) = c.triviaSource.TVar
                             let sources = ($"{var}            ")[.. 10]
                             $"   :::  {sources}"
-                    |} 
+                    |}
             ]
-        let solutions = 
+        let solutions =
             [
-                for solutionItem in sr.substitutions do 
-                    {| 
+                for solutionItem in sr.substitutions do
+                    {|
                         t1 = (TVar solutionItem.tvar).ToString()
-                        t2 = solutionItem.typ.ToString()
+                        t2 = "= " + solutionItem.typ.ToString()
                         trivia = ""
-                    |} 
+                    |}
             ]
         let widthColLeft,widthColRight =
             let getColWidth (getter: _ -> string) =
@@ -187,18 +194,6 @@ module Visu =
                 createExprNode "LET" $"({x.ident.identName}: {x.ident.tvar}) = ..." details [ createNodes x.value; createNodes x.body ]
             | Expr.Do x ->
                 createExprNode "DO" "..." "" [ createNodes x.action; createNodes x.body ]
-            | Expr.Match x ->
-                let caseNames = 
-                    [
-                        for x in x.cases do
-                            let binding =
-                                match x.ident with
-                                | Some ident -> $"as {ident.identName}: {ident.tvar} "
-                                | None -> $""
-                            $"    | {x.disc} {binding}-> ... ({x.body.TVar})"
-                    ]
-                    |> String.concat "\n"
-                createExprNode "MATCH-DU" "..." $"cases =\n{caseNames}\n" [ createNodes x.expr; for c in x.cases do createNodes c.body ]
             | Expr.PropAcc x ->
                 createExprNode "PROP-ACC" $"_.{x.ident.identName}" $"var(ident) = {x.ident.tvar}" [ createNodes x.source ]
             | Expr.MkArray x ->
@@ -253,9 +248,10 @@ window.trace = {traceJson};
                     constraints =
                         sr.constraints
                         |> List.map (fun c ->
+                            let t1Str, t2Str = SolverRunPrinter.constraintToPair c
                             {
-                                t1 = c.t1.ToString()
-                                t2 = c.t2.ToString()
+                                t1 = t1Str
+                                t2 = t2Str
                             })
                     solutions =
                         sr.substitutions

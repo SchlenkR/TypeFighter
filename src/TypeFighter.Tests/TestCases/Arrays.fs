@@ -7,7 +7,6 @@ module TypeFighter.Tests.Arrays
 
 open TypeFighter.Tests.TestHelper
 
-// do this _after_ opening TestHelper
 #if INTERACTIVE
 open TestHelperFsiOverrides
 #endif
@@ -16,71 +15,81 @@ open NUnit.Framework
 open TypeFighter
 
 
-// ------------------------------------------
-// What's important here: The tests shall be executable
-// via dotnet test (this project), but also via FSI.
-// ------------------------------------------
-
-
-
-
-// we don't use nil+cons for lists, but "MkArray" as syntax sugar in the language
-// let typeHierarchyParamPolyEnv =
-//     [
-//         "nil", TDef.Generalize (BuiltinTypes.array %1)
-//         "cons", TDef.Generalize (%1 ^-> BuiltinTypes.array %1 ^-> BuiltinTypes.array %1)
-//         "concat", Mono (BuiltinTypes.array BuiltinTypes.string ^-> BuiltinTypes.string)
-//     ]
-
+// =================================================================
+// Arrays
+// -----------------------------------------------------------------
+// Arrays are homogeneous — all elements must unify to a single
+// element type. Mixing incompatible element types is a static error.
+// =================================================================
 
 
 (*
-    [ 1; 2; 3 ]
+    Source:    [ 1; 2; 3 ]
+    Inferred:  Array<Number>
 *)
+// *Homogeneous* means all elements share one type. `Array<Number>` is
+// "an array whose elements are numbers, all of them". Languages that
+// allow `[1, "a", true]` either have a dynamic type or an implicit
+// union — TypeFighter has neither, so mixing is a static error (see
+// the failing test further down).
 let [<Test>] ``array literal number`` () =
-
     X.MkArray [ X.Lit 1; X.Lit 2; X.Lit 3 ]
     |> solve [] None
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.number))
 
 
 (*
-    [ "a"; "b"; "c" ]
+    Source:    [ "a"; "b"; "c" ]
+    Inferred:  Array<String>
 *)
+// Same story as the number array, with strings. Each element unifies
+// against a shared element-type variable; because all three agree on
+// `String`, the array's full type drops out as `Array<String>`.
 let [<Test>] ``array literal string`` () =
-
     X.MkArray [ X.Lit "a"; X.Lit "b"; X.Lit "c" ]
     |> solve [] None
     |> shouldSolveType (Mono (BuiltinTypes.array BuiltinTypes.string))
 
 
-
 (*
-    [ "a"; 1; "c" ]
+    Source:    [ "a"; 1; "c" ]
+    Error:     Can't unify String and Number
 *)
-// ERROR: Can't unify String and Number
+// Mixing a string and a number in the same array forces unification
+// of `String` with `Number`, which fails. TypeFighter has no
+// automatic widening to a common union here, so the mismatch is a
+// hard static error. The test pins down the desired "fail early"
+// behaviour — silently producing `Array<Unknown>` would be much worse.
 let [<Test>] ``error - non-homogeneous arrays`` () =
-
     X.MkArray [ X.Lit "a"; X.Lit 1; X.Lit "c" ]
     |> solve [] None
     |> shouldFail
 
 
-
-
 (*
-    [
-        { validFrom = MkThing "foo1" };
-        { validFrom = MkThing "foo2" };
-    ]
+    Env:
+      MkThing : forall a. String -> a
+
+    Source:    [
+                   { validFrom = MkThing "foo1" };
+                   { validFrom = MkThing "foo2" };
+               ]
+    Inferred:  forall a. Array<{ validFrom: a }>
 *)
+// Two array elements are records whose `validFrom` value comes from
+// calling a polymorphic function. The inferencer has to see both
+// calls as fresh instantiations, unify the two resulting record
+// shapes, and then notice that nothing pins down the return type —
+// so the result is an array of records over a still-free variable.
+// This scenario is interesting because it combines polymorphism,
+// record inference, and array homogeneity in one expression.
 let [<Test>] ``array with multiple record elements having field value from function app`` () =
 
     let defaultTcEnv =
         [
             "MkThing", TDef.Generalize (BuiltinTypes.string ^-> %1)
         ]
- 
+
     let ast =
         X.MkArray
             [
@@ -89,20 +98,17 @@ let [<Test>] ``array with multiple record elements having field value from funct
                         "validFrom"
                         (X.App
                           (X.Var "MkThing")
-                          (X.Lit "foo1")) 
+                          (X.Lit "foo1"))
                 ]
                 X.MkRecord [
                     X.Field
                         "validFrom"
                         (X.App
                           (X.Var "MkThing")
-                          (X.Lit "foo2")) 
+                          (X.Lit "foo2"))
                 ]
             ]
- 
-    // TODO: Comparison of poly types according to poly type params naming/numbering has to be implemented correctly
-    //       + apply reindexing of vars (see reindex vars for external envs)
-    //       %14 - that's the thing here.
-    ast 
+
+    ast
     |> solve defaultTcEnv None
     |> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %10 ])))
