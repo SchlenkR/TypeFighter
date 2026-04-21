@@ -115,6 +115,14 @@ a { color: inherit; text-decoration: none; }
 
 .nav-item.active .nav-count { color: #cdd6f4; }
 
+.nav-item-playground {
+    color: #f9e2af;
+}
+
+.nav-item-playground:hover {
+    color: #fbe9b7;
+}
+
 /* ─── Main ─────────────────────────────────────────────────────── */
 
 .main {

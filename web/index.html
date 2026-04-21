@@ -11,7 +11,15 @@
         header .title { font-weight: 600; }
         header .status { flex: 1; font-size: 12px; color: #9cdcfe; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
         header .status.error { color: #f48771; }
-        main { flex: 1; display: grid; grid-template-columns: 240px 1fr 1fr; gap: 1px; background: #333; min-height: 0; }
+        header .docs-link { color: #9cdcfe; text-decoration: none; font-size: 12px; padding: 3px 10px; border: 1px solid #3c3c3c; border-radius: 4px; transition: background 0.15s, border-color 0.15s; }
+        header .docs-link:hover { background: #094771; border-color: #0098d4; color: #fff; }
+
+        /* 4-column grid: sidebar | source | splitter | output. The source
+           and output columns are driven by a CSS variable that the JS
+           splitter updates on drag; splitter column stays at 5px. */
+        main { flex: 1; display: grid;
+               grid-template-columns: 240px var(--src-col, 1fr) 5px var(--out-col, 1fr);
+               gap: 1px; background: #333; min-height: 0; }
 
         .sidebar { background: #252526; overflow: auto; padding: 8px 0; font-size: 12px; }
         .sidebar .category { padding: 8px 12px 4px 12px; font-size: 10px; color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
@@ -23,12 +31,24 @@
         .pane-header { padding: 4px 12px; background: #2d2d30; border-bottom: 1px solid #333; font-size: 11px; color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; }
         .editor { flex: 1; min-height: 0; }
 
+        .splitter { background: #333; cursor: col-resize; transition: background 0.1s; }
+        .splitter:hover, .splitter.dragging { background: #0098d4; }
+
         .prelude { padding: 6px 12px 8px 12px; background: #252526; border-top: 1px solid #333; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #ccc; max-height: 140px; overflow: auto; }
         .prelude .label { color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; margin-bottom: 4px; font-family: -apple-system, sans-serif; font-weight: 600; }
         .prelude .entry { padding: 1px 0; }
         .prelude .name { color: #dcdcaa; }
         .prelude .sep { color: #666; }
         .prelude .typ { color: #4ec9b0; }
+
+        .console { background: #181818; border-top: 1px solid #333; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: #ccc; min-height: 120px; max-height: 260px; overflow: auto; padding: 6px 12px; }
+        .console-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; background: #252526; border-top: 1px solid #333; border-bottom: 1px solid #333; font-size: 11px; color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; }
+        .console-head button { background: transparent; color: #888; border: 1px solid #3c3c3c; border-radius: 3px; padding: 1px 8px; font-size: 10px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
+        .console-head button:hover { color: #ccc; border-color: #555; }
+        .console .line { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
+        .console .line.log   { color: #cdd6f4; }
+        .console .line.error { color: #f48771; }
+        .console .line.meta  { color: #6a6a6a; font-style: italic; }
     </style>
 </head>
 <body>
@@ -36,6 +56,7 @@
         <header>
             <span class="title">TypeFighter → JavaScript</span>
             <span class="status" id="status">ready</span>
+            <a class="docs-link" id="docs-link" href="../">Documentation →</a>
         </header>
         <main>
             <aside class="sidebar" id="sidebar"></aside>
@@ -44,9 +65,15 @@
                 <div class="editor" id="src-editor"></div>
                 <div class="prelude" id="prelude"></div>
             </section>
+            <div class="splitter" id="splitter" role="separator" aria-orientation="vertical"></div>
             <section class="pane">
                 <div class="pane-header">output (javascript)</div>
                 <div class="editor" id="out-editor"></div>
+                <div class="console-head">
+                    <span>console</span>
+                    <button id="clear-console" type="button">clear</button>
+                </div>
+                <div class="console" id="console"></div>
             </section>
         </main>
     </div>

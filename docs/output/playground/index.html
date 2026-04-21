@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TypeFighter Playground</title>
+    <style>
+        html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1e1e1e; color: #eee; }
+        #app { display: flex; flex-direction: column; height: 100%; }
+        header { padding: 8px 16px; background: #252526; border-bottom: 1px solid #333; font-size: 13px; display: flex; align-items: center; gap: 16px; }
+        header .title { font-weight: 600; }
+        header .status { flex: 1; font-size: 12px; color: #9cdcfe; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+        header .status.error { color: #f48771; }
+        header .docs-link { color: #9cdcfe; text-decoration: none; font-size: 12px; padding: 3px 10px; border: 1px solid #3c3c3c; border-radius: 4px; transition: background 0.15s, border-color 0.15s; }
+        header .docs-link:hover { background: #094771; border-color: #0098d4; color: #fff; }
+        main { flex: 1; display: grid; grid-template-columns: 240px 1fr 1fr; gap: 1px; background: #333; min-height: 0; }
+
+        .sidebar { background: #252526; overflow: auto; padding: 8px 0; font-size: 12px; }
+        .sidebar .category { padding: 8px 12px 4px 12px; font-size: 10px; color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .sidebar .example { padding: 4px 12px; color: #ddd; cursor: pointer; border-left: 3px solid transparent; }
+        .sidebar .example:hover { background: #2d2d30; }
+        .sidebar .example.active { background: #094771; border-left-color: #0098d4; color: #fff; }
+
+        .pane { background: #1e1e1e; display: flex; flex-direction: column; min-height: 0; }
+        .pane-header { padding: 4px 12px; background: #2d2d30; border-bottom: 1px solid #333; font-size: 11px; color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; }
+        .editor { flex: 1; min-height: 0; }
+
+        .prelude { padding: 6px 12px 8px 12px; background: #252526; border-top: 1px solid #333; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #ccc; max-height: 140px; overflow: auto; }
+        .prelude .label { color: #9cdcfe; text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; margin-bottom: 4px; font-family: -apple-system, sans-serif; font-weight: 600; }
+        .prelude .entry { padding: 1px 0; }
+        .prelude .name { color: #dcdcaa; }
+        .prelude .sep { color: #666; }
+        .prelude .typ { color: #4ec9b0; }
+    </style>
+  <script type="module" crossorigin src="/TypeFighter/playground/assets/index-BlIlgVsk.js"></script>
+  <link rel="stylesheet" crossorigin href="/TypeFighter/playground/assets/index-DYQmXt4D.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <span class="title">TypeFighter → JavaScript</span>
+            <span class="status" id="status">ready</span>
+            <a class="docs-link" id="docs-link" href="../">Documentation →</a>
+        </header>
+        <main>
+            <aside class="sidebar" id="sidebar"></aside>
+            <section class="pane">
+                <div class="pane-header">source</div>
+                <div class="editor" id="src-editor"></div>
+                <div class="prelude" id="prelude"></div>
+            </section>
+            <section class="pane">
+                <div class="pane-header">output (javascript)</div>
+                <div class="editor" id="out-editor"></div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

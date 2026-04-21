@@ -66,11 +66,77 @@ const outEditor = monaco.editor.create(document.getElementById("out-editor")!, {
 const status = document.getElementById("status")!;
 const srcModel = srcEditor.getModel()!;
 
+// Docs link target: in a production build the playground ships under
+// `/TypeFighter/playground/` on GH Pages, so `../` reaches the docs
+// root. In dev there is no local docs site (Vite serves only this app),
+// so point at the live one instead to avoid the dead `/` → playground
+// loop.
+const docsLink = document.getElementById("docs-link") as HTMLAnchorElement;
+docsLink.href = import.meta.env.PROD
+    ? "../"
+    : "https://schlenkr.github.io/TypeFighter/";
+
 // Latest IntelliSense snapshot. Providers read from here; the compile
 // callback refreshes it. Stale data during a failed parse still beats
 // nothing — completions keep working while the user fixes a typo.
 let currentHovers: HoverInfo[] = [];
 let currentCompletions: CompletionEntry[] = [];
+
+// ── Console pane ────────────────────────────────────────────────
+// Captures console.log / console.error output from running the emitted
+// JS. Kept as a running log across runs so users can see history while
+// iterating; `clear` button empties it.
+
+const consoleEl = document.getElementById("console")!;
+const clearConsoleBtn = document.getElementById("clear-console")!;
+
+type ConsoleKind = "log" | "error" | "meta";
+function appendConsoleLine(kind: ConsoleKind, text: string) {
+    const line = document.createElement("div");
+    line.className = `line ${kind}`;
+    line.textContent = text;
+    consoleEl.appendChild(line);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+clearConsoleBtn.addEventListener("click", () => {
+    consoleEl.innerHTML = "";
+});
+
+// Render an arbitrary JS value to a readable string for the console.
+// Strings print raw (no surrounding quotes) to match Node/browser
+// behavior; objects get JSON.stringify with a 2-space indent.
+function formatValue(v: unknown): string {
+    if (typeof v === "string") return v;
+    if (v === undefined) return "undefined";
+    if (v === null) return "null";
+    if (typeof v === "function") return "[Function]";
+    try {
+        return JSON.stringify(v, null, 2);
+    } catch {
+        return String(v);
+    }
+}
+
+// Execute the emitted JS and capture its console output. The emitter
+// produces an ES module ending in `export default <expr>;` — for
+// execution we strip that prefix so the final expression runs for its
+// side effects. We intentionally use `new Function` (classic script
+// scope) rather than `eval` so the snippet can't see our module-scoped
+// vars. A fake `console` is the only injected dependency.
+function executeJs(jsSource: string) {
+    const script = jsSource.replace(/^export\s+default\s+/m, "");
+    const fakeConsole = {
+        log: (...args: unknown[]) =>
+            appendConsoleLine("log", args.map(formatValue).join(" ")),
+        error: (...args: unknown[]) =>
+            appendConsoleLine("error", args.map(formatValue).join(" "))
+    };
+    try {
+        new Function("console", script)(fakeConsole);
+    } catch (e) {
+        appendConsoleLine("error", (e as Error).message);
+    }
+}
 
 function run() {
     const result = compileWithInfo(srcEditor.getValue());
@@ -92,6 +158,8 @@ function run() {
         status.classList.remove("error");
         monaco.editor.setModelMarkers(srcModel, "typefighter", []);
         outEditor.setValue(result.js);
+        appendConsoleLine("meta", "▸ run");
+        executeJs(result.js);
     }
 }
 
@@ -190,5 +258,48 @@ for (const { name, typ } of preludeInfo()) {
     row.innerHTML = `<span class="name">${name}</span><span class="sep"> : </span><span class="typ">${typ}</span>`;
     preludePanel.appendChild(row);
 }
+
+// ── Splitter: drag to resize source vs output panes ──────────────
+// The CSS grid uses two named fractions — `--src-col` and `--out-col`
+// — and this handler rewrites them as pixel widths during the drag.
+// Monaco editors have `automaticLayout: true`, so they re-flow on their
+// own. We clamp to a sane minimum so neither pane can collapse to 0.
+
+const mainEl = document.querySelector("main") as HTMLElement;
+const splitter = document.getElementById("splitter")!;
+const SIDEBAR_PX = 240;
+const SPLITTER_PX = 5;
+const GAPS_PX = 3; // three 1px grid gaps
+const MIN_PANE_PX = 200;
+
+let dragging = false;
+splitter.addEventListener("mousedown", (e) => {
+    dragging = true;
+    splitter.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    // Suppress text selection while dragging.
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+});
+
+window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = mainEl.getBoundingClientRect();
+    const editorsWidth = rect.width - SIDEBAR_PX - SPLITTER_PX - GAPS_PX;
+    const srcStart = rect.left + SIDEBAR_PX + 1; // +1 for grid gap
+    let srcWidth = e.clientX - srcStart;
+    srcWidth = Math.max(MIN_PANE_PX, Math.min(editorsWidth - MIN_PANE_PX, srcWidth));
+    const outWidth = editorsWidth - srcWidth;
+    mainEl.style.setProperty("--src-col", `${srcWidth}px`);
+    mainEl.style.setProperty("--out-col", `${outWidth}px`);
+});
+
+window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove("dragging");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+});
 
 run();

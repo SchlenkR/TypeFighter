@@ -31,6 +31,8 @@
     <div class="tagline">Test-driven type system docs</div>
   </div>
   <nav class="nav">
+    <div class="nav-group-label">Try it</div>
+    <a class="nav-item nav-item-playground" href="playground/"><span class="nav-name">Playground →</span></a>
     <div class="nav-group-label">Reference</div>
     <a class="nav-item" href="concepts.html"><span class="nav-name">Concepts</span></a>
     <div class="nav-group-label">Test categories</div>
@@ -44,6 +46,7 @@
 <a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
 <a class="nav-item" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
 <a class="nav-item" href="composites.html"><span class="nav-name">Composites — putting the pieces together</span><span class="nav-count">7</span></a>
+<a class="nav-item" href="emit.html"><span class="nav-name">JS emitter</span><span class="nav-count">17</span></a>
   </nav>
 </aside>
     <main class="main">
@@ -103,7 +106,7 @@
         <p>Tests marked <span class="badge badge-ignored">Not yet implemented</span> document features that are deliberately not supported today.</p>
       </section>
 
-      <h2>Categories (60 tests total)</h2>
+      <h2>Categories (77 tests total)</h2>
       <div class="cat-grid">
 <a class="cat-card" href="literals.html">
   <div class="cat-head">
@@ -174,6 +177,13 @@
     <span class="cat-count">7 tests</span>
   </div>
   <p class="cat-intro">Everywhere else in the test suite, each file isolates one feature (records, matches, let-binding, etc.). Real programs combine them. These tests show the <em>set-algebra</em> surface i…</p>
+</a>
+<a class="cat-card" href="emit.html">
+  <div class="cat-head">
+    <span class="cat-name">JS emitter</span>
+    <span class="cat-count">17 tests</span>
+  </div>
+  <p class="cat-intro">Golden tests for TypeFighter → JavaScript string emission. The emitter doesn't depend on the solver — it's a pure AST walker — so these tests construct expressions directly via…</p>
 </a>
       </div>
     </main>

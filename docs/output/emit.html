@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JS emitter — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-group-label">Try it</div>
+    <a class="nav-item nav-item-playground" href="playground/"><span class="nav-name">Playground →</span></a>
+    <div class="nav-group-label">Reference</div>
+    <a class="nav-item" href="concepts.html"><span class="nav-name">Concepts</span></a>
+    <div class="nav-group-label">Test categories</div>
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
+<a class="nav-item" href="composites.html"><span class="nav-name">Composites — putting the pieces together</span><span class="nav-count">7</span></a>
+<a class="nav-item active" href="emit.html"><span class="nav-name">JS emitter</span><span class="nav-count">17</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>JS emitter</h1>
+      <p class="intro">Golden tests for TypeFighter → JavaScript string emission. The emitter doesn't depend on the solver — it's a pure AST walker — so these tests construct expressions directly via the X.* DSL.</p>
+      <div class="tests">
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">literal number</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">jsOf (X.Lit 42) |&gt; shouldEqual &quot;42&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">literal float</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">jsOf (X.Lit 3.5) |&gt; shouldEqual &quot;3.5&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">literal string escapes quotes and backslashes</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">jsOf (X.Lit &quot;he said \&quot;hi\&quot;\\n&quot;) |&gt; shouldEqual &quot;\&quot;he said \\\&quot;hi\\\&quot;\\\\n\&quot;&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">literal string with real newline escaped</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">jsOf (X.Lit &quot;line1\nline2&quot;) |&gt; shouldEqual &quot;\&quot;line1\\nline2\&quot;&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">literal booleans</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">jsOf (X.Lit true) |&gt; shouldEqual &quot;true&quot;
+jsOf (X.Lit false) |&gt; shouldEqual &quot;false&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">variable identity</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">jsOf (X.Var &quot;greet&quot;) |&gt; shouldEqual &quot;greet&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">curried application</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.App (X.App (X.Var &quot;add&quot;) (X.Lit 1)) (X.Lit 2)
+jsOf expr |&gt; shouldEqual &quot;add(1)(2)&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">lambda single arg</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)
+jsOf expr |&gt; shouldEqual &quot;(x) =&gt; x&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">lambda application needs paren on callee</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.App (X.Fun (X.Ident &quot;x&quot;) (X.Var &quot;x&quot;)) (X.Lit 5)
+jsOf expr |&gt; shouldEqual &quot;((x) =&gt; x)(5)&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">let binds as IIFE</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.Let (X.Ident &quot;x&quot;) (X.Lit 5) (X.Var &quot;x&quot;)
+jsOf expr |&gt; shouldEqual &quot;((x) =&gt; x)(5)&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">property access</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.PropAcc (X.Var &quot;r&quot;) &quot;name&quot;
+jsOf expr |&gt; shouldEqual &quot;r.name&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">record with named and positional items</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr =
+    X.MkRecord [
+        X.Property &quot;age&quot; (X.Lit 22)
+        X.Positional (X.Lit &quot;Tag&quot;)
+        X.Property &quot;name&quot; (X.Lit &quot;John&quot;)
+    ]
+jsOf expr |&gt; shouldEqual &quot;{age: 22, _0: \&quot;Tag\&quot;, name: \&quot;John\&quot;}&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">array literal</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.MkArray [ X.Lit 1; X.Lit 2; X.Lit 3 ]
+jsOf expr |&gt; shouldEqual &quot;[1, 2, 3]&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match with literal arms and wildcard</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr =
+    X.Fun (X.Ident &quot;n&quot;) (
+        X.Match (X.Var &quot;n&quot;) [
+            X.Arm (X.PatLit 0) (X.Lit &quot;zero&quot;)
+            X.Arm (X.PatLit 1) (X.Lit &quot;one&quot;)
+            X.Arm X.PatWild (X.Lit &quot;other&quot;)
+        ])
+let expected =
+    &quot;(n) =&gt; ((__s) =&gt; { if (__s === 0) return \&quot;zero\&quot;; &quot;
+    + &quot;if (__s === 1) return \&quot;one\&quot;; return \&quot;other\&quot;; })(n)&quot;
+jsOf expr |&gt; shouldEqual expected</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match with var pattern binds scrutinee</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr =
+    X.Match (X.Lit 42) [
+        X.Arm (X.PatVar &quot;x&quot;) (X.Var &quot;x&quot;)
+    ]
+jsOf expr |&gt; shouldEqual &quot;((__s) =&gt; { return ((x) =&gt; x)(__s); })(42)&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">do action body uses comma operator</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.Do (X.App (X.Var &quot;log&quot;) (X.Lit &quot;side&quot;)) (X.Lit 7)
+jsOf expr |&gt; shouldEqual &quot;(log(\&quot;side\&quot;), 7)&quot;</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">toJsModule wires imports and exports default</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">let expr = X.App (X.Var &quot;log&quot;) (X.Lit &quot;hi&quot;)
+let result =
+    Emit.toJsModule
+        [ &quot;log&quot;, &quot;(s) =&gt; console.log(s)&quot; ]
+        expr
+let expected = &quot;const log = (s) =&gt; console.log(s);\nexport default log(\&quot;hi\&quot;);\n&quot;
+result |&gt; shouldEqual expected</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

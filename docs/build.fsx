@@ -391,6 +391,8 @@ let renderSidebar (files: TestFile list) (activeSlug: string option) =
     <div class="tagline">Test-driven type system docs</div>
   </div>
   <nav class="nav">
+    <div class="nav-group-label">Try it</div>
+    <a class="nav-item nav-item-playground" href="playground/"><span class="nav-name">Playground →</span></a>
     <div class="nav-group-label">Reference</div>
     <a class="{conceptsCls}" href="concepts.html"><span class="nav-name">Concepts</span></a>
     <div class="nav-group-label">Test categories</div>
@@ -856,6 +858,14 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav-item.active .nav-count { color: #cdd6f4; }
+
+.nav-item-playground {
+    color: #f9e2af;
+}
+
+.nav-item-playground:hover {
+    color: #fbe9b7;
+}
 
 /* ─── Main ─────────────────────────────────────────────────────── */
 
