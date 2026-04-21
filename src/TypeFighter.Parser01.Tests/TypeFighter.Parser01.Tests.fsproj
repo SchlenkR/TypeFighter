@@ -14,6 +14,7 @@
     <Compile Include="TestCases/Functions.fs" />
     <Compile Include="TestCases/Let.fs" />
     <Compile Include="TestCases/Demos.fs" />
+    <Compile Include="TestCases/Types.fs" />
   </ItemGroup>
 
   <ItemGroup>

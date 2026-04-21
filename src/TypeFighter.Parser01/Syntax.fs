@@ -412,6 +412,167 @@ let private program =
     .>> eoi
 
 
+// -------- Type-expression parser --------
+//
+// Grammar (precedence low → high; `&` binds tighter than `|`):
+//
+//   typExpr     = altTyp { "|" altTyp }               // top-level: union
+//   altTyp      = primTyp { "&" primTyp }             // tighter: intersection  (Step 3 wires this up end-to-end)
+//   primTyp     = literalTyp                          // 42, "foo", true, false
+//               | identTyp                            // Number, String, MyThing
+//               | appliedTyp                          // Array<Number>
+//               | "(" typExpr ")"
+//               | "{" recordTyp "}"                   // (Step 3)
+//
+// See docs/design/TypeSyntaxWithSets.md.
+
+let private builtinTypeName (name: string) : MonoTyp option =
+    match name with
+    | "Number" -> Some BuiltinTypes.number
+    | "String" -> Some BuiltinTypes.string
+    | "Bool"   -> Some BuiltinTypes.boolean
+    | "Unit"   -> Some BuiltinTypes.unit
+    | _        -> None
+
+let private typeIdentifier =
+    let raw =
+        parse {
+            let! h = identStart
+            let! t = many identCont |> pconcat
+            return
+                { range = Range.add h.range t.range
+                  result = h.result + t.result }
+        }
+    raw |> tok
+
+let private numberLitTyp =
+    parse {
+        let! n = many1Str digit
+        return { range = n.range; result = LiteralTyp (Number (float n.result)) }
+    } |> tok
+
+let private stringLitTyp =
+    parse {
+        let! openQ = pstr "\""
+        let! body  = pstringUntil (pstr "\"")
+        let! closeQ = pstr "\""
+        return
+            { range = Range.merge [ openQ.range; body.range; closeQ.range ]
+              result = LiteralTyp (String body.result) }
+    } |> tok
+
+let private boolLitTyp =
+    (keyword "true"  |> map (fun _ -> LiteralTyp (Boolean true)))
+    <|>
+    (keyword "false" |> map (fun _ -> LiteralTyp (Boolean false)))
+
+// Forward declaration: typExpr recurses into parens / applied args.
+let mutable private typExprImpl : Parser<MonoTyp> =
+    mkParser (fun _ -> failwith "Parser01.Syntax.typExpr used before initialization.")
+
+let private typExpr : Parser<MonoTyp> =
+    mkParser (fun inp -> getParser typExprImpl inp)
+
+let private appliedOrIdentTyp =
+    // `Name` or `Name< T, U, … >`
+    parse {
+        let! name = typeIdentifier
+        let! args =
+            (parse {
+                let! openA  = sym "<"
+                let! xs     = commaList typExpr
+                let! closeA = sym ">"
+                return
+                    { range = Range.merge [ openA.range; xs.range; closeA.range ]
+                      result = xs.result }
+             })
+            <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
+        let typ =
+            match args.result with
+            | [] ->
+                match builtinTypeName name.result with
+                | Some t -> t
+                | None   -> TDef.SaturatedWith name.result []
+            | args ->
+                // `Array<T>` is the idiomatic built-in; user types are also saturated.
+                TDef.SaturatedWith name.result args
+        return
+            { range =
+                match args.result with
+                | [] -> name.range
+                | _  -> Range.add name.range args.range
+              result = typ }
+    }
+
+let private parenTypExpr =
+    parse {
+        let! openP = sym "("
+        let! t     = typExpr
+        let! closeP = sym ")"
+        return
+            { range = Range.merge [ openP.range; t.range; closeP.range ]
+              result = t.result }
+    }
+
+let private primTyp : Parser<MonoTyp> =
+    pchoice
+        [
+            numberLitTyp
+            stringLitTyp
+            boolLitTyp
+            parenTypExpr
+            appliedOrIdentTyp
+        ]
+
+// altTyp: `A & B & C`. Step 2: parser accepts single `primTyp`; `&` is
+// wired in Step 3. Kept as a named layer so Step 3 can enable it
+// without restructuring.
+let private altTyp : Parser<MonoTyp> = primTyp
+
+// typExpr: `A | B | C`. Union of alternatives.
+//
+// Folding rule: `A | B | C` → `UnionTyp {A, B, C}` (flattened).
+let private flattenUnion (ts: MonoTyp list) : MonoTyp =
+    let members =
+        set [
+            for t in ts do
+                match t with
+                | UnionTyp inner -> yield! inner
+                | other          -> yield other
+        ]
+    match Set.toList members with
+    | [single] -> single
+    | _        -> UnionTyp members
+
+let private typUnion =
+    parse {
+        let! head = altTyp
+        let! tail =
+            many (
+                parse {
+                    let! _ = sym "|"
+                    let! t = altTyp
+                    return t
+                })
+        let all = head.result :: [ for pv in tail.result -> pv.result ]
+        let finalRange =
+            match tail.result with
+            | [] -> head.range
+            | _  -> Range.add head.range tail.range
+        return { range = finalRange; result = flattenUnion all }
+    }
+
+do typExprImpl <- typUnion
+
+let private typeProgram =
+    parse {
+        let! _ = ws
+        let! t = typExpr
+        return t
+    }
+    .>> eoi
+
+
 // -------- Public API --------
 
 /// Parse a full JS-like program into a TypeFighter `Expr`.
@@ -422,3 +583,11 @@ let parse (source: string) : Result<Expr<unit>, string> =
     | PError err ->
         let pos = DocPos.create err.idx source
         Error (sprintf "Parse error at line %d, column %d: %s" pos.ln pos.col err.message)
+
+/// Parse a TypeFighter type expression.
+let parseTyp (source: string) : Result<MonoTyp, string> =
+    match run source typeProgram with
+    | POk pval -> Ok pval.result
+    | PError err ->
+        let pos = DocPos.create err.idx source
+        Error (sprintf "Type parse error at line %d, column %d: %s" pos.ln pos.col err.message)
