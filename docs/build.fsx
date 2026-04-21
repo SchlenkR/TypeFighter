@@ -372,7 +372,9 @@ let logoSvg = """<svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org
 </svg>"""
 
 let renderSidebar (files: TestFile list) (activeSlug: string option) =
-    let links =
+    let conceptsActive = activeSlug = Some "concepts"
+    let conceptsCls = if conceptsActive then "nav-item active" else "nav-item"
+    let categoryLinks =
         files
         |> List.map (fun f ->
             let active = activeSlug = Some f.Slug
@@ -389,7 +391,10 @@ let renderSidebar (files: TestFile list) (activeSlug: string option) =
     <div class="tagline">Test-driven type system docs</div>
   </div>
   <nav class="nav">
-{links}
+    <div class="nav-group-label">Reference</div>
+    <a class="{conceptsCls}" href="concepts.html"><span class="nav-name">Concepts</span></a>
+    <div class="nav-group-label">Test categories</div>
+{categoryLinks}
   </nav>
 </aside>"""
 
@@ -484,6 +489,167 @@ let renderCatCard (f: TestFile) =
   <p class="cat-intro">{snipEsc}</p>
 </a>"""
 
+let renderConceptsPage (files: TestFile list) =
+    let sidebar = renderSidebar files (Some "concepts")
+    $"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Concepts — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    {sidebar}
+    <main class="main concepts">
+      <h1>Concepts</h1>
+      <p class="intro">This page covers only features that are <strong>actually implemented and test-covered today</strong>. Design sketches and roadmap ideas live in <code>docs/design/</code> in the repo and intentionally don't appear here — everything you read on this page corresponds to running, passing code. Each section points to the test categories that exercise it.</p>
+
+      <section class="concept">
+        <h2>1. The type AST at a glance</h2>
+        <p>A <code>MonoTyp</code> is one of six shapes — that's the entire universe of types the solver reasons about:</p>
+        <ul>
+          <li><strong>Type variable</strong> (<code>TVar</code>) — a placeholder that unification eventually pins down.</li>
+          <li><strong>Saturated type</strong> (<code>SaturatedTyp</code>) — a named type applied to zero or more arguments: <code>Number</code>, <code>String</code>, <code>Array&lt;Number&gt;</code>, <code>Map&lt;String, Number&gt;</code>.</li>
+          <li><strong>Function type</strong> (<code>FunTyp</code>) — <code>A -&gt; B</code>, right-associative by convention.</li>
+          <li><strong>Record type</strong> (<code>RecordTyp</code>) — a set of named fields <em>and</em> a bag of positional items. Both rows live in one record; either can be empty.</li>
+          <li><strong>Literal type</strong> (<code>LiteralTyp</code>) — a specific number, string, or boolean value treated <em>as</em> a type: <code>42</code>, <code>"red"</code>, <code>true</code>.</li>
+          <li><strong>Union type</strong> (<code>UnionTyp</code>) — a set of alternatives: <code>true | false</code>, <code>200 | 404 | 500</code>, <code>Number | String</code>.</li>
+        </ul>
+        <p>There is <em>no</em> separate <code>IntersectionTyp</code>: <code>&amp;</code> between two record operands normalises at parse time into a single merged <code>RecordTyp</code>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>2. Set-theoretic type syntax</h2>
+        <p>Three combinators on types, all usable from the text-level parser:</p>
+        <table class="concept-table">
+          <thead><tr><th>Surface</th><th>Meaning</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td><code>A | B</code></td><td>disjunction — "is an A <em>or</em> a B"</td><td><code>200 | 404 | 500</code></td></tr>
+            <tr><td><code>A &amp; B</code></td><td>conjunction at the record level — adds B's items to A</td><td><code>{{ "Circle" &amp; radius: Number }}</code></td></tr>
+            <tr><td><code>{{ … }}</code></td><td>record-set bracket — packages named + positional items</td><td><code>{{ x: Number &amp; y: Number }}</code></td></tr>
+            <tr><td><code>"foo"</code>, <code>42</code>, <code>true</code></td><td>literal types — TypeScript-style</td><td><code>"red" | "yellow" | "green"</code></td></tr>
+            <tr><td><code>name: A</code></td><td>named property inside a record</td><td><code>{{ name: String }}</code></td></tr>
+          </tbody>
+        </table>
+        <p><strong>Precedence.</strong> <code>&amp;</code> binds tighter than <code>|</code> (the universal "and binds tighter than or" convention). <code>A | B &amp; C</code> parses as <code>A | (B &amp; C)</code>. Parentheses override.</p>
+        <p><strong>Two meanings of <code>|</code> around records.</strong></p>
+        <ul>
+          <li><code>{{ A }} | {{ B }}</code> — union of two <em>record</em> types; the value is <em>either</em> a record-with-A <em>or</em> a record-with-B.</li>
+          <li><code>{{ A | B }}</code> — <em>one</em> record whose single slot has type <code>A | B</code>.</li>
+        </ul>
+        <p>Tests: <a href="literals.html">Literals</a>, and the parser's type-expression tests in <code>TypeFighter.Parser01.Tests/TestCases/Types.fs</code>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>3. Structural, heterogeneous records</h2>
+        <p>A record is a <strong>set of items</strong>, not a <em>list of declared fields with a name on the envelope</em>. Two rows live on every record:</p>
+        <ul>
+          <li><strong>Named items</strong> (<em>properties</em>) — <code>x: Number</code>, <code>name: String</code>.</li>
+          <li><strong>Positional items</strong> — anonymous types that sit in the record's bag, order-insensitive.</li>
+        </ul>
+        <p>Records are matched <em>structurally</em>: a function expecting <code>{{ name: String }}</code> accepts any record that has a <code>name</code> field of type <code>String</code>, regardless of what else the record carries. No <code>type</code> declaration is required anywhere.</p>
+<pre><code class="language-fsharp">// Just a record expression — no declaration, no "class", no name.
+X.MkRecord [
+    X.Property "age"  (X.Lit 22)
+    X.Property "name" (X.Lit "John")
+]
+// Inferred:  {{ age: Number; name: String }}
+</code></pre>
+        <p>Tests: <a href="records.html">Records</a>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>4. Row polymorphism</h2>
+        <p>When a function reads fields from a record argument, the inferencer collects the <em>required</em> fields via <code>CHasField</code> constraints. The argument's type closes to a record containing exactly those fields — no more, no less — so the function works on any record <em>at least</em> that wide.</p>
+<pre><code class="language-fsharp">fun r -&gt; r.name
+// Inferred:  forall a. {{ name: a }} -&gt; a
+</code></pre>
+        <p>Pass it a <code>{{ name: String; age: Number }}</code> and it works; pass it a record without <code>name</code> and unification fails. This is "works on anything with field X" — it is <em>not</em> type-class polymorphism ("works on anything supporting operation X").</p>
+        <p>Tests: <a href="rows.html">Rows</a>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>5. Pattern matching with narrowing</h2>
+        <p><code>Expr.Match</code> supports three pattern shapes today:</p>
+        <ul>
+          <li><strong>Literal</strong> — <code>| 0 -&gt;</code>, <code>| "yes" -&gt;</code>, <code>| true -&gt;</code>. Emits a <code>CHasMember</code> constraint so the scrutinee's type closes to a union containing (at least) the matched literal.</li>
+          <li><strong>Var</strong> — <code>| y -&gt;</code>. Catch-all that binds the scrutinee to a name in the arm body.</li>
+          <li><strong>Wildcard</strong> — <code>| _ -&gt;</code>. Catch-all that adds no type constraint.</li>
+        </ul>
+        <p><strong>Narrowing.</strong> A match that consists only of literal arms closes the scrutinee into exactly the union of those literals:</p>
+<pre><code class="language-fsharp">fun s -&gt; match s with
+         | 200 -&gt; "ok"
+         | 404 -&gt; "missing"
+         | 500 -&gt; "boom"
+// Inferred:  {{200 | 404 | 500}} -&gt; String
+</code></pre>
+        <p>Adding a wildcard arm does <em>not</em> widen the scrutinee — the literal arms still determine its type. Adding a var arm also catches-all at runtime but the var is free, so the scrutinee's type is driven by the literal arms only.</p>
+        <p>Not yet: record / destructuring patterns, exhaustiveness checking.</p>
+        <p>Tests: <a href="match.html">Match</a>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>6. Discriminated unions without <code>type</code></h2>
+        <p>TypeFighter has no <code>type Shape = Circle of … | Square of …</code> syntax, and doesn't need one. A DU is just a <strong>union of tagged records</strong>:</p>
+<pre><code>Option&lt;T&gt;   = {{ "None" }} | {{ "Some" &amp; T }}
+Shape       = {{ "Circle" &amp; radius: Number }}
+            | {{ "Square" &amp; side:   Number }}
+Result&lt;T,E&gt; = {{ "Ok"  &amp; T }} | {{ "Err" &amp; E }}
+</code></pre>
+        <p>Each arm is a heterogeneous record whose tag is a positional <em>literal</em> type. Build a value of one arm with <code>X.MkRecord [ X.Positional (X.Lit "Circle"); X.Property "radius" (X.Lit 3) ]</code>.</p>
+        <p>Matching on the tag uses the same literal-pattern machinery as numeric refinement — the wrapper record keeps its payload, the tag selects the arm. Narrowing across arm bodies (so the arm <em>sees</em> the right payload type) is the next step and is <em>not</em> wired up yet.</p>
+        <p>Tests: <a href="composites.html">Composites</a>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>7. Polymorphism</h2>
+        <p>Two flavors are supported:</p>
+        <ul>
+          <li><strong>Environment-supplied polytypes.</strong> An environment entry like <code>log : forall a. a -&gt; Unit</code> is instantiated fresh at every use site. Two calls get independent <code>a</code>s.</li>
+          <li><strong>Top-level generalization.</strong> An expression whose inferred type has free type variables generalises to a polytype at the top level.</li>
+        </ul>
+        <p>Not yet: generalisation at <em>inner</em> <code>let</code> bindings. The relevant test is marked <code>[&lt;Ignore&gt;]</code> on <a href="let.html">Let bindings</a>.</p>
+        <p>Tests: <a href="polymorphism.html">Polymorphism</a>, <a href="generalization.html">Generalization</a>, <a href="functions.html">Functions</a>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>8. Arrays</h2>
+        <p>Arrays are <strong>homogeneous</strong>: all elements must unify to one element type. Mixing incompatible elements is a static error — TypeFighter does not auto-widen to <code>Array&lt;Number | String&gt;</code>.</p>
+        <p>Tests: <a href="arrays.html">Arrays</a>.</p>
+      </section>
+
+      <section class="concept">
+        <h2>9. Text parser (TypeFighter.Parser01)</h2>
+        <p>A standalone parser project reads programs and type expressions from text into the same AST the tests construct by hand. Type-expression grammar (low → high precedence):</p>
+<pre><code>typeExpr = altTyp {{ "|" altTyp }}
+altTyp   = primTyp {{ "&amp;" primTyp }}
+primTyp  = literalTyp | identTyp | applied | "(" typeExpr ")" | "{{" recordItems "}}"
+</code></pre>
+        <p>Top-level <code>&amp;</code> between two record operands normalises to a single merged <code>RecordTyp</code> at parse time; conflicting fields are rejected. Literals, built-in names (<code>Number</code>, <code>String</code>, <code>Bool</code>), applied types, unions, parenthesised grouping, and heterogeneous record literals are all supported.</p>
+        <p>Tests: see the <code>TypeFighter.Parser01.Tests</code> project in the repo.</p>
+      </section>
+
+      <section class="concept">
+        <h2>10. What's deliberately absent</h2>
+        <ul>
+          <li><strong>Nominal types.</strong> There is no way to declare <code>type Person = {{ name: String }}</code> and have <code>Person</code> be <em>distinct</em> from any other record with the same fields. Structural matching is the design.</li>
+          <li><strong>Implicit conversions / subtyping.</strong> <code>Number</code> does not silently become <code>String</code>. If you pass the wrong type, unification fails immediately.</li>
+          <li><strong>Traits / type classes.</strong> No <code>Show</code>-style constraints. See the "note on Traits" on the <a href="index.html">index page</a>.</li>
+          <li><strong>Recursion.</strong> No <code>let rec</code>, no fix-point combinator.</li>
+          <li><strong>Effects.</strong> Not tracked.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+"""
+
 let renderIndexPage (files: TestFile list) =
     let cards =
         files
@@ -507,36 +673,40 @@ let renderIndexPage (files: TestFile list) =
     {sidebar}
     <main class="main">
       <h1>TypeFighter</h1>
-      <p class="intro">TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is <strong>structural records instead of nominal ones</strong>: records are compared by the fields they actually have, not by a declared name — so a function that needs <code class="inline-code">{{ name: String }}</code> accepts <em>any</em> record with that field, no boilerplate declarations required. On top of that: row polymorphism, set-theoretic literal and union types, and classical polymorphic functions — all figured out by the type checker with (almost) no annotations. This site is generated from the test suite: each test is a minimal example of what the type system can — and can't yet — do.</p>
+      <p class="intro">TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is <strong>structural records instead of nominal ones</strong>: records are compared by the fields they actually have, not by a declared name — so a function that needs <code class="inline-code">{{ name: String }}</code> accepts <em>any</em> record with that field, no boilerplate declarations required. On top of that: set-theoretic type syntax (<code>|</code>, <code>&amp;</code>, <code>{{ … }}</code>, literal types), row polymorphism, pattern matching with narrowing, and classical polymorphic functions — figured out by the type checker with (almost) no annotations. This site is generated from the test suite: each test is a minimal example of what the type system can — and can't yet — do. For a narrative walkthrough of what's actually implemented, see <a href="concepts.html">Concepts</a>.</p>
 
       <section class="features">
         <h2>What's in, what's not</h2>
-        <p>A quick comparison against concepts you'll recognize from Rust, Haskell, Scala, TypeScript, Swift, or F#:</p>
+        <p>Every item in <em>In today</em> is covered by at least one passing test in this suite; items under <em>Not yet</em> either fail, are marked <code>Ignore</code>, or are absent by design. A quick comparison against concepts you'll recognize from Rust, Haskell, Scala, TypeScript, Swift, or F#:</p>
         <div class="feature-grid">
           <div class="feature-col has">
             <h3>In today</h3>
             <ul>
               <li><strong>Structural records</strong> — matched by fields, not by name</li>
+              <li><strong>Heterogeneous records</strong> — named fields <em>and</em> positional items (<code>{{ "Tag" &amp; radius: Number }}</code>)</li>
               <li><strong>Row polymorphism</strong> — "has at least field X"</li>
-              <li><strong>Literal &amp; union types</strong> — booleans are modelled as the union <code>true | false</code>; each literal is a type on its own</li>
-              <li><strong>Intersection types</strong> (partial)</li>
-              <li><strong>Polymorphic functions</strong> — fresh instantiation at every use</li>
+              <li><strong>Literal types</strong> — <code>42</code>, <code>"red"</code>, <code>true</code> each have a type of their own</li>
+              <li><strong>Union types</strong> <code>A | B</code> — booleans are the union <code>true | false</code>; numeric/string literal unions for refinement</li>
+              <li><strong>Record-level <code>&amp;</code></strong> — merges two record operands into one structural record at the type level</li>
+              <li><strong>Discriminated unions</strong> — express <code>Option</code>, <code>Result</code>, <code>Shape</code> via <code>{{ "Tag" &amp; fields }} | {{ "OtherTag" &amp; fields }}</code> without a separate <code>type</code> declaration</li>
+              <li><strong>Pattern matching</strong> — <code>Expr.Match</code> with literal, variable, and wildcard patterns; literal arms <em>narrow</em> the scrutinee's type</li>
+              <li><strong>Polymorphic functions</strong> — fresh instantiation at every use site</li>
               <li><strong>Higher-order &amp; partial application</strong></li>
               <li><strong>Arrays</strong> as a built-in type constructor</li>
+              <li><strong>Text parser for type expressions</strong> — <code>TypeFighter.Parser01</code> reads the surface syntax from text</li>
               <li><strong>Inference with (almost) no annotations</strong></li>
             </ul>
           </div>
           <div class="feature-col lacks">
             <h3>Not yet (or absent by design)</h3>
             <ul>
-              <li><strong>Let-generalization</strong> — inner <code>let</code> bindings don't auto-generalize the way classical Hindley–Milner does</li>
+              <li><strong>AST-level <code>let</code>-generalization</strong> — inner <code>let</code> bindings don't auto-generalize the way classical Hindley–Milner does (two <code>Ignore</code>d tests track this)</li>
+              <li><strong>Record / destructuring patterns in <code>match</code></strong> — only literal / var / wildcard patterns today</li>
+              <li><strong>Exhaustiveness checking for <code>match</code></strong> — not enforced</li>
               <li><strong>Traits / type classes / protocols</strong> — no ad-hoc polymorphism (see below)</li>
-              <li><strong>Sum types / ADTs</strong> — no <code>Option</code>/<code>Result</code>-style constructors; literal unions cover a subset</li>
-              <li><strong>Pattern matching</strong> — no <code>match … with</code> construct</li>
               <li><strong>Recursion</strong> — no <code>let rec</code> or fix-point combinator</li>
-              <li><strong>Implicit conversions / subtyping</strong> — <code>Number</code> is never silently a <code>String</code></li>
+              <li><strong>Implicit conversions / subtyping</strong> — <code>Number</code> is never silently a <code>String</code> (by design)</li>
               <li><strong>Nominal types</strong> — everything is structural (by design, not a gap)</li>
-              <li><strong>Surface syntax</strong> — programs are built via the F# DSL, there is no parser from text</li>
               <li><strong>Effect system</strong> — effects aren't tracked</li>
             </ul>
           </div>
@@ -550,11 +720,10 @@ let renderIndexPage (files: TestFile list) =
 
       <section class="about">
         <h2>How to read these pages</h2>
-        <p>Every test is shown with three things:</p>
+        <p>The site has two kinds of content:</p>
         <ul>
-          <li>A short <strong>doc block</strong> giving the environment, source expression, and inferred type (or expected error).</li>
-          <li>An optional <strong>note</strong> with extra context about what the test demonstrates.</li>
-          <li>The raw <strong>F# test body</strong> — toggle it open to see the AST construction.</li>
+          <li><a href="concepts.html"><strong>Concepts</strong></a> — a narrative reference written by hand, covering only what's actually wired up and passing tests today. No roadmap speculation lives there.</li>
+          <li><strong>Test categories</strong> (listed below) — one page per feature, auto-generated from the F# test files. Every test shows its doc block (<em>Env / Source / Inferred / Error</em>), an optional note, and its raw F# body.</li>
         </ul>
         <p>Tests marked <span class="badge badge-ignored">Not yet implemented</span> document features that are deliberately not supported today.</p>
       </section>
@@ -644,6 +813,17 @@ a { color: inherit; text-decoration: none; }
     flex-direction: column;
     padding: 0.5rem 0;
 }
+
+.nav-group-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #7f849c;
+    padding: 0.9rem 1.25rem 0.3rem;
+}
+
+.nav-group-label:first-child { padding-top: 0.4rem; }
 
 .nav-item {
     display: flex;
@@ -794,6 +974,110 @@ a { color: inherit; text-decoration: none; }
     font-size: 0.92rem;
     color: #444;
     line-height: 1.6;
+}
+
+/* ─── Concepts page ─────────────────────────────────────────── */
+
+.concepts .concept {
+    margin: 2.25rem 0 0;
+    max-width: 780px;
+}
+
+.concepts .concept h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e4e4e8;
+}
+
+.concepts .concept p {
+    margin: 0.6rem 0;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #3a3a44;
+}
+
+.concepts .concept ul {
+    margin: 0.75rem 0 1rem;
+    padding-left: 1.4rem;
+}
+
+.concepts .concept li {
+    margin: 0.4rem 0;
+    font-size: 0.93rem;
+    line-height: 1.65;
+    color: #3a3a44;
+}
+
+.concepts .concept li::marker { color: #cba6f7; }
+
+.concepts .concept pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 0.9rem 1.1rem;
+    border-radius: 6px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 0.9rem 0 1rem;
+}
+
+.concepts .concept p code,
+.concepts .concept li code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    font-size: 0.86em;
+    background: #f0eef7;
+    padding: 0.05rem 0.32rem;
+    border-radius: 3px;
+    color: #3b3756;
+}
+
+.concept-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.9rem 0 1rem;
+    font-size: 0.9rem;
+    background: #fff;
+    border: 1px solid #e4e4e8;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.concept-table thead {
+    background: #f5f3fa;
+}
+
+.concept-table th {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6d58a8;
+    border-bottom: 1px solid #e4e4e8;
+}
+
+.concept-table td {
+    padding: 0.65rem 0.9rem;
+    border-top: 1px solid #eeecf3;
+    vertical-align: top;
+    line-height: 1.55;
+    color: #3a3a44;
+}
+
+.concept-table tbody tr:first-child td { border-top: none; }
+
+.concept-table td code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    font-size: 0.86em;
+    background: #f0eef7;
+    padding: 0.05rem 0.32rem;
+    border-radius: 3px;
+    color: #3b3756;
 }
 
 
@@ -1095,7 +1379,7 @@ a { color: inherit; text-decoration: none; }
 
 let testFileOrder =
     [ "Literals"; "Functions"; "Let"; "Generalization"; "Arrays"
-      "Records"; "Rows"; "Polymorphism"; "Intersections"; "TypeHierarchies" ]
+      "Records"; "Rows"; "Polymorphism"; "Match"; "Composites" ]
 
 let readAllTestFiles () =
     let foundFiles =
@@ -1118,6 +1402,7 @@ let main () =
     let files = readAllTestFiles ()
     File.WriteAllText(Path.Combine(outputDir, "style.css"), css)
     File.WriteAllText(Path.Combine(outputDir, "index.html"), renderIndexPage files)
+    File.WriteAllText(Path.Combine(outputDir, "concepts.html"), renderConceptsPage files)
     for f in files do
         let html = renderCategoryPage files f
         File.WriteAllText(Path.Combine(outputDir, f.Slug + ".html"), html)

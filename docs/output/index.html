@@ -31,6 +31,9 @@
     <div class="tagline">Test-driven type system docs</div>
   </div>
   <nav class="nav">
+    <div class="nav-group-label">Reference</div>
+    <a class="nav-item" href="concepts.html"><span class="nav-name">Concepts</span></a>
+    <div class="nav-group-label">Test categories</div>
 <a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
 <a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
 <a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
@@ -39,42 +42,46 @@
 <a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
-<a class="nav-item" href="composites.html"><span class="nav-name">Composites — putting the pieces together</span><span class="nav-count">7</span></a>
 <a class="nav-item" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
+<a class="nav-item" href="composites.html"><span class="nav-name">Composites — putting the pieces together</span><span class="nav-count">7</span></a>
   </nav>
 </aside>
     <main class="main">
       <h1>TypeFighter</h1>
-      <p class="intro">TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is <strong>structural records instead of nominal ones</strong>: records are compared by the fields they actually have, not by a declared name — so a function that needs <code class="inline-code">{ name: String }</code> accepts <em>any</em> record with that field, no boilerplate declarations required. On top of that: row polymorphism, set-theoretic literal and union types, and classical polymorphic functions — all figured out by the type checker with (almost) no annotations. This site is generated from the test suite: each test is a minimal example of what the type system can — and can't yet — do.</p>
+      <p class="intro">TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is <strong>structural records instead of nominal ones</strong>: records are compared by the fields they actually have, not by a declared name — so a function that needs <code class="inline-code">{ name: String }</code> accepts <em>any</em> record with that field, no boilerplate declarations required. On top of that: set-theoretic type syntax (<code>|</code>, <code>&amp;</code>, <code>{ … }</code>, literal types), row polymorphism, pattern matching with narrowing, and classical polymorphic functions — figured out by the type checker with (almost) no annotations. This site is generated from the test suite: each test is a minimal example of what the type system can — and can't yet — do. For a narrative walkthrough of what's actually implemented, see <a href="concepts.html">Concepts</a>.</p>
 
       <section class="features">
         <h2>What's in, what's not</h2>
-        <p>A quick comparison against concepts you'll recognize from Rust, Haskell, Scala, TypeScript, Swift, or F#:</p>
+        <p>Every item in <em>In today</em> is covered by at least one passing test in this suite; items under <em>Not yet</em> either fail, are marked <code>Ignore</code>, or are absent by design. A quick comparison against concepts you'll recognize from Rust, Haskell, Scala, TypeScript, Swift, or F#:</p>
         <div class="feature-grid">
           <div class="feature-col has">
             <h3>In today</h3>
             <ul>
               <li><strong>Structural records</strong> — matched by fields, not by name</li>
+              <li><strong>Heterogeneous records</strong> — named fields <em>and</em> positional items (<code>{ "Tag" &amp; radius: Number }</code>)</li>
               <li><strong>Row polymorphism</strong> — "has at least field X"</li>
-              <li><strong>Literal &amp; union types</strong> — booleans are modelled as the union <code>true | false</code>; each literal is a type on its own</li>
-              <li><strong>Intersection types</strong> (partial)</li>
-              <li><strong>Polymorphic functions</strong> — fresh instantiation at every use</li>
+              <li><strong>Literal types</strong> — <code>42</code>, <code>"red"</code>, <code>true</code> each have a type of their own</li>
+              <li><strong>Union types</strong> <code>A | B</code> — booleans are the union <code>true | false</code>; numeric/string literal unions for refinement</li>
+              <li><strong>Record-level <code>&amp;</code></strong> — merges two record operands into one structural record at the type level</li>
+              <li><strong>Discriminated unions</strong> — express <code>Option</code>, <code>Result</code>, <code>Shape</code> via <code>{ "Tag" &amp; fields } | { "OtherTag" &amp; fields }</code> without a separate <code>type</code> declaration</li>
+              <li><strong>Pattern matching</strong> — <code>Expr.Match</code> with literal, variable, and wildcard patterns; literal arms <em>narrow</em> the scrutinee's type</li>
+              <li><strong>Polymorphic functions</strong> — fresh instantiation at every use site</li>
               <li><strong>Higher-order &amp; partial application</strong></li>
               <li><strong>Arrays</strong> as a built-in type constructor</li>
+              <li><strong>Text parser for type expressions</strong> — <code>TypeFighter.Parser01</code> reads the surface syntax from text</li>
               <li><strong>Inference with (almost) no annotations</strong></li>
             </ul>
           </div>
           <div class="feature-col lacks">
             <h3>Not yet (or absent by design)</h3>
             <ul>
-              <li><strong>Let-generalization</strong> — inner <code>let</code> bindings don't auto-generalize the way classical Hindley–Milner does</li>
+              <li><strong>AST-level <code>let</code>-generalization</strong> — inner <code>let</code> bindings don't auto-generalize the way classical Hindley–Milner does (two <code>Ignore</code>d tests track this)</li>
+              <li><strong>Record / destructuring patterns in <code>match</code></strong> — only literal / var / wildcard patterns today</li>
+              <li><strong>Exhaustiveness checking for <code>match</code></strong> — not enforced</li>
               <li><strong>Traits / type classes / protocols</strong> — no ad-hoc polymorphism (see below)</li>
-              <li><strong>Sum types / ADTs</strong> — no <code>Option</code>/<code>Result</code>-style constructors; literal unions cover a subset</li>
-              <li><strong>Pattern matching</strong> — no <code>match … with</code> construct</li>
               <li><strong>Recursion</strong> — no <code>let rec</code> or fix-point combinator</li>
-              <li><strong>Implicit conversions / subtyping</strong> — <code>Number</code> is never silently a <code>String</code></li>
+              <li><strong>Implicit conversions / subtyping</strong> — <code>Number</code> is never silently a <code>String</code> (by design)</li>
               <li><strong>Nominal types</strong> — everything is structural (by design, not a gap)</li>
-              <li><strong>Surface syntax</strong> — programs are built via the F# DSL, there is no parser from text</li>
               <li><strong>Effect system</strong> — effects aren't tracked</li>
             </ul>
           </div>
@@ -88,11 +95,10 @@
 
       <section class="about">
         <h2>How to read these pages</h2>
-        <p>Every test is shown with three things:</p>
+        <p>The site has two kinds of content:</p>
         <ul>
-          <li>A short <strong>doc block</strong> giving the environment, source expression, and inferred type (or expected error).</li>
-          <li>An optional <strong>note</strong> with extra context about what the test demonstrates.</li>
-          <li>The raw <strong>F# test body</strong> — toggle it open to see the AST construction.</li>
+          <li><a href="concepts.html"><strong>Concepts</strong></a> — a narrative reference written by hand, covering only what's actually wired up and passing tests today. No roadmap speculation lives there.</li>
+          <li><strong>Test categories</strong> (listed below) — one page per feature, auto-generated from the F# test files. Every test shows its doc block (<em>Env / Source / Inferred / Error</em>), an optional note, and its raw F# body.</li>
         </ul>
         <p>Tests marked <span class="badge badge-ignored">Not yet implemented</span> document features that are deliberately not supported today.</p>
       </section>
@@ -155,19 +161,19 @@
   </div>
   <p class="cat-intro">Polytypes provided through the environment are instantiated fresh at every use site — the same name can be used at different types. For AST-level <code>let</code> generalization, see Let.fs.</p>
 </a>
-<a class="cat-card" href="composites.html">
-  <div class="cat-head">
-    <span class="cat-name">Composites — putting the pieces together</span>
-    <span class="cat-count">7 tests</span>
-  </div>
-  <p class="cat-intro">Everywhere else in the test suite, each file isolates one feature (records, matches, let-binding, etc.). Real programs combine them. These tests show the <em>set-algebra</em> surface i…</p>
-</a>
 <a class="cat-card" href="match.html">
   <div class="cat-head">
     <span class="cat-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span>
     <span class="cat-count">6 tests</span>
   </div>
   <p class="cat-intro">Patterns supported in this first pass: - Literal   (<code>| 0 -&gt;</code>, <code>| &quot;yes&quot; -&gt;</code>, <code>| true -&gt;</code>) - Var     (catch-all that binds the scrutinee to a name) - Wildcard  (catch-all that ign…</p>
+</a>
+<a class="cat-card" href="composites.html">
+  <div class="cat-head">
+    <span class="cat-name">Composites — putting the pieces together</span>
+    <span class="cat-count">7 tests</span>
+  </div>
+  <p class="cat-intro">Everywhere else in the test suite, each file isolates one feature (records, matches, let-binding, etc.). Real programs combine them. These tests show the <em>set-algebra</em> surface i…</p>
 </a>
       </div>
     </main>

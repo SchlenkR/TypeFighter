@@ -72,6 +72,17 @@ a { color: inherit; text-decoration: none; }
     padding: 0.5rem 0;
 }
 
+.nav-group-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #7f849c;
+    padding: 0.9rem 1.25rem 0.3rem;
+}
+
+.nav-group-label:first-child { padding-top: 0.4rem; }
+
 .nav-item {
     display: flex;
     justify-content: space-between;
@@ -221,6 +232,110 @@ a { color: inherit; text-decoration: none; }
     font-size: 0.92rem;
     color: #444;
     line-height: 1.6;
+}
+
+/* ─── Concepts page ─────────────────────────────────────────── */
+
+.concepts .concept {
+    margin: 2.25rem 0 0;
+    max-width: 780px;
+}
+
+.concepts .concept h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e4e4e8;
+}
+
+.concepts .concept p {
+    margin: 0.6rem 0;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #3a3a44;
+}
+
+.concepts .concept ul {
+    margin: 0.75rem 0 1rem;
+    padding-left: 1.4rem;
+}
+
+.concepts .concept li {
+    margin: 0.4rem 0;
+    font-size: 0.93rem;
+    line-height: 1.65;
+    color: #3a3a44;
+}
+
+.concepts .concept li::marker { color: #cba6f7; }
+
+.concepts .concept pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 0.9rem 1.1rem;
+    border-radius: 6px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 0.9rem 0 1rem;
+}
+
+.concepts .concept p code,
+.concepts .concept li code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    font-size: 0.86em;
+    background: #f0eef7;
+    padding: 0.05rem 0.32rem;
+    border-radius: 3px;
+    color: #3b3756;
+}
+
+.concept-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.9rem 0 1rem;
+    font-size: 0.9rem;
+    background: #fff;
+    border: 1px solid #e4e4e8;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.concept-table thead {
+    background: #f5f3fa;
+}
+
+.concept-table th {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6d58a8;
+    border-bottom: 1px solid #e4e4e8;
+}
+
+.concept-table td {
+    padding: 0.65rem 0.9rem;
+    border-top: 1px solid #eeecf3;
+    vertical-align: top;
+    line-height: 1.55;
+    color: #3a3a44;
+}
+
+.concept-table tbody tr:first-child td { border-top: none; }
+
+.concept-table td code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    font-size: 0.86em;
+    background: #f0eef7;
+    padding: 0.05rem 0.32rem;
+    border-radius: 3px;
+    color: #3b3756;
 }
 
 
