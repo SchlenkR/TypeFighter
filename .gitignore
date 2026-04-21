@@ -10,6 +10,7 @@ symbolCache.db
 web/dist
 web/dist-lib
 web/fable-out
+docs/output
 
 src/visu/data/data.json
 
