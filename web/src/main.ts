@@ -28,6 +28,9 @@ monaco.languages.setMonarchTokensProvider("typefighter", {
     operators: ["=>", "=", "+", "-", "*", "/", ";", ",", ".", ":"],
     tokenizer: {
         root: [
+            // `//` line comments must precede the operator rule that
+            // matches bare `/`, otherwise the first slash wins.
+            [/\/\/.*$/, "comment"],
             [/[a-zA-Z_][\w]*/, {
                 cases: {
                     "@keywords": "keyword",
@@ -42,6 +45,19 @@ monaco.languages.setMonarchTokensProvider("typefighter", {
             [/\s+/, "white"]
         ]
     }
+});
+
+// Language configuration: tells Monaco what the line-comment marker is
+// so `Cmd+/` / `Ctrl+/` toggles `//` prefixes on the selected lines.
+monaco.languages.setLanguageConfiguration("typefighter", {
+    comments: { lineComment: "//" },
+    brackets: [["{", "}"], ["[", "]"], ["(", ")"]],
+    autoClosingPairs: [
+        { open: "{", close: "}" },
+        { open: "[", close: "]" },
+        { open: "(", close: ")" },
+        { open: "\"", close: "\"" }
+    ]
 });
 
 const srcEditor = monaco.editor.create(document.getElementById("src-editor")!, {
