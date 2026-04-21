@@ -223,24 +223,32 @@ let private arrayLit =
               result = X.MkArray items.result }
     }
 
-let private field =
-    parse {
-        let! name  = identifier
-        let! _     = sym ":"
-        let! value = expr
-        return
-            { range = Range.add name.range value.range
-              result = X.Field name.result value.result }
-    }
+let private recordItem =
+    // A record item is either `name: expr` (property) or a bare expr
+    // (positional). `Property` is tried first because it commits on the
+    // `identifier : ` prefix — if that prefix fails, we backtrack to
+    // parse a plain expression.
+    let asProperty =
+        parse {
+            let! name  = identifier
+            let! _     = sym ":"
+            let! value = expr
+            return
+                { range = Range.add name.range value.range
+                  result = X.Property name.result value.result }
+        }
+    let asPositional =
+        expr |> map X.Positional
+    asProperty <|> asPositional
 
 let private recordLit =
     parse {
         let! openB  = sym "{"
-        let! fields = commaList field
+        let! items  = commaList recordItem
         let! closeB = sym "}"
         return
-            { range = Range.merge [ openB.range; fields.range; closeB.range ]
-              result = X.MkRecord fields.result }
+            { range = Range.merge [ openB.range; items.range; closeB.range ]
+              result = X.MkRecord items.result }
     }
 
 let private varExpr = identifier |> map X.Var

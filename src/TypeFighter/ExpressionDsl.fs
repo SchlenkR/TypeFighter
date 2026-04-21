@@ -23,5 +23,10 @@ type X =
                 | x :: xs -> loop (X.PropAcc source x) xs
             loop source xs
     static member MkArray values = Expr.MkArray {| values = values; tvar = ()  |}
-    static member MkRecord fields = Expr.MkRecord {| fields = fields; tvar = ()  |}
-    static member Field field value = { fname = field; value = value; }
+    static member MkRecord items = Expr.MkRecord {| items = items; tvar = ()  |}
+    static member Property field value = RecordItem.Property {| fname = field; value = value |}
+    static member Positional value = RecordItem.Positional value
+    // X.Field is a historical alias for X.Property — every named entry
+    // in a record used to be a Field; now it's a Property inside a
+    // heterogeneous RecordItem list.
+    static member Field field value = RecordItem.Property {| fname = field; value = value |}

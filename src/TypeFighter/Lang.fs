@@ -147,7 +147,7 @@ type Expr<'noneOrVarnum> =
     | Do of {| action: Expr<'noneOrVarnum>; body: Expr<'noneOrVarnum>; tvar: 'noneOrVarnum |}                                     // do value body
     | PropAcc of {| source: Expr<'noneOrVarnum>; ident: Ident<'noneOrVarnum>; tvar: 'noneOrVarnum |}
     | MkArray of {| values: Expr<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
-    | MkRecord of {| fields: Field<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
+    | MkRecord of {| items: RecordItem<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
 
     member this.TVar =
         match this with
@@ -164,12 +164,28 @@ type Expr<'noneOrVarnum> =
         ShowExpr.Expr(this)
 
 and Ident<'noneOrVarnum> = internal { identName: string; tvar: 'noneOrVarnum }
-and Field<'noneOrVarnum> = internal { fname: string; value: Expr<'noneOrVarnum> }
+
+// RecordItem: a single entry of a record-set. Records generalise the
+// "map of named fields" model to "set of mixed items" — some items are
+// named (Property), some are positional (raw values in the set). See
+// docs/design/RecordsAsHeterogeneousSets.md.
+and [<RequireQualifiedAccess>] RecordItem<'noneOrVarnum> =
+    internal
+    | Property of {| fname: string; value: Expr<'noneOrVarnum> |}
+    | Positional of Expr<'noneOrVarnum>
+
+    member this.Value =
+        match this with
+        | Property x -> x.value
+        | Positional v -> v
 
 and ShowExpr =
     static member Expr (expr: Expr<'noneOrVarnum>) =
         let printIdent (ident: Ident<'noneOrVarnum>) = ident.identName
-        let printField (f: Field<'noneOrVarnum>) = $"{f.fname}: {f.value}"
+        let printItem (item: RecordItem<'noneOrVarnum>) =
+            match item with
+            | RecordItem.Property f -> $"{f.fname}: {f.value}"
+            | RecordItem.Positional v -> ShowExpr.Expr v
         match expr with
         | Expr.Lit x -> $"LIT := {x.value}"
         | Expr.Var x -> $"VAR := {x.ident}"
@@ -182,12 +198,11 @@ and ShowExpr =
             let values = [ for x in x.values -> ShowExpr.Expr x ] |> String.concat "; "
             $"MkARRAY := [ {values} ]"
         | Expr.MkRecord x ->
-            let fieldNames = 
-                x.fields 
-                |> List.map printField
-                |> String.concat "; " 
-                |> sprintf "{ %s }"
-            $"{{ {fieldNames} }}"
+            let parts =
+                x.items
+                |> List.map printItem
+                |> String.concat "; "
+            $"{{ {parts} }}"
 
 // TODO: Replace this (and throwing) with a "TError"
 type UnificationError(source: Expr<_>, t1: MonoTyp, t2: MonoTyp, reason: string option) =
@@ -238,15 +253,16 @@ module Expr =
                         values = [ for v in x.values -> loop v ]
                         tvar = newVar ()
                     |}
-            | Expr.MkRecord x -> 
-                Expr.MkRecord 
-                    {| 
-                        fields = [ 
-                            for f in x.fields do 
-                                { 
-                                    fname = f.fname
-                                    value = loop f.value
-                                } 
+            | Expr.MkRecord x ->
+                Expr.MkRecord
+                    {|
+                        items = [
+                            for item in x.items do
+                                match item with
+                                | RecordItem.Property f ->
+                                    RecordItem.Property {| fname = f.fname; value = loop f.value |}
+                                | RecordItem.Positional v ->
+                                    RecordItem.Positional (loop v)
                             ]
                         tvar = newVar ()
                     |}
@@ -294,8 +310,8 @@ module Expr =
             | Expr.MkRecord x ->
                 [
                     yield x.tvar
-                    for f in x.fields do
-                        yield! loop f.value acc
+                    for item in x.items do
+                        yield! loop item.Value acc
                 ]
         
         loop expr []
@@ -657,15 +673,23 @@ module TypeSystem =
                 appendConstraint x.tvar (BuiltinTypes.array elemTyp)
 
             | Expr.MkRecord x ->
-                for f in x.fields do
-                    generateConstraints env f.value
+                for item in x.items do
+                    generateConstraints env item.Value
 
+                // Step 1 (no-op AST refactor): treat every item as a Property
+                // and wire it into the same named-row as before. Positional
+                // items are expected to be rejected until Step 4 adds the
+                // second row for them.
                 // TODO: field names must be distinct
-                let fields =
-                    x.fields
-                    |> List.sortBy _.fname
-                    |> List.map (fun f -> f.fname, TVar f.value.TVar)
-                appendConstraint x.tvar (TDef.RecordWith fields)
+                let namedFields =
+                    [ for item in x.items do
+                        match item with
+                        | RecordItem.Property f -> f.fname, TVar f.value.TVar
+                        | RecordItem.Positional _ ->
+                            failwith
+                                "Positional record items are not yet supported by the solver — see Step 4 of docs/design/TypeSyntaxWithSets.md." ]
+                    |> List.sortBy fst
+                appendConstraint x.tvar (TDef.RecordWith namedFields)
 
         do generateConstraints env expr
 
