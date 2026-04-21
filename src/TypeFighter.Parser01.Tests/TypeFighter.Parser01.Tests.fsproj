@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TestHelper.fs" />
+    <Compile Include="TestCases/Literals.fs" />
+    <Compile Include="TestCases/Basics.fs" />
+    <Compile Include="TestCases/Arrays.fs" />
+    <Compile Include="TestCases/Records.fs" />
+    <Compile Include="TestCases/Functions.fs" />
+    <Compile Include="TestCases/Let.fs" />
+    <Compile Include="TestCases/Demos.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsUnit" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
+    <ProjectReference Include="..\TypeFighter.Parser01\TypeFighter.Parser01.fsproj" />
+  </ItemGroup>
+
+</Project>

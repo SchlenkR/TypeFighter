@@ -1,0 +1,416 @@
+module TypeFighter.Parser01.Syntax
+
+open TheBlunt
+open TypeFighter
+
+// =================================================================
+// JS-oriented concrete syntax for TypeFighter
+// -----------------------------------------------------------------
+// A small recursive-descent parser built on TheBlunt combinators.
+// No type annotations — syntax only. Supported forms:
+//
+//   literals:     42    "hello"    true    false
+//   identifiers:  foo
+//   arrow fns:    x => body         (x, y) => body
+//   calls:        f(x)              f(x, y)
+//   prop access:  obj.field
+//   arrays:       [ 1, 2, 3 ]
+//   records:      { age: 22, name: "John" }
+//   parens:       ( expr )
+//   bindings:     let x = expr;     const x = expr;
+//   programs:     stmt; stmt; resultExpr
+//
+// The result is a TypeFighter Expr<unit> that can be fed into the
+// solver just like expressions built with the X DSL.
+// =================================================================
+
+
+// =================================================================
+// TODO — open design questions to revisit
+// -----------------------------------------------------------------
+// 1) Trivia handling.
+//
+//    "Trivia" = whitespace, comments, and anything else that sits
+//    *between* meaningful tokens but doesn't carry semantic value.
+//    TheBlunt has no built-in concept of trivia; today we sprinkle
+//    `ws` and `tok` ad-hoc through this file. That works, but:
+//
+//      • It's noisy and easy to forget at a single call site.
+//      • There is no support for line/block comments yet.
+//      • Trivia is silently dropped — we keep no record of it on
+//        the AST, so we can't round-trip source for tooling
+//        (formatter, refactoring, hover/quick-info) later.
+//
+//    Discuss:
+//      a) Push trivia into TheBlunt itself (a `ws` slot every
+//         combinator skips automatically), or keep it explicit
+//         here?  The implicit version is convenient but couples
+//         the combinator library to one notion of whitespace.
+//      b) If we ever want lossless ASTs, we need to *attach*
+//         leading/trailing trivia to each node instead of dropping
+//         it. That's a bigger model change (ranges grow into
+//         "leadingTrivia + token + trailingTrivia").
+//      c) Comments: `// line` and `/* block */` would be the JS
+//         baseline. Block comments raise the question of nesting,
+//         which TheBlunt's flat parsing model doesn't model
+//         elegantly today.
+//
+// 2) The Range relation / "what range do I return?".
+//
+//    Subtle TheBlunt quirk: parent combinators (`many`, `andThen`,
+//    `bind`, …) advance the cursor based on the *returned*
+//    `range.endIdx` of a child parser — NOT on where the child
+//    actually walked the cursor internally. If a `parse { … }`
+//    block returns a hand-crafted PVal whose range stops short of
+//    what was consumed, the outer parser silently re-parses (or
+//    fails) at the wrong position. We hit exactly this with
+//    `callArgs` / `propTail` initially: bind walked past `)` /
+//    past the property name, but the returned range stopped one
+//    token earlier, so `eoi` fired in the middle of valid input.
+//
+//    There is no compiler-checked contract for this anywhere. The
+//    rule we discovered is: a parser's returned `range.endIdx`
+//    MUST equal the cursor position the parser actually leaves
+//    behind (i.e. the endIdx of its last consumed sub-parser).
+//
+//    Discuss:
+//      a) Document this contract in TheBlunt (the unfinished
+//         `// TODO: make clear: Parsers that` line at line 372 of
+//         TheBlunt.fs hints Ronald started this thought already).
+//      b) Better: have the combinator library track the cursor
+//         itself, so user code can't get this wrong. The PVal's
+//         `range` would then be derived, not asserted.
+//      c) Even better for diagnostics: stop using `range.endIdx`
+//         as a cursor at all and pass an explicit cursor through
+//         every result. That removes a class of bugs at the cost
+//         of one extra field on every PVal.
+//
+// 3) Backtracking & "commit/fatal" errors.
+//
+//    `<|>` and `pchoice` are unconditionally backtracking — every
+//    failure resets to the original position and tries the next
+//    alternative. That's convenient for prototyping but means
+//    deep-down syntax errors (e.g. a malformed expression inside
+//    a record literal) bubble up as the *outer* "no alternative
+//    matched" error, with the real cause lost.
+//
+//    TheBlunt has no `commit` / "fatal" notion today. The TODO at
+//    line 267 of TheBlunt.fs ("this propably would be a fatal,
+//    most propably an unexpected error") is a related symptom.
+//
+//    Discuss whether we want a `pcommit` combinator: once a
+//    parser passes some "we are definitely in this branch now"
+//    point (e.g. saw the `{` of a record literal), subsequent
+//    failures are FATAL and propagate past `<|>` instead of
+//    triggering backtracking. This would dramatically improve
+//    parser error messages but changes the semantics of the
+//    combinator algebra.
+// =================================================================
+
+
+// -------- Whitespace & tokens --------
+
+let private spaceChar =
+    pchar
+        (fun c -> c = ' ' || c = '\t' || c = '\r' || c = '\n')
+        (sprintf "Expected whitespace, but got '%c'.")
+
+let private ws = many spaceChar |> pignore
+
+let private tok p = p .>> ws
+
+let private sym (s: string) = pstr s |> tok
+
+/// Match a literal string that must NOT run into an identifier char.
+/// Used for keywords (`let`, `true`, …).
+let private keyword (s: string) =
+    parse {
+        let! k = pstr s
+        let! _ = pnot (letter <|> digit <|> pstr "_")
+        return k
+    } |> tok
+
+
+// -------- Identifiers --------
+
+let private reservedWords =
+    set [ "let"; "const"; "true"; "false"; "return" ]
+
+let private identStart = letter <|> pstr "_"
+let private identCont  = letter <|> digit <|> pstr "_"
+
+let private identifier =
+    let raw =
+        parse {
+            let! h = identStart
+            let! t = many identCont |> pconcat
+            return
+                { range = Range.add h.range t.range
+                  result = h.result + t.result }
+        }
+    parse {
+        let! x = raw
+        if reservedWords.Contains x.result then
+            return
+                { idx = x.range.startIdx
+                  message = $"Reserved word '{x.result}' used as identifier." }
+        else
+            return x
+    } |> tok
+
+
+// -------- Literals --------
+
+let private intLit =
+    parse {
+        let! n = many1Str digit
+        return { range = n.range; result = X.Lit (int n.result) }
+    } |> tok
+
+let private stringLit =
+    parse {
+        let! openQ = pstr "\""
+        let! body  = pstringUntil (pstr "\"")
+        let! closeQ = pstr "\""
+        return
+            { range = Range.merge [ openQ.range; body.range; closeQ.range ]
+              result = X.Lit body.result }
+    } |> tok
+
+let private boolLit =
+    (keyword "true"  |> map (fun _ -> X.Lit true))
+    <|>
+    (keyword "false" |> map (fun _ -> X.Lit false))
+
+
+// -------- Forward-declared expression parser --------
+//
+// Several of the parsers below (arrays, records, arrows, calls) are
+// mutually recursive with `expr`. We use a mutable cell to break the
+// cycle: the real implementation is assigned at the bottom of the
+// module, after every rule has been constructed.
+
+let mutable private exprImpl : Parser<Expr<unit>> =
+    mkParser (fun _ -> failwith "Parser01.Syntax.expr used before initialization.")
+
+let private expr : Parser<Expr<unit>> =
+    mkParser (fun inp -> getParser exprImpl inp)
+
+
+// -------- Primaries: ( expr ), arrays, records, var --------
+
+let private parenExpr =
+    parse {
+        let! openP = sym "("
+        let! e     = expr
+        let! closeP = sym ")"
+        return
+            { range = Range.merge [ openP.range; e.range; closeP.range ]
+              result = e.result }
+    }
+
+let inline private commaList (p: Parser<'a>) : Parser<'a list> =
+    (psepBy1 (sym ",") p |> map (fun pvs -> pvs |> List.map (fun pv -> pv.result)))
+    <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
+
+let private arrayLit =
+    parse {
+        let! openB  = sym "["
+        let! items  = commaList expr
+        let! closeB = sym "]"
+        return
+            { range = Range.merge [ openB.range; items.range; closeB.range ]
+              result = X.MkArray items.result }
+    }
+
+let private field =
+    parse {
+        let! name  = identifier
+        let! _     = sym ":"
+        let! value = expr
+        return
+            { range = Range.add name.range value.range
+              result = X.Field name.result value.result }
+    }
+
+let private recordLit =
+    parse {
+        let! openB  = sym "{"
+        let! fields = commaList field
+        let! closeB = sym "}"
+        return
+            { range = Range.merge [ openB.range; fields.range; closeB.range ]
+              result = X.MkRecord fields.result }
+    }
+
+let private varExpr = identifier |> map X.Var
+
+let private primary =
+    pchoice
+        [
+            intLit
+            stringLit
+            boolLit
+            arrayLit
+            recordLit
+            parenExpr
+            varExpr
+        ]
+
+
+// -------- Arrow functions --------
+
+let private arrow =
+    // `x => body`
+    let singleParam =
+        parse {
+            let! x    = identifier
+            let! _    = sym "=>"
+            let! body = expr
+            return
+                { range = Range.add x.range body.range
+                  result = X.Fun (X.Ident x.result) body.result }
+        }
+    // `(x, y, …) => body`  — curried as Fun x (Fun y body)
+    let multiParam =
+        parse {
+            let! openP  = sym "("
+            let! params' = commaList identifier
+            let! _      = sym ")"
+            let! _      = sym "=>"
+            let! body   = expr
+            let curried =
+                match params'.result with
+                | [] -> X.Fun (X.Ident "_") body.result     // `() => body` → Fun "_" body
+                | args ->
+                    List.foldBack
+                        (fun arg acc -> X.Fun (X.Ident arg) acc)
+                        args
+                        body.result
+            return
+                { range = Range.add openP.range body.range
+                  result = curried }
+        }
+    singleParam <|> multiParam
+
+
+// -------- Call / property chains --------
+//
+// A call-chain is a primary followed by any number of tails:
+//     primary tail*
+// where each tail is either
+//     ( args )         →  App-fold of args
+//     . ident          →  PropAcc
+//
+// Each tail is represented as an `Expr -> Expr` transformer so we can
+// fold left over them starting from the primary.
+
+type private CallTail = Expr<unit> -> Expr<unit>
+
+let private callArgs : Parser<CallTail> =
+    parse {
+        let! openP  = sym "("
+        let! args   = commaList expr
+        let! closeP = sym ")"
+        let apply (src: Expr<unit>) =
+            match args.result with
+            | []   -> X.App src (X.Var "UnitValue")           // f() ≡ f UnitValue
+            | xs   -> xs |> List.fold (fun acc a -> X.App acc a) src
+        return
+            { range = Range.merge [ openP.range; args.range; closeP.range ]
+              result = apply }
+    }
+
+let private propTail : Parser<CallTail> =
+    parse {
+        let! dot  = sym "."
+        let! name = identifier
+        return
+            { range = Range.add dot.range name.range
+              result = fun src -> X.PropAcc src name.result }
+    }
+
+let private callChain =
+    parse {
+        let! base' = primary
+        let! tails = many (callArgs <|> propTail)
+        let folded =
+            tails.result
+            |> List.fold (fun acc pvTail -> pvTail.result acc) base'.result
+        let finalRange =
+            match tails.result with
+            | [] -> base'.range
+            | _  -> Range.add base'.range tails.range
+        return { range = finalRange; result = folded }
+    }
+
+
+// -------- Initialize the forward-declared expression parser --------
+
+do exprImpl <- arrow <|> callChain
+
+
+// -------- Statements & program --------
+//
+// A program is a sequence of statements separated by `;` where every
+// statement but the last is either a `let`-binding or a plain
+// expression. The *final* statement has no trailing `;` and provides
+// the program's result.
+//
+//   let x = 1;            StmtLet  → wraps the rest in `Let x 1 …`
+//   expr;                 StmtExpr → wraps the rest in `Do expr …`
+//   resultExpr            → the return value of the whole program
+
+type private Stmt =
+    | StmtLet  of name: string * value: Expr<unit>
+    | StmtExpr of Expr<unit>
+
+let private letStmt =
+    parse {
+        let! kw    = keyword "let" <|> keyword "const"
+        let! name  = identifier
+        let! _     = sym "="
+        let! value = expr
+        return
+            { range = Range.add kw.range value.range
+              result = StmtLet(name.result, value.result) }
+    }
+
+let private exprStmt =
+    expr |> map StmtExpr
+
+let private stmt = letStmt <|> exprStmt
+
+let private program =
+    parse {
+        let! _     = ws                                   // leading whitespace
+        let! prefix = many (stmt .>> sym ";")
+        let! final = expr
+        let body =
+            List.foldBack
+                (fun s acc ->
+                    match s with
+                    | StmtLet(n, v) -> X.Let (X.Ident n) v acc
+                    | StmtExpr e    -> X.Do e acc)
+                (prefix.result |> List.map (fun pv -> pv.result))
+                final.result
+        return
+            { range =
+                (match prefix.result with
+                 | [] -> final.range
+                 | _  -> Range.add prefix.range final.range)
+              result = body }
+    }
+    .>> eoi
+
+
+// -------- Public API --------
+
+/// Parse a full JS-like program into a TypeFighter `Expr`.
+/// Returns the resulting AST or an error with position info.
+let parse (source: string) : Result<Expr<unit>, string> =
+    match run source program with
+    | POk pval -> Ok pval.result
+    | PError err ->
+        let pos = DocPos.create err.idx source
+        Error (sprintf "Parse error at line %d, column %d: %s" pos.ln pos.col err.message)
