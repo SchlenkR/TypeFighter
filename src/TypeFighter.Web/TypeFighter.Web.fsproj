@@ -6,12 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TheBlunt.fs" />
-    <Compile Include="Syntax.fs" />
+    <Compile Include="Api.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
+    <ProjectReference Include="..\TypeFighter.Parser01\TypeFighter.Parser01.fsproj" />
   </ItemGroup>
 
 </Project>

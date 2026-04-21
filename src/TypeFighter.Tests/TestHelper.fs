@@ -21,6 +21,10 @@ let shouldSolveType (typ: Typ) (solution: Solver.Solution) =
     | Ok _ -> ()
     | Error err -> failwithf $"{err}"
 
+let shouldEqual<'a when 'a : equality> (expected: 'a) (actual: 'a) =
+    if actual <> expected then
+        failwithf "Expected:\n  %A\nActual:\n  %A" expected actual
+
 let shouldFail (solution: Solver.Solution) =
     match solution.result with
     | Ok _ -> failwithf $"Expected failure, but got success"

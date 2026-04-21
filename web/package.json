@@ -1,0 +1,24 @@
+{
+  "name": "typefighter-web",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "fable": "dotnet fable ../src/TypeFighter.Web -o fable-out -e .js",
+    "fable:watch": "dotnet fable watch ../src/TypeFighter.Web -o fable-out -e .js",
+    "clean": "dotnet fable clean ../src/TypeFighter.Web -o fable-out -e .js --yes",
+    "dev": "npm run fable && vite",
+    "build": "npm run fable && vite build",
+    "build:lib": "npm run fable && vite build --config vite.lib.config.ts",
+    "preview": "vite preview",
+    "smoke": "npm run fable && node smoke.mjs"
+  },
+  "devDependencies": {
+    "@fable-org/fable-library-js": "^2.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.55.1"
+  }
+}

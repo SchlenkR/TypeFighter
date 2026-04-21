@@ -7,6 +7,10 @@
 symbolCache.db
 .paket/load
 
+web/dist
+web/dist-lib
+web/fable-out
+
 src/visu/data/data.json
 
 .DS_Store

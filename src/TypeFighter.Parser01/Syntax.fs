@@ -190,11 +190,16 @@ let private boolLit =
 // cycle: the real implementation is assigned at the bottom of the
 // module, after every rule has been constructed.
 
-let mutable private exprImpl : Parser<Expr<unit>> =
-    mkParser (fun _ -> failwith "Parser01.Syntax.expr used before initialization.")
+// `ref` (not `mutable`) is load-bearing here: Fable's optimizer inlines
+// the one-and-only initial value of a `mutable` binding into closures that
+// close over it, which defeats the forward reference trick and makes the
+// emitted JS throw "expr used before initialization." at runtime. A `ref`
+// cell is a heap object whose `.contents` is read at call time.
+let private exprImpl : Parser<Expr<unit>> ref =
+    ref (mkParser (fun _ -> failwith "Parser01.Syntax.expr used before initialization."))
 
 let private expr : Parser<Expr<unit>> =
-    mkParser (fun inp -> getParser exprImpl inp)
+    mkParser (fun inp -> getParser exprImpl.Value inp)
 
 
 // -------- Primaries: ( expr ), arrays, records, var --------
@@ -355,7 +360,7 @@ let private callChain =
 
 // -------- Initialize the forward-declared expression parser --------
 
-do exprImpl <- arrow <|> callChain
+exprImpl.Value <- arrow <|> callChain
 
 
 // -------- Statements & program --------

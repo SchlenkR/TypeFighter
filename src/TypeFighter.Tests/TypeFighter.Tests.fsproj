@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
@@ -17,6 +17,7 @@
     <Compile Include="TestCases\Polymorphism.fs" />
     <Compile Include="TestCases\Match.fs" />
     <Compile Include="TestCases\Composites.fs" />
+    <Compile Include="TestCases\Emit.fs" />
   </ItemGroup>
 
   <ItemGroup>
