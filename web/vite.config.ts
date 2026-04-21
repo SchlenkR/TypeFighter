@@ -14,7 +14,10 @@ export default defineConfig({
     base: process.env.PLAYGROUND_BASE || "/",
     server: {
         port: 5173,
-        open: false
+        open: false,
+        // Allow the dev server to read the shared assets folder one level
+        // up (`../assets/logo.svg`). Default is the project root only.
+        fs: { allow: [resolve(__dirname, "..")] }
     },
     build: {
         outDir: "dist",

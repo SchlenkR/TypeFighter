@@ -6,6 +6,11 @@ declare module "*?worker" {
     export default workerCtor;
 }
 
+declare module "*?raw" {
+    const src: string;
+    export default src;
+}
+
 // Minimal shape of Vite's injected `import.meta.env`. The full type
 // lives in `vite/client`, but pulling that in would require a broader
 // types dependency — we only use the two flags below.

@@ -33,6 +33,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
       - name: Generate docs site
         run: dotnet fsi docs/build.fsx
 

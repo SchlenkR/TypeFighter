@@ -2,6 +2,9 @@ import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { compileWithInfo, preludeInfo } from "../fable-out/Api.js";
 import { categories, type Example } from "./examples";
+// Shared with the docs site — single source of truth lives in
+// `assets/logo.svg`. Vite inlines the raw SVG text at build time.
+import logoSvg from "../../assets/logo.svg?raw";
 
 // Shapes returned by Api.compileWithInfo — mirrored here to get
 // type-safety on the TS side. The F# record names stay in sync via the
@@ -65,6 +68,8 @@ const outEditor = monaco.editor.create(document.getElementById("out-editor")!, {
 
 const status = document.getElementById("status")!;
 const srcModel = srcEditor.getModel()!;
+
+document.getElementById("brand-logo")!.innerHTML = logoSvg;
 
 // Docs link target: in a production build the playground ships under
 // `/TypeFighter/playground/` on GH Pages, so `../` reaches the docs
