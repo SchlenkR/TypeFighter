@@ -473,6 +473,29 @@ let mutable private typExprImpl : Parser<MonoTyp> =
 let private typExpr : Parser<MonoTyp> =
     mkParser (fun inp -> getParser typExprImpl inp)
 
+// Forward declaration: primTyp is referenced by `unionOverPrim` (used
+// inside `recordTypBraces`) and by `altTyp`, but its real definition
+// (which references `recordTypBraces` in turn) comes further below.
+let mutable private primTypImpl : Parser<MonoTyp> =
+    mkParser (fun _ -> failwith "Parser01.Syntax.primTyp used before initialization.")
+
+let private primTyp : Parser<MonoTyp> =
+    mkParser (fun inp -> getParser primTypImpl inp)
+
+// Flatten `A | B | C` into a single `UnionTyp` set (or a single member
+// when the set collapses to one element).
+let private flattenUnion (ts: MonoTyp list) : MonoTyp =
+    let members =
+        set [
+            for t in ts do
+                match t with
+                | UnionTyp inner -> yield! inner
+                | other          -> yield other
+        ]
+    match Set.toList members with
+    | [single] -> single
+    | _        -> UnionTyp members
+
 let private appliedOrIdentTyp =
     // `Name` or `Name< T, U, … >`
     parse {
@@ -514,35 +537,147 @@ let private parenTypExpr =
               result = t.result }
     }
 
-let private primTyp : Parser<MonoTyp> =
-    pchoice
-        [
-            numberLitTyp
-            stringLitTyp
-            boolLitTyp
-            parenTypExpr
-            appliedOrIdentTyp
-        ]
+// A record-type item inside `{ … }` at the type level. Either
+// `name: T` (named field) or a bare `T` (positional item).
+type private RecTypItem =
+    | NamedItem of string * MonoTyp
+    | PositionalItem of MonoTyp
 
-// altTyp: `A & B & C`. Step 2: parser accepts single `primTyp`; `&` is
-// wired in Step 3. Kept as a named layer so Step 3 can enable it
-// without restructuring.
-let private altTyp : Parser<MonoTyp> = primTyp
+// Flatten `A | B | C` over a sub-grammar that starts at `primTyp`.
+// Used both for the top-level typExpr and for the "item type" position
+// inside `{ … }` — the latter cannot consume `&` (it's the item
+// separator), so it goes via primTyp directly, skipping altTyp.
+let private unionOverPrim =
+    parse {
+        let! head = primTyp
+        let! tail =
+            many (
+                parse {
+                    let! _ = sym "|"
+                    let! t = primTyp
+                    return t
+                })
+        let all = head.result :: [ for pv in tail.result -> pv.result ]
+        let finalRange =
+            match tail.result with
+            | [] -> head.range
+            | _  -> Range.add head.range tail.range
+        return { range = finalRange; result = flattenUnion all }
+    }
+
+// `{ item1 [& item2]* }` — items separated by `&` (serving as the
+// record-item conjunction combinator). The TYPE of each item may
+// itself contain `|` (alternative slot), but NOT a top-level `&` —
+// that's the separator.
+let private recordTypBraces =
+    let recordItemTyp =
+        let asNamed =
+            parse {
+                let! name  = typeIdentifier
+                let! _     = sym ":"
+                let! value = unionOverPrim
+                return
+                    { range = Range.add name.range value.range
+                      result = NamedItem (name.result, value.result) }
+            }
+        let asPositional =
+            unionOverPrim |> map PositionalItem
+        asNamed <|> asPositional
+    let buildRecord items =
+        let named =
+            [ for i in items do
+                match i with
+                | NamedItem (n, t) -> yield n, t
+                | _ -> () ]
+        let positional =
+            [ for i in items do
+                match i with
+                | PositionalItem t -> yield t
+                | _ -> () ]
+        TDef.RecordWithItems named positional
+    parse {
+        let! openB  = sym "{"
+        let! items  =
+            (psepBy1 (sym "&") recordItemTyp
+             |> map (fun pvs -> pvs |> List.map (fun pv -> pv.result)))
+            <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
+        // Duplicate-fields check (runs at parse time).
+        let named =
+            [ for i in items.result do
+                match i with
+                | NamedItem (n, _) -> yield n
+                | _ -> () ]
+        let duplicates =
+            named |> List.groupBy id |> List.filter (fun (_, xs) -> List.length xs > 1) |> List.map fst
+        let! closeB = sym "}"
+        if not (List.isEmpty duplicates) then
+            return
+                { idx = openB.range.startIdx
+                  message = sprintf "Duplicate named fields in record type: %A" duplicates }
+        else
+            return
+                { range = Range.merge [ openB.range; items.range; closeB.range ]
+                  result = buildRecord items.result }
+    }
+
+// The real primTyp implementation. Order matters: `boolLitTyp` must
+// come before `appliedOrIdentTyp` so that `true` / `false` are parsed
+// as literal types, not as identifiers. Numbers and strings are fine
+// first. Record-set braces precede parens (distinct opening tokens).
+let private primTypReal : Parser<MonoTyp> =
+    numberLitTyp
+    <|> stringLitTyp
+    <|> boolLitTyp
+    <|> recordTypBraces
+    <|> parenTypExpr
+    <|> appliedOrIdentTyp
+
+do primTypImpl <- primTypReal
+
+// altTyp: `A & B & C` at the TOP level (outside braces).
+// All operands must be records; the result is an IntersectionTyp of
+// their RecordDefinitions. Step 5 will reconcile this with a unified
+// semantics.
+let private altTyp : Parser<MonoTyp> =
+    parse {
+        let! head = primTyp
+        let! tail =
+            many (
+                parse {
+                    let! _ = sym "&"
+                    let! t = primTyp
+                    return t
+                })
+        match tail.result with
+        | [] ->
+            return { range = head.range; result = head.result }
+        | _ ->
+            let all = head.result :: [ for pv in tail.result -> pv.result ]
+            let nonRecord =
+                all |> List.tryFind (function RecordTyp _ -> false | _ -> true)
+            match nonRecord with
+            | Some other ->
+                return
+                    { idx = head.range.startIdx
+                      message =
+                          sprintf
+                              "Type intersection `&` outside `{ … }` requires record operands; got %A. Use `{ A & B }` to build a record-set."
+                              other }
+            | None ->
+                let recordDefs =
+                    [ for t in all do
+                        match t with
+                        | RecordTyp r -> yield r
+                        | _ -> () ]
+                return
+                    { range = Range.add head.range tail.range
+                      result = IntersectionTyp recordDefs }
+    }
 
 // typExpr: `A | B | C`. Union of alternatives.
 //
 // Folding rule: `A | B | C` → `UnionTyp {A, B, C}` (flattened).
-let private flattenUnion (ts: MonoTyp list) : MonoTyp =
-    let members =
-        set [
-            for t in ts do
-                match t with
-                | UnionTyp inner -> yield! inner
-                | other          -> yield other
-        ]
-    match Set.toList members with
-    | [single] -> single
-    | _        -> UnionTyp members
+// `flattenUnion` is defined earlier (above `unionOverPrim`).
 
 let private typUnion =
     parse {

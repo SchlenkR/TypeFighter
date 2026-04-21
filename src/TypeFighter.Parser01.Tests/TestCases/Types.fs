@@ -141,3 +141,119 @@ let ``error - leading pipe`` () =
 [<Test>]
 let ``error - empty input`` () =
     "" |> shouldFailToParseTyp
+
+
+// ---- Record-type `{ … }` with `&` (Step 3) ----
+
+[<Test>]
+let ``record type - empty`` () =
+    "{}"
+    |> shouldParseTypTo (TDef.RecordWithItems [] [])
+
+[<Test>]
+let ``record type - single named field`` () =
+    "{ name: String }"
+    |> shouldParseTypTo
+        (TDef.RecordWithItems [ "name", BuiltinTypes.string ] [])
+
+[<Test>]
+let ``record type - two named fields with &`` () =
+    "{ name: String & age: Number }"
+    |> shouldParseTypTo
+        (TDef.RecordWithItems
+            [ "name", BuiltinTypes.string
+              "age",  BuiltinTypes.number ]
+            [])
+
+[<Test>]
+let ``record type - single positional`` () =
+    "{ Number }"
+    |> shouldParseTypTo
+        (TDef.RecordWithItems [] [ BuiltinTypes.number ])
+
+[<Test>]
+let ``record type - two positionals`` () =
+    "{ Number & String }"
+    |> shouldParseTypTo
+        (TDef.RecordWithItems
+            []
+            [ BuiltinTypes.number; BuiltinTypes.string ])
+
+[<Test>]
+let ``record type - mixed named and positional`` () =
+    """ { "Circle" & radius: Number } """
+    |> shouldParseTypTo
+        (TDef.RecordWithItems
+            [ "radius", BuiltinTypes.number ]
+            [ LiteralTyp (String "Circle") ])
+
+[<Test>]
+let ``record type - literal-tagged discriminated union arm`` () =
+    """ { "Some" & Number } """
+    |> shouldParseTypTo
+        (TDef.RecordWithItems
+            []
+            [ LiteralTyp (String "Some"); BuiltinTypes.number ])
+
+[<Test>]
+let ``record type - nested record`` () =
+    "{ outer: { inner: Number } }"
+    |> shouldParseTypTo
+        (TDef.RecordWithItems
+            [ "outer", TDef.RecordWithItems [ "inner", BuiltinTypes.number ] [] ]
+            [])
+
+[<Test>]
+let ``record type with union slot - { 0 | 1 }`` () =
+    "{ 0 | 1 }"
+    |> shouldParseTypTo
+        (TDef.RecordWithItems
+            []
+            [ UnionTyp (set [ LiteralTyp (Number 0.0); LiteralTyp (Number 1.0) ]) ])
+
+[<Test>]
+let ``precedence - A and B or C at top`` () =
+    // `&` binds tighter than `|`. Top-level `&` requires record operands,
+    // but `A | B & C` parses by grouping `B & C` first — and since B/C
+    // here aren't both records, this must fail at parse time.
+    "Number | String & Number" |> shouldFailToParseTyp
+
+
+// ---- Top-level `&` (intersection of records) ----
+
+[<Test>]
+let ``top-level & intersection of two records`` () =
+    "{ name: String } & { age: Number }"
+    |> shouldParseTypTo
+        (IntersectionTyp
+            [ TDef.RecordDefWith NameHint.Anonymous [ "name", BuiltinTypes.string ]
+              TDef.RecordDefWith NameHint.Anonymous [ "age",  BuiltinTypes.number ] ])
+
+[<Test>]
+let ``top-level & rejects non-record operand`` () =
+    "Number & String" |> shouldFailToParseTyp
+
+
+// ---- Discriminated unions via record-set syntax ----
+
+[<Test>]
+let ``discriminated union - Option Some or None`` () =
+    """ { "None" } | { "Some" & Number } """
+    |> shouldParseTypTo
+        (UnionTyp (set [
+            TDef.RecordWithItems [] [ LiteralTyp (String "None") ]
+            TDef.RecordWithItems [] [ LiteralTyp (String "Some"); BuiltinTypes.number ]
+        ]))
+
+[<Test>]
+let ``discriminated union - Shape union`` () =
+    """ { "Circle" & radius: Number } | { "Square" & side: Number } """
+    |> shouldParseTypTo
+        (UnionTyp (set [
+            TDef.RecordWithItems
+                [ "radius", BuiltinTypes.number ]
+                [ LiteralTyp (String "Circle") ]
+            TDef.RecordWithItems
+                [ "side", BuiltinTypes.number ]
+                [ LiteralTyp (String "Square") ]
+        ]))

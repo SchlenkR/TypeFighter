@@ -56,6 +56,12 @@ and RecordDefinition =
     {
         nameHint: NameHint
         fields: Set<FieldDefinition>
+        // Positional items carried at the TYPE level as a bag
+        // (order-insensitive, duplicates allowed — see
+        // docs/design/RecordsAsHeterogeneousSets.md §4 Option Z).
+        // A list is used to preserve the original source order for
+        // pretty-printing; unification treats it as a multiset.
+        positionals: MonoTyp list
     }
     override this.ToString() = ShowTyp.Show(this)
 
@@ -85,13 +91,22 @@ and ShowTyp =
     static member AddPrinter printer = printers.Add printer
     static member Show (field: FieldDefinition) =
         $"{field.fname}: {field.typ}"
-    static member Show (nameHint: string, fields: Set<FieldDefinition>) =
-        fields
-        |> Set.map ShowTyp.Show
-        |> String.concat "; "
-        |> fun s -> $"{nameHint}{{ {s} }}"
+    static member Show (nameHint: string, fields: Set<FieldDefinition>, positionals: MonoTyp list) =
+        let namedParts =
+            fields
+            |> Set.map ShowTyp.Show
+        let positionalParts =
+            positionals
+            |> List.map ShowTyp.Show
+        let allParts =
+            [
+                yield! positionalParts
+                yield! namedParts
+            ]
+            |> String.concat "; "
+        $"{nameHint}{{ {allParts} }}"
     static member Show (record: RecordDefinition) =
-        ShowTyp.Show(getNameHint record.nameHint, record.fields)
+        ShowTyp.Show(getNameHint record.nameHint, record.fields, record.positionals)
     static member Show (typ: MonoTyp) =
         printOrShow typ (fun () ->
             match typ with
@@ -331,6 +346,8 @@ module Typ =
             [
                 for f in record.fields do
                     yield! loopMono f.typ acc
+                for p in record.positionals do
+                    yield! loopMono p acc
             ]
         and loopMono (typ: MonoTyp) (acc: VarNum list) =
             match typ with
@@ -405,7 +422,10 @@ module Typ =
                 { r with
                     fields =
                         r.fields
-                        |> Set.map (fun f -> { f with typ = renameMono f.typ }) }
+                        |> Set.map (fun f -> { f with typ = renameMono f.typ })
+                    positionals =
+                        r.positionals
+                        |> List.map renameMono }
             let canonicalVars = renaming |> Map.toSeq |> Seq.map snd |> Set.ofSeq
             Poly { vars = canonicalVars; monoTyp = renameMono typ }
 
@@ -441,7 +461,16 @@ module TDef =
         let fields =
             [ for (fname, typ) in fields do { fname = fname; typ = typ } ]
             |> set
-        { nameHint = nameHint; fields = fields }
+        { nameHint = nameHint; fields = fields; positionals = [] }
+
+    let RecordDefWithItems nameHint (fields: (string * MonoTyp) list) (positionals: MonoTyp list) =
+        let fields =
+            [ for (fname, typ) in fields do { fname = fname; typ = typ } ]
+            |> set
+        { nameHint = nameHint; fields = fields; positionals = positionals }
+
+    let RecordWithItems (fields: (string * MonoTyp) list) (positionals: MonoTyp list) =
+        RecordTyp (RecordDefWithItems NameHint.Anonymous fields positionals)
     
     let NamedRecordWith nameHint (fields: (string * MonoTyp) list) =
         RecordTyp (RecordDefWith nameHint fields)
@@ -515,7 +544,10 @@ module TypeSystem =
     let rec substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn inTyp) =
         let substRecord record =
             let fields = [ for f in record.fields do { f with typ = substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn f.typ) }]
-            { record with fields = set fields }
+            let positionals =
+                [ for p in record.positionals ->
+                    substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn p) ]
+            { record with fields = set fields; positionals = positionals }
         match inTyp with
         | t when t = typToReplace -> withTyp
         | TVar _ -> inTyp
@@ -703,7 +735,7 @@ module TypeSystem =
     let finalizeSubstitutions (substitutions: MonoSubstitution list) (pendingFields: RecordRefs) (pendingMembers: MemberRefs) =
         let closeRecord (subs: MonoSubstitution list) (varNum: int, fields: Set<FieldDefinition>) =
             let recordTyp =
-                RecordTyp { nameHint = NameHint.Given $"RECORD_{varNum}"; fields = fields }
+                RecordTyp { nameHint = NameHint.Given $"RECORD_{varNum}"; fields = fields; positionals = [] }
             let alpha = VarNum varNum
             let substituted =
                 [ for s in subs ->
@@ -952,7 +984,7 @@ module TypeSystem =
                                 do pendingFields.Replace(rightN, merged)
                             | RecordTyp record ->
                                 let pendingAsRecord =
-                                    RecordTyp { nameHint = NameHint.Anonymous; fields = leftPending }
+                                    RecordTyp { nameHint = NameHint.Anonymous; fields = leftPending; positionals = [] }
                                 do unifyTypes c.triviaSource pendingAsRecord (RecordTyp record)
                                 do pendingFields.Remove(leftN)
                             | other ->
@@ -1075,7 +1107,8 @@ module Solver =
                     and reindexMono (typ: MonoTyp) =
                         let reindexRecord record =
                             let fields = [ for f in record.fields do { f with typ = reindexMono f.typ } ]
-                            { record with fields = fields |> Set.ofList }
+                            let positionals = [ for p in record.positionals -> reindexMono p ]
+                            { record with fields = fields |> Set.ofList; positionals = positionals }
                         match typ with
                         | TVar (VarNum n) ->
                             TVar (VarNum (n + varOffset))
