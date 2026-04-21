@@ -163,6 +163,7 @@ type Expr<'noneOrVarnum> =
     | PropAcc of {| source: Expr<'noneOrVarnum>; ident: Ident<'noneOrVarnum>; tvar: 'noneOrVarnum |}
     | MkArray of {| values: Expr<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
     | MkRecord of {| items: RecordItem<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
+    | Match of {| scrutinee: Expr<'noneOrVarnum>; arms: MatchArm<'noneOrVarnum> list; tvar: 'noneOrVarnum |}
 
     member this.TVar =
         match this with
@@ -175,6 +176,7 @@ type Expr<'noneOrVarnum> =
         | PropAcc x -> x.tvar
         | MkArray x -> x.tvar
         | MkRecord x -> x.tvar
+        | Match x -> x.tvar
     override this.ToString() =
         ShowExpr.Expr(this)
 
@@ -193,6 +195,25 @@ and [<RequireQualifiedAccess>] RecordItem<'noneOrVarnum> =
         match this with
         | Property x -> x.value
         | Positional v -> v
+
+// MatchArm / MatchPattern: the building blocks of `match` (Step 6).
+// An arm is a pattern + body; the pattern either matches a literal,
+// binds the scrutinee to a name (PVar), or matches anything (Wildcard).
+// Record patterns and deeper structural narrowing are a follow-up.
+and MatchArm<'noneOrVarnum> =
+    internal { pattern: MatchPattern<'noneOrVarnum>; body: Expr<'noneOrVarnum> }
+
+and [<RequireQualifiedAccess>] MatchPattern<'noneOrVarnum> =
+    internal
+    | Literal of {| value: Literal; tvar: 'noneOrVarnum |}
+    | Var of Ident<'noneOrVarnum>
+    | Wildcard of {| tvar: 'noneOrVarnum |}
+
+    member this.TVar =
+        match this with
+        | Literal x -> x.tvar
+        | Var x -> x.tvar
+        | Wildcard x -> x.tvar
 
 and ShowExpr =
     static member Expr (expr: Expr<'noneOrVarnum>) =
@@ -218,6 +239,17 @@ and ShowExpr =
                 |> List.map printItem
                 |> String.concat "; "
             $"{{ {parts} }}"
+        | Expr.Match x ->
+            let printPat (p: MatchPattern<_>) =
+                match p with
+                | MatchPattern.Literal l -> $"{l.value}"
+                | MatchPattern.Var v -> v.identName
+                | MatchPattern.Wildcard _ -> "_"
+            let arms =
+                x.arms
+                |> List.map (fun a -> $"| {printPat a.pattern} -> {ShowExpr.Expr a.body}")
+                |> String.concat " "
+            $"MATCH := {ShowExpr.Expr x.scrutinee} with {arms}"
 
 // TODO: Replace this (and throwing) with a "TError"
 type UnificationError(source: Expr<_>, t1: MonoTyp, t2: MonoTyp, reason: string option) =
@@ -281,6 +313,23 @@ module Expr =
                             ]
                         tvar = newVar ()
                     |}
+            | Expr.Match x ->
+                let numberPattern (p: MatchPattern<unit>) : MatchPattern<VarNum> =
+                    match p with
+                    | MatchPattern.Literal l ->
+                        MatchPattern.Literal {| value = l.value; tvar = newVar () |}
+                    | MatchPattern.Var v ->
+                        MatchPattern.Var (numberIdent v)
+                    | MatchPattern.Wildcard _ ->
+                        MatchPattern.Wildcard {| tvar = newVar () |}
+                Expr.Match
+                    {|
+                        scrutinee = loop x.scrutinee
+                        arms =
+                            [ for a in x.arms ->
+                                { pattern = numberPattern a.pattern; body = loop a.body } ]
+                        tvar = newVar ()
+                    |}
         loop expr
 
     let collectTVars (expr: Expr<VarNum>) =
@@ -328,7 +377,18 @@ module Expr =
                     for item in x.items do
                         yield! loop item.Value acc
                 ]
-        
+            | Expr.Match x ->
+                [
+                    yield x.tvar
+                    yield! loop x.scrutinee acc
+                    for a in x.arms do
+                        yield a.pattern.TVar
+                        match a.pattern with
+                        | MatchPattern.Var ident -> yield ident.tvar
+                        | _ -> ()
+                        yield! loop a.body acc
+                ]
+
         loop expr []
         |> List.map (fun (VarNum v) -> v)
         |> List.distinct
@@ -730,6 +790,41 @@ module TypeSystem =
                           fields = set [ for n, t in namedFields -> { fname = n; typ = t } ]
                           positionals = positionals })
 
+            | Expr.Match x ->
+                (*
+                    S: match scrutinee with | pat_i -> body_i
+                    P:  scrutinee : tS
+                        each pattern constrains tS:
+                          - Literal l : emit CHasMember { row=tS, memberTyp=LiteralTyp l }
+                          - Var v     : bind v to tS in arm env (catch-all)
+                          - Wildcard  : no constraint on tS (catch-all)
+                        all body_i : tR
+                    C: expr : tR
+                *)
+                generateConstraints env x.scrutinee
+                let scrutineeTyp = TVar x.scrutinee.TVar
+                for a in x.arms do
+                    let armEnv =
+                        match a.pattern with
+                        | MatchPattern.Literal l ->
+                            do constraints.Append
+                                { triviaSource = expr
+                                  kind = CHasMember {|
+                                      row = scrutineeTyp
+                                      memberTyp = LiteralTyp l.value |} }
+                            appendConstraint l.tvar (LiteralTyp l.value)
+                            env
+                        | MatchPattern.Var ident ->
+                            // Catch-all binder: bind `ident` to the
+                            // scrutinee's type within this arm's body.
+                            appendConstraint ident.tvar scrutineeTyp
+                            env |> Map.add ident.identName (EnvItem.Internal ident.tvar)
+                        | MatchPattern.Wildcard w ->
+                            appendConstraint w.tvar scrutineeTyp
+                            env
+                    generateConstraints armEnv a.body
+                    appendConstraint x.tvar (TVar a.body.TVar)
+
         do generateConstraints env expr
 
         constraints.Values, exprToEnv, trace.ToString()
@@ -970,6 +1065,18 @@ module TypeSystem =
                                 do nextConstraints.Append c'
 
                         | LiteralTyp _ when req.row = req.memberTyp ->
+                            for c' in constraints do
+                                do nextConstraints.Append c'
+
+                        // A LiteralTyp is a member of the built-in it
+                        // widens to — `LiteralTyp 5 ∈ Number`, etc. This
+                        // lets `match (x: Number) with | 5 -> ...` succeed.
+                        | builtin when
+                            (match req.memberTyp with
+                             | LiteralTyp (Number _) -> builtin = BuiltinTypes.number
+                             | LiteralTyp (String _) -> builtin = BuiltinTypes.string
+                             | LiteralTyp (Boolean _) -> builtin = BuiltinTypes.boolean
+                             | _ -> false) ->
                             for c' in constraints do
                                 do nextConstraints.Append c'
 

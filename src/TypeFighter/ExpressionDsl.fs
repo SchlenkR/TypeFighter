@@ -30,3 +30,11 @@ type X =
     // in a record used to be a Field; now it's a Property inside a
     // heterogeneous RecordItem list.
     static member Field field value = RecordItem.Property {| fname = field; value = value |}
+    static member Match scrutinee arms = Expr.Match {| scrutinee = scrutinee; arms = arms; tvar = () |}
+    static member Arm pattern body : MatchArm<unit> = { pattern = pattern; body = body }
+    static member PatLit(value: int) = MatchPattern.Literal {| value = Number value; tvar = () |}
+    static member PatLit(value: float) = MatchPattern.Literal {| value = Number value; tvar = () |}
+    static member PatLit(value: string) = MatchPattern.Literal {| value = String value; tvar = () |}
+    static member PatLit(value: bool) = MatchPattern.Literal {| value = Boolean value; tvar = () |}
+    static member PatVar name = MatchPattern.Var { identName = name; tvar = () }
+    static member PatWild = MatchPattern.Wildcard {| tvar = () |}
