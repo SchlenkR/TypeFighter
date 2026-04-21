@@ -1,7 +1,13 @@
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { compile, preludeInfo } from "../fable-out/Api.js";
+import { compileWithInfo, preludeInfo } from "../fable-out/Api.js";
 import { categories, type Example } from "./examples";
+
+// Shapes returned by Api.compileWithInfo — mirrored here to get
+// type-safety on the TS side. The F# record names stay in sync via the
+// smoke test; if they diverge we'd get "undefined" at runtime quickly.
+type HoverInfo = { startIdx: number; endIdx: number; name: string; typ: string };
+type CompletionEntry = { name: string; typ: string; kind: string };
 
 // Monaco loads language + editor functionality from web workers. Vite's
 // `?worker` import turns each worker module into a constructor. We only
@@ -27,7 +33,6 @@ monaco.languages.setMonarchTokensProvider("typefighter", {
             }],
             [/"([^"\\]|\\.)*"/, "string"],
             [/\d+(\.\d+)?/, "number"],
-            [/\/\/.*$/, "comment"],
             [/[{}()\[\]]/, "@brackets"],
             [/[;,.:]/, "delimiter"],
             [/=>|[=+\-*\/]/, "operator"],
@@ -61,8 +66,16 @@ const outEditor = monaco.editor.create(document.getElementById("out-editor")!, {
 const status = document.getElementById("status")!;
 const srcModel = srcEditor.getModel()!;
 
+// Latest IntelliSense snapshot. Providers read from here; the compile
+// callback refreshes it. Stale data during a failed parse still beats
+// nothing — completions keep working while the user fixes a typo.
+let currentHovers: HoverInfo[] = [];
+let currentCompletions: CompletionEntry[] = [];
+
 function run() {
-    const result = compile(srcEditor.getValue());
+    const result = compileWithInfo(srcEditor.getValue());
+    currentHovers = result.hovers ?? [];
+    currentCompletions = result.completions ?? [];
     if (result.error) {
         status.textContent = result.error.replace(/\s+/g, " ").trim();
         status.classList.add("error");
@@ -81,6 +94,50 @@ function run() {
         outEditor.setValue(result.js);
     }
 }
+
+// ── Monaco providers: hover + completions ─────────────────────────
+// The span data from the F# side is offset-based (startIdx/endIdx into
+// the raw source string), but Monaco works in (lineNumber, column)
+// pairs. `getOffsetAt` / `getPositionAt` bridge the two worlds.
+
+monaco.languages.registerHoverProvider("typefighter", {
+    provideHover(model, position) {
+        const offset = model.getOffsetAt(position);
+        const hit = currentHovers.find(
+            h => offset >= h.startIdx && offset <= h.endIdx
+        );
+        if (!hit) return null;
+        const start = model.getPositionAt(hit.startIdx);
+        const end = model.getPositionAt(hit.endIdx);
+        const contents = hit.typ
+            ? [{ value: `**${hit.name}** : \`${hit.typ}\`` }]
+            : [{ value: `**${hit.name}**` }];
+        return {
+            range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column),
+            contents
+        };
+    }
+});
+
+monaco.languages.registerCompletionItemProvider("typefighter", {
+    provideCompletionItems(model, position) {
+        const word = model.getWordUntilPosition(position);
+        const range = new monaco.Range(
+            position.lineNumber, word.startColumn,
+            position.lineNumber, word.endColumn
+        );
+        const suggestions = currentCompletions.map(c => ({
+            label: c.name,
+            kind: c.kind === "prelude"
+                ? monaco.languages.CompletionItemKind.Function
+                : monaco.languages.CompletionItemKind.Variable,
+            insertText: c.name,
+            detail: c.typ || c.kind,
+            range
+        }));
+        return { suggestions };
+    }
+});
 
 // Debounce so each keystroke doesn't trigger a full parse+typecheck+emit.
 // 200ms feels instant but lets typing bursts settle.

@@ -3,6 +3,43 @@ module TypeFighter.Parser01.Syntax
 open TheBlunt
 open TypeFighter
 
+
+// =================================================================
+// Source spans — used by IntelliSense-style features in the host.
+// -----------------------------------------------------------------
+// The Expr<_> AST deliberately does not carry source ranges (keeps
+// the type system decoupled from the concrete syntax). To still give
+// tooling enough to work with, the parser records a flat side-channel
+// of Spans during parsing: each identifier reference, binding name,
+// lambda parameter, and property field gets a `Span` with its source
+// range. `parseWithSpans` hands the collected list back.
+//
+// FUTURE: if we later want hover types for arbitrary sub-expressions
+// (not just identifiers), we'll need to attach ranges to every AST
+// node. The least invasive shape is probably a sibling `RangeTree`
+// built in lockstep with the Expr, walked alongside the solver's
+// numbered AST to produce `Map<VarNum, Range>`. That requires a
+// walker inside the TypeFighter assembly (Expr constructors are
+// internal) but still leaves `Lang.fs` untouched.
+//
+// NOTE on dedup: `<|>` backtracks on failure, so a failed branch may
+// have already pushed spans before bailing. The collector therefore
+// dedupes by (startIdx, endIdx, kind) at the end — the successful
+// branch's spans dominate because they're the ones the AST reflects.
+// =================================================================
+
+type SpanKind =
+    | VarRef of string      // usage of an identifier in expression position
+    | BindingDef of string  // the name in `let NAME = …`
+    | FunParam of string    // lambda parameter name
+    | PropField of string   // field name in `expr.FIELD`
+
+type Span = { range: Range; kind: SpanKind }
+
+let private spanCollector = ResizeArray<Span>()
+let private recordSpan (range: Range) (kind: SpanKind) =
+    spanCollector.Add { range = range; kind = kind }
+
 // =================================================================
 // JS-oriented concrete syntax for TypeFighter
 // -----------------------------------------------------------------
@@ -161,11 +198,27 @@ let private identifier =
 
 // -------- Literals --------
 
+// Floats must be tried before the integer fallback: otherwise `3.14`
+// would parse as the int `3` and leave `.14` to confuse the call-chain
+// rule. `<|>` backtracks on failure so committing to the fractional
+// branch is safe.
+let private floatLit =
+    parse {
+        let! intPart  = many1Str digit
+        let! dot      = pstr "."
+        let! fracPart = many1Str digit
+        return
+            { range = Range.merge [ intPart.range; dot.range; fracPart.range ]
+              result = X.Lit (float (intPart.result + "." + fracPart.result)) }
+    }
+
 let private intLit =
     parse {
         let! n = many1Str digit
         return { range = n.range; result = X.Lit (int n.result) }
-    } |> tok
+    }
+
+let private numberLit = (floatLit <|> intLit) |> tok
 
 let private stringLit =
     parse {
@@ -256,12 +309,15 @@ let private recordLit =
               result = X.MkRecord items.result }
     }
 
-let private varExpr = identifier |> map X.Var
+let private varExpr =
+    identifier |> mapPVal (fun pv ->
+        recordSpan pv.range (VarRef pv.result)
+        X.Var pv.result)
 
 let private primary =
     pchoice
         [
-            intLit
+            numberLit
             stringLit
             boolLit
             arrayLit
@@ -280,24 +336,31 @@ let private arrow =
             let! x    = identifier
             let! _    = sym "=>"
             let! body = expr
+            recordSpan x.range (FunParam x.result)
             return
                 { range = Range.add x.range body.range
                   result = X.Fun (X.Ident x.result) body.result }
         }
     // `(x, y, …) => body`  — curried as Fun x (Fun y body)
+    // We lose per-param ranges with `commaList identifier` (the list
+    // strips PVals), so rebuild the argument parser to keep them.
     let multiParam =
         parse {
             let! openP  = sym "("
-            let! params' = commaList identifier
+            let! params' =
+                psepBy1 (sym ",") identifier
+                <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
             let! _      = sym ")"
             let! _      = sym "=>"
             let! body   = expr
+            params'.result
+            |> List.iter (fun pv -> recordSpan pv.range (FunParam pv.result))
             let curried =
                 match params'.result with
                 | [] -> X.Fun (X.Ident "_") body.result     // `() => body` → Fun "_" body
                 | args ->
                     List.foldBack
-                        (fun arg acc -> X.Fun (X.Ident arg) acc)
+                        (fun (pv: PVal<string>) acc -> X.Fun (X.Ident pv.result) acc)
                         args
                         body.result
             return
@@ -338,6 +401,7 @@ let private propTail : Parser<CallTail> =
     parse {
         let! dot  = sym "."
         let! name = identifier
+        recordSpan name.range (PropField name.result)
         return
             { range = Range.add dot.range name.range
               result = fun src -> X.PropAcc src name.result }
@@ -384,6 +448,7 @@ let private letStmt =
         let! name  = identifier
         let! _     = sym "="
         let! value = expr
+        recordSpan name.range (BindingDef name.result)
         return
             { range = Range.add kw.range value.range
               result = StmtLet(name.result, value.result) }
@@ -450,11 +515,23 @@ let private typeIdentifier =
         }
     raw |> tok
 
-let private numberLitTyp =
+let private floatLitTyp =
+    parse {
+        let! intPart  = many1Str digit
+        let! dot      = pstr "."
+        let! fracPart = many1Str digit
+        return
+            { range = Range.merge [ intPart.range; dot.range; fracPart.range ]
+              result = LiteralTyp (Number (float (intPart.result + "." + fracPart.result))) }
+    }
+
+let private intLitTyp =
     parse {
         let! n = many1Str digit
         return { range = n.range; result = LiteralTyp (Number (float n.result)) }
-    } |> tok
+    }
+
+let private numberLitTyp = (floatLitTyp <|> intLitTyp) |> tok
 
 let private stringLitTyp =
     parse {
@@ -745,8 +822,25 @@ let private typeProgram =
 /// Parse a full JS-like program into a TypeFighter `Expr`.
 /// Returns the resulting AST or an error with position info.
 let parse (source: string) : Result<Expr<unit>, string> =
+    spanCollector.Clear()
     match run source program with
     | POk pval -> Ok pval.result
+    | PError err ->
+        let pos = DocPos.create err.idx source
+        Error (sprintf "Parse error at line %d, column %d: %s" pos.ln pos.col err.message)
+
+/// Like `parse` but also returns the side-channel span list that tools
+/// can use for hover, go-to-definition, and completions. See the
+/// comment at the top of this file for the backtracking / dedup story.
+let parseWithSpans (source: string) : Result<Expr<unit> * Span list, string> =
+    spanCollector.Clear()
+    match run source program with
+    | POk pval ->
+        let unique =
+            spanCollector
+            |> Seq.distinctBy (fun s -> s.range.startIdx, s.range.endIdx, s.kind)
+            |> List.ofSeq
+        Ok (pval.result, unique)
     | PError err ->
         let pos = DocPos.create err.idx source
         Error (sprintf "Parse error at line %d, column %d: %s" pos.ln pos.col err.message)
