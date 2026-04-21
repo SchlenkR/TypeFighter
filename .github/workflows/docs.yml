@@ -36,6 +36,12 @@ jobs:
       - name: Restore .NET tools
         run: dotnet tool restore
 
+      - name: Run .NET tests
+        # Smoke-tests the playground examples against the real compiler
+        # (TypeFighter.Web.Tests) in addition to parser/solver suites.
+        # A broken example blocks deployment.
+        run: dotnet test --nologo
+
       - name: Generate docs site
         run: dotnet fsi docs/build.fsx
 

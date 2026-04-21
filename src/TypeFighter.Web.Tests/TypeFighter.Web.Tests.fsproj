@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ExamplesTests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsUnit" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
+    <ProjectReference Include="..\TypeFighter.Parser01\TypeFighter.Parser01.fsproj" />
+    <ProjectReference Include="..\TypeFighter.Web\TypeFighter.Web.fsproj" />
+  </ItemGroup>
+
+</Project>

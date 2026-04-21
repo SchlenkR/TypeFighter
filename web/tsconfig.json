@@ -12,7 +12,8 @@
         "skipLibCheck": true,
         "isolatedModules": true,
         "allowJs": true,
+        "resolveJsonModule": true,
         "lib": ["ES2022", "DOM"]
     },
-    "include": ["src/**/*.ts", "fable-out/**/*.js"]
+    "include": ["src/**/*.ts", "src/**/*.json", "fable-out/**/*.js"]
 }
