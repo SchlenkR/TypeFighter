@@ -168,7 +168,7 @@ let ast =
 
 ast
 |&gt; solve defaultTcEnv None
-|&gt; shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given &quot;Record&quot;) [ &quot;validFrom&quot;, %10 ])))</code></pre>
+|&gt; shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.RecordWith [ &quot;validFrom&quot;, %10 ])))</code></pre>
   </details>
 </article>
       </div>

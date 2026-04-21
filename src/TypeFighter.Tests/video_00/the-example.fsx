@@ -96,7 +96,7 @@ X.Let (X.Ident "name") (X.Lit "Alice")
             X.Property "age" (X.Var "age")
         ]))
 |> solve [] None
-|> shouldSolveType (Mono (TDef.NamedRecordWith (NameHint.Given "Record") [ "name", BuiltinTypes.string; "age", BuiltinTypes.number ]))
+|> shouldSolveType (Mono (TDef.RecordWith [ "name", BuiltinTypes.string; "age", BuiltinTypes.number ]))
 
 
 
@@ -151,7 +151,7 @@ X.MkArray
         ]
     ]
 |> solve defaultTcEnv None
-|> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %10 ])))
+|> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.RecordWith [ "validFrom", %10 ])))
 
 
 

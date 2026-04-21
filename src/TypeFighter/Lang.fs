@@ -10,18 +10,6 @@ module NumGen =
             currVar <- currVar + 1
             VarNum currVar
 
-[<CustomEquality; CustomComparison; RequireQualifiedAccess>]
-type NameHint =
-    | Anonymous
-    | Given of string
-    override this.Equals(other) =
-        match other with :? NameHint -> true | _ -> false
-    override this.GetHashCode() = hash this
-    interface System.IComparable with
-        member _.CompareTo(other) = match other with :? NameHint -> 0 | _ -> -1
-    interface System.IComparable<NameHint> with
-        member _.CompareTo(_) = 0
-
 type Literal =
     | Number of float
     | String of string
@@ -53,7 +41,6 @@ and Typ =
 
 and RecordDefinition =
     {
-        nameHint: NameHint
         fields: Set<FieldDefinition>
         // Positional items carried at the TYPE level as a bag
         // (order-insensitive, duplicates allowed — see
@@ -73,24 +60,19 @@ and FieldDefinition =
 
 and ShowTyp =
     static let printers = ResizeArray()
-    static let getNameHint nameHint =
-        match nameHint with
-        | NameHint.Anonymous -> ""
-        | NameHint.Given name -> ""
-        // | NameHint.Given name -> $"type '{name}' "
     static let printOrShow (typ: MonoTyp) defaultShow =
-        match 
-            printers 
-            |> Seq.map (fun p -> p typ) 
-            |> Seq.choose id 
-            |> Seq.tryHead 
+        match
+            printers
+            |> Seq.map (fun p -> p typ)
+            |> Seq.choose id
+            |> Seq.tryHead
         with
         | Some printed -> printed
         | None -> defaultShow ()
     static member AddPrinter printer = printers.Add printer
     static member Show (field: FieldDefinition) =
         $"{field.fname}: {field.typ}"
-    static member Show (nameHint: string, fields: Set<FieldDefinition>, positionals: MonoTyp list) =
+    static member Show (fields: Set<FieldDefinition>, positionals: MonoTyp list) =
         let namedParts =
             fields
             |> Set.map ShowTyp.Show
@@ -103,9 +85,9 @@ and ShowTyp =
                 yield! namedParts
             ]
             |> String.concat "; "
-        $"{nameHint}{{ {allParts} }}"
+        $"{{ {allParts} }}"
     static member Show (record: RecordDefinition) =
-        ShowTyp.Show(getNameHint record.nameHint, record.fields, record.positionals)
+        ShowTyp.Show(record.fields, record.positionals)
     static member Show (typ: MonoTyp) =
         printOrShow typ (fun () ->
             match typ with
@@ -506,26 +488,23 @@ module TDef =
         let vars = vars |> List.map VarNum |> set
         Poly { vars = vars; monoTyp = monoTyp }
     
-    let RecordDefWith nameHint (fields: (string * MonoTyp) list) =
+    let RecordDefWith (fields: (string * MonoTyp) list) =
         let fields =
             [ for (fname, typ) in fields do { fname = fname; typ = typ } ]
             |> set
-        { nameHint = nameHint; fields = fields; positionals = [] }
+        { fields = fields; positionals = [] }
 
-    let RecordDefWithItems nameHint (fields: (string * MonoTyp) list) (positionals: MonoTyp list) =
+    let RecordDefWithItems (fields: (string * MonoTyp) list) (positionals: MonoTyp list) =
         let fields =
             [ for (fname, typ) in fields do { fname = fname; typ = typ } ]
             |> set
-        { nameHint = nameHint; fields = fields; positionals = positionals }
+        { fields = fields; positionals = positionals }
 
     let RecordWithItems (fields: (string * MonoTyp) list) (positionals: MonoTyp list) =
-        RecordTyp (RecordDefWithItems NameHint.Anonymous fields positionals)
-    
-    let NamedRecordWith nameHint (fields: (string * MonoTyp) list) =
-        RecordTyp (RecordDefWith nameHint fields)
-    
+        RecordTyp (RecordDefWithItems fields positionals)
+
     let RecordWith (fields: (string * MonoTyp) list) =
-        RecordTyp (RecordDefWith NameHint.Anonymous fields)
+        RecordTyp (RecordDefWith fields)
 
     let SaturatedWith (name: string) (args: MonoTyp list) =
         SaturatedTyp {| name = name; args = args |}
@@ -773,8 +752,7 @@ module TypeSystem =
                 appendConstraint
                     x.tvar
                     (RecordTyp
-                        { nameHint = NameHint.Anonymous
-                          fields = set [ for n, t in namedFields -> { fname = n; typ = t } ]
+                        { fields = set [ for n, t in namedFields -> { fname = n; typ = t } ]
                           positionals = positionals })
 
             | Expr.Match x ->
@@ -824,7 +802,7 @@ module TypeSystem =
     let finalizeSubstitutions (substitutions: MonoSubstitution list) (pendingFields: RecordRefs) (pendingMembers: MemberRefs) =
         let closeRecord (subs: MonoSubstitution list) (varNum: int, fields: Set<FieldDefinition>) =
             let recordTyp =
-                RecordTyp { nameHint = NameHint.Given $"RECORD_{varNum}"; fields = fields; positionals = [] }
+                RecordTyp { fields = fields; positionals = [] }
             let alpha = VarNum varNum
             let substituted =
                 [ for s in subs ->
@@ -1090,7 +1068,7 @@ module TypeSystem =
                                 do pendingFields.Replace(rightN, merged)
                             | RecordTyp record ->
                                 let pendingAsRecord =
-                                    RecordTyp { nameHint = NameHint.Anonymous; fields = leftPending; positionals = [] }
+                                    RecordTyp { fields = leftPending; positionals = [] }
                                 do unifyTypes c.triviaSource pendingAsRecord (RecordTyp record)
                                 do pendingFields.Remove(leftN)
                             | other ->

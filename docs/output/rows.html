@@ -165,8 +165,8 @@
     <pre><code class="language-fsharp">X.PropAccN [ &quot;order&quot;; &quot;customer&quot;; &quot;name&quot; ]
 |&gt; solve
     [
-        &quot;order&quot;, Mono (TDef.NamedRecordWith (NameHint.Given &quot;Order&quot;) [
-            &quot;customer&quot;, TDef.NamedRecordWith (NameHint.Given &quot;Customer&quot;) [
+        &quot;order&quot;, Mono (TDef.RecordWith [
+            &quot;customer&quot;, TDef.RecordWith [
                 &quot;name&quot;, BuiltinTypes.string
             ]
         ])
@@ -306,7 +306,7 @@ useName { name = &quot;Alice&quot;; age = 30 }</code></pre>
 |&gt; shouldSolveType (
     Mono (
         TDef.RecordWith [ &quot;x&quot;, BuiltinTypes.number ]
-        ^-&gt; TDef.NamedRecordWith (NameHint.Given &quot;Result&quot;) [
+        ^-&gt; TDef.RecordWith [
             &quot;doubled&quot;, BuiltinTypes.number
         ]))</code></pre>
   </details>

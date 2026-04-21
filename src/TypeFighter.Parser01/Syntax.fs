@@ -694,8 +694,7 @@ let private altTyp : Parser<MonoTyp> =
                     let mergedPositionals =
                         [ for r in recordDefs do yield! r.positionals ]
                     let merged =
-                        { nameHint = NameHint.Anonymous
-                          fields = mergedFields
+                        { fields = mergedFields
                           positionals = mergedPositionals }
                     return
                         { range = Range.add head.range tail.range

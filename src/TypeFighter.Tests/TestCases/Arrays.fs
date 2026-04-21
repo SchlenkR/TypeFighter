@@ -111,4 +111,4 @@ let [<Test>] ``array with multiple record elements having field value from funct
 
     ast
     |> solve defaultTcEnv None
-    |> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.NamedRecordWith (NameHint.Given "Record") [ "validFrom", %10 ])))
+    |> shouldSolveType (TDef.Generalize (BuiltinTypes.array (TDef.RecordWith [ "validFrom", %10 ])))

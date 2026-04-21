@@ -104,8 +104,8 @@ let [<Test>] ``nested property access`` () =
     X.PropAccN [ "order"; "customer"; "name" ]
     |> solve
         [
-            "order", Mono (TDef.NamedRecordWith (NameHint.Given "Order") [
-                "customer", TDef.NamedRecordWith (NameHint.Given "Customer") [
+            "order", Mono (TDef.RecordWith [
+                "customer", TDef.RecordWith [
                     "name", BuiltinTypes.string
                 ]
             ])
@@ -206,7 +206,7 @@ let [<Test>] ``lambda returns record built from input fields`` () =
     |> shouldSolveType (
         Mono (
             TDef.RecordWith [ "x", BuiltinTypes.number ]
-            ^-> TDef.NamedRecordWith (NameHint.Given "Result") [
+            ^-> TDef.RecordWith [
                 "doubled", BuiltinTypes.number
             ]))
 

@@ -50,7 +50,7 @@ let [<Test>] ``match on numeric literals narrows scrutinee to union`` () =
 (*
     Source:    fun x -> match x with | true -> 1 | false -> 0
     Inferred:  Bool -> Number
-    (set { true, false } collapses to Bool per TDef.RecordDefWith / literal-set semantics)
+    (set { true, false } collapses to Bool per the literal-set semantics)
 *)
 let [<Test>] ``match on booleans covers both arms`` () =
     X.Fun (X.Ident "x") (

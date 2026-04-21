@@ -53,7 +53,7 @@ let [<Test>] ``record creation from literals`` () =
     ]
     |> solve [] None
     |> shouldSolveType (
-            Mono (TDef.NamedRecordWith (NameHint.Given "Person") [
+            Mono (TDef.RecordWith [
                 "age", BuiltinTypes.number
                 "name", BuiltinTypes.string
                 "address", BuiltinTypes.string
@@ -74,7 +74,7 @@ let [<Test>] ``property access on environment-provided record`` () =
     |> solve
         [
             yield! envWithArithmetic
-            yield "order", Mono (TDef.NamedRecordWith (NameHint.Given "Order") [
+            yield "order", Mono (TDef.RecordWith [
                 "quantity", BuiltinTypes.number
             ])
         ]
@@ -105,7 +105,7 @@ let [<Test>] ``let-bound record keeps its fields`` () =
     ) (X.Var "myRecord")
     |> solve [] None
     |> shouldSolveType (
-            Mono (TDef.NamedRecordWith (NameHint.Given "Person") [
+            Mono (TDef.RecordWith [
                 "age", BuiltinTypes.number
                 "name", BuiltinTypes.string
             ]))

@@ -76,7 +76,7 @@
 ]
 |&gt; solve [] None
 |&gt; shouldSolveType (
-        Mono (TDef.NamedRecordWith (NameHint.Given &quot;Person&quot;) [
+        Mono (TDef.RecordWith [
             &quot;age&quot;, BuiltinTypes.number
             &quot;name&quot;, BuiltinTypes.string
             &quot;address&quot;, BuiltinTypes.string
@@ -110,7 +110,7 @@ order : { quantity: Number }</code></pre>
 |&gt; solve
     [
         yield! envWithArithmetic
-        yield &quot;order&quot;, Mono (TDef.NamedRecordWith (NameHint.Given &quot;Order&quot;) [
+        yield &quot;order&quot;, Mono (TDef.RecordWith [
             &quot;quantity&quot;, BuiltinTypes.number
         ])
     ]
@@ -149,7 +149,7 @@ myRecord</code></pre>
 ) (X.Var &quot;myRecord&quot;)
 |&gt; solve [] None
 |&gt; shouldSolveType (
-        Mono (TDef.NamedRecordWith (NameHint.Given &quot;Person&quot;) [
+        Mono (TDef.RecordWith [
             &quot;age&quot;, BuiltinTypes.number
             &quot;name&quot;, BuiltinTypes.string
         ]))</code></pre>
