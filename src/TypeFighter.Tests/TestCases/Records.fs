@@ -242,3 +242,37 @@ let [<Test>] ``using multiple fields in a boolean expression`` () =
             right)
     |> solve env None
     |> shouldSolveType (Mono(BuiltinTypes.boolean))
+
+
+(*
+    Source:    { 42 }
+    Inferred:  { Number }
+*)
+// Positional record item — Option Z's second row in action.
+// The record carries a single positional of type Number and no
+// named fields.
+let [<Test>] ``record with single positional literal`` () =
+    X.MkRecord [ X.Positional (X.Lit 42) ]
+    |> solve [] None
+    |> shouldSolveType (
+        Mono (TDef.RecordWithItems [] [ BuiltinTypes.number ]))
+
+
+(*
+    Source:    { "Circle" & radius = 3 }
+    Inferred:  { String & radius: Number }
+*)
+// Mix of positional and named items. The positional literal widens
+// to `String` at the term level (literal types only appear via
+// type-annotations, not from expression literals) — this is the
+// same behavior as numeric / string literals everywhere else.
+let [<Test>] ``record with positional string and named field`` () =
+    X.MkRecord [
+        X.Positional (X.Lit "Circle")
+        X.Field "radius" (X.Lit 3)
+    ]
+    |> solve [] None
+    |> shouldSolveType (
+        Mono (TDef.RecordWithItems
+                [ "radius", BuiltinTypes.number ]
+                [ BuiltinTypes.string ]))

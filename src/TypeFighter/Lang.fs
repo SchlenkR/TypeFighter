@@ -708,20 +708,27 @@ module TypeSystem =
                 for item in x.items do
                     generateConstraints env item.Value
 
-                // Step 1 (no-op AST refactor): treat every item as a Property
-                // and wire it into the same named-row as before. Positional
-                // items are expected to be rejected until Step 4 adds the
-                // second row for them.
+                // Named items flow into the named-field row; positional
+                // items flow into the second row (Option Z per
+                // docs/design/RecordsAsHeterogeneousSets.md).
                 // TODO: field names must be distinct
                 let namedFields =
                     [ for item in x.items do
                         match item with
-                        | RecordItem.Property f -> f.fname, TVar f.value.TVar
-                        | RecordItem.Positional _ ->
-                            failwith
-                                "Positional record items are not yet supported by the solver — see Step 4 of docs/design/TypeSyntaxWithSets.md." ]
+                        | RecordItem.Property f -> yield f.fname, TVar f.value.TVar
+                        | RecordItem.Positional _ -> () ]
                     |> List.sortBy fst
-                appendConstraint x.tvar (TDef.RecordWith namedFields)
+                let positionals =
+                    [ for item in x.items do
+                        match item with
+                        | RecordItem.Positional v -> yield TVar v.TVar
+                        | RecordItem.Property _ -> () ]
+                appendConstraint
+                    x.tvar
+                    (RecordTyp
+                        { nameHint = NameHint.Anonymous
+                          fields = set [ for n, t in namedFields -> { fname = n; typ = t } ]
+                          positionals = positionals })
 
         do generateConstraints env expr
 
@@ -866,6 +873,14 @@ module TypeSystem =
                             failwith "TRecord and TIntersection: We need to tweak that, too."
                         | RecordTyp rec1, RecordTyp rec2 ->
                             unifyRecordFields rec1.fields rec2.fields
+                            // Positionals: treated as an ordered list for
+                            // Step 4. Bag/structural semantics may replace
+                            // this once pattern-matching (Step 6) lands.
+                            if List.length rec1.positionals <> List.length rec2.positionals then
+                                throwUniError
+                                    $"Positional item count mismatch: {List.length rec1.positionals} vs {List.length rec2.positionals}"
+                            for p1, p2 in List.zip rec1.positionals rec2.positionals do
+                                unifyTypes source p1 p2
                         | LiteralTyp lit, UnionTyp members
                         | UnionTyp members, LiteralTyp lit ->
                             if not (Set.contains (LiteralTyp lit) members) then
