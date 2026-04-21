@@ -19,25 +19,32 @@ export const categories: Category[] = [
         examples: [
             {
                 title: "hello world",
-                source: `let greeting = concat("Hello, ")("World");
-log(greeting)`
+                source: `// Simplest program: build a string, hand it to log.
+// Both \`concat\` and \`log\` live in the prelude (see "In scope" below).
+let greeting = concat("Hello, ")("World");
+log(greeting);`
             },
             {
                 title: "literals",
-                source: `log(ToString(42));
+                source: `// ToString is polymorphic — the same function accepts any value.
+// Hover a name to see its type; ToString has type \`tv_0 -> String\`.
+log(ToString(42));
 log(ToString("hello"));
-log(ToString(true))`
+log(ToString(true));`
             },
             {
                 title: "floats",
-                source: `let pi = 3.14159;
-log(ToString(pi))`
+                source: `// Number is a single type — no int/float split.
+let pi = 3.14159;
+log(ToString(pi));`
             },
             {
                 title: "let binding",
-                source: `let name = "Ada";
+                source: `// \`let\` introduces a new name for the rest of the program.
+// Semicolons separate statements; a trailing one is optional.
+let name = "Ada";
 let greeting = concat("Hi, ")(name);
-log(greeting)`
+log(greeting);`
             }
         ]
     },
@@ -46,26 +53,34 @@ log(greeting)`
         examples: [
             {
                 title: "identity",
-                source: `let id = x => x;
-log(ToString(id(42)))`
+                source: `// The identity function is fully polymorphic: \`tv_0 -> tv_0\`.
+// Hover \`id\` in the source to see the inferred type.
+let id = x => x;
+log(ToString(id(42)));`
             },
             {
                 title: "currying",
-                source: `let add = a => b => concat(a)(b);
-log(add("foo")("bar"))`
+                source: `// All multi-arg functions are curried — \`a => b => ...\` is the
+// idiomatic shape. Application is one-at-a-time: \`add("foo")("bar")\`.
+let add = a => b => concat(a)(b);
+log(add("foo")("bar"));`
             },
             {
                 title: "higher-order",
-                source: `let twice = f => x => f(f(x));
+                source: `// \`twice\` takes a function and feeds its output back into it.
+// Inferred type: \`(tv_0 -> tv_0) -> tv_0 -> tv_0\`.
+let twice = f => x => f(f(x));
 let exclaim = s => concat(s)("!");
-log(twice(exclaim)("yo"))`
+log(twice(exclaim)("yo"));`
             },
             {
                 title: "compose",
-                source: `let compose = f => g => x => f(g(x));
+                source: `// Classic function composition. Three type variables flow through:
+// \`compose : (b -> c) -> (a -> b) -> a -> c\`.
+let compose = f => g => x => f(g(x));
 let shout = s => concat(s)("!!!");
 let greet = s => concat("Hello, ")(s);
-log(compose(shout)(greet)("Ada"))`
+log(compose(shout)(greet)("Ada"));`
             }
         ]
     },
@@ -74,25 +89,59 @@ log(compose(shout)(greet)("Ada"))`
         examples: [
             {
                 title: "property access",
-                source: `let p = { age: 22, name: "John" };
-log(p.name)`
+                source: `// Records are structural: the type is the set of fields, not a
+// declared name. The inferred type here is \`{ age: Number, name: String }\`.
+let p = { age: 22, name: "John" };
+log(p.name);`
             },
             {
                 title: "nested records",
-                source: `let u = { user: { id: 1, name: "Ada" }, active: true };
-log(u.user.name)`
+                source: `// Nesting is just a record field whose type is another record.
+// Property access chains: \`u.user.name\`.
+let u = { user: { id: 1, name: "Ada" }, active: true };
+log(u.user.name);`
             },
             {
                 title: "record from function",
-                source: `let mkUser = n => a => { name: n, age: a };
+                source: `// Field order in a literal doesn't matter for the type — records
+// are bags of fields, not sequences. This is the pay-off of structural
+// typing: \`mkUser\` works the same regardless of which order you write
+// \`name\` and \`age\` in its result.
+let mkUser = n => a => { name: n, age: a };
 let u = mkUser("Ada")(42);
-log(u.name)`
+log(u.name);`
             },
             {
                 title: "structural accessor",
-                source: `let getName = r => r.name;
+                source: `// \`getName\` is inferred as \`{ name: tv_0, ... } -> tv_0\` — it
+// accepts *any* record that has a \`name\` field. No interface or
+// base-class declaration needed.
+let getName = r => r.name;
 log(getName({ name: "Ada", age: 42 }));
-log(getName({ name: "Bob", age: 31 }))`
+log(getName({ name: "Bob", city: "Berlin" }));`
+            }
+        ]
+    },
+    {
+        name: "Row polymorphism",
+        examples: [
+            {
+                title: "extra fields are fine",
+                source: `// The row-polymorphic "..." in the inferred type means: "has at
+// least these fields, possibly more". Both records below flow through
+// \`getX\` unchanged — their extra fields don't matter to the function.
+let getX = p => p.x;
+log(ToString(getX({ x: 1, y: 2 })));
+log(ToString(getX({ x: 10, y: 20, z: 30 })));`
+            },
+            {
+                title: "pair of accessors",
+                source: `// Two independent projections composed on the same input. Each has
+// its own row variable — so the input type is the *intersection* of
+// the fields both projections demand: \`{ x: ..., y: ..., ... }\`.
+let sumXY = p => concat(ToString(p.x))(ToString(p.y));
+log(sumXY({ x: 1, y: 2 }));
+log(sumXY({ x: 3, y: 4, label: "pt" }));`
             }
         ]
     },
@@ -101,21 +150,26 @@ log(getName({ name: "Bob", age: 31 }))`
         examples: [
             {
                 title: "array literal",
-                source: `let xs = [1, 2, 3];
-log(ToString(xs))`
+                source: `// Arrays are homogeneous — every element must share a type.
+// Inferred: \`Array<Number>\`.
+let xs = [1, 2, 3];
+log(ToString(xs));`
             },
             {
                 title: "array of strings",
-                source: `let names = ["Ada", "Bob", "Eve"];
-log(ToString(names))`
+                source: `// Same shape, different element type — \`Array<String>\`.
+let names = ["Ada", "Bob", "Eve"];
+log(ToString(names));`
             },
             {
                 title: "array of records",
-                source: `let points = [
+                source: `// Records inside arrays share the element type, which is itself
+// a record shape. Inferred: \`Array<{ x: Number, y: Number }>\`.
+let points = [
   { x: 1, y: 2 },
   { x: 3, y: 4 }
 ];
-log(ToString(points))`
+log(ToString(points));`
             }
         ]
     },
@@ -124,25 +178,36 @@ log(ToString(points))`
         examples: [
             {
                 title: "ToString is polymorphic",
-                source: `log(ToString(42));
+                source: `// ToString's type is \`tv_0 -> String\` — one instantiation per
+// call site. Three unrelated argument types, one function.
+log(ToString(42));
 log(ToString(true));
-log(ToString({ x: 1, y: 2 }))`
+log(ToString({ x: 1, y: 2 }));`
             },
             {
                 title: "inferred function type",
-                source: `let greet = s => concat("Hello, ")(s);
-log(greet("Ada"))`
+                source: `// No annotations anywhere. The type checker works out:
+//   greet : String -> String
+// from the shape of concat and "Hello, ".
+let greet = s => concat("Hello, ")(s);
+log(greet("Ada"));`
             },
             {
-                title: "inferred record type",
-                source: `let distance = p => p.x;
-log(ToString(distance({ x: 10, y: 20 })))`
+                title: "inferred record shape",
+                source: `// distance's inferred type is \`{ x: tv_0, ... } -> tv_0\`.
+// The row variable is what makes the second call work without changes.
+let distance = p => p.x;
+log(ToString(distance({ x: 10, y: 20 })));
+log(ToString(distance({ x: 99, label: "pt" })));`
             },
             {
                 title: "function as value",
-                source: `let apply = f => x => f(x);
+                source: `// Functions are first-class values. \`apply\` has the most general
+// type a one-arg higher-order function can have:
+//   (tv_0 -> tv_1) -> tv_0 -> tv_1
+let apply = f => x => f(x);
 let greet = s => concat("Hi, ")(s);
-log(apply(greet)("Ada"))`
+log(apply(greet)("Ada"));`
             }
         ]
     },
@@ -151,31 +216,44 @@ log(apply(greet)("Ada"))`
         examples: [
             {
                 title: "concat expects strings",
-                source: `concat(42)("hello")`
+                source: `// concat is monomorphic: String -> String -> String.
+// Passing a number violates that constraint — the error points
+// at the exact mismatch.
+concat(42)("hello");`
             },
             {
                 title: "heterogeneous array",
-                source: `let bad = [1, "two", 3];
-log(ToString(bad))`
+                source: `// All array elements must share a type. Mixing Number and String
+// has no common type in the prelude, so inference fails.
+let bad = [1, "two", 3];
+log(ToString(bad));`
             },
             {
                 title: "number is not a function",
-                source: `let x = 42;
-x(1)`
+                source: `// You can only apply values whose inferred type is a function.
+// x is a Number, so \`x(1)\` is rejected.
+let x = 42;
+x(1);`
             },
             {
                 title: "missing record field",
-                source: `let p = { x: 1, y: 2 };
-log(ToString(p.z))`
+                source: `// p's inferred type is \`{ x: Number, y: Number }\`. Accessing .z
+// adds a constraint the record doesn't satisfy → type error.
+let p = { x: 1, y: 2 };
+log(ToString(p.z));`
             },
             {
                 title: "record shape mismatch",
-                source: `let useName = r => r.name;
-useName({ age: 30 })`
+                source: `// useName demands \`{ name: tv_0, ... }\`. The argument has \`age\`
+// but no \`name\` — the "required field missing" error fires.
+let useName = r => r.name;
+useName({ age: 30 });`
             },
             {
                 title: "parse error",
-                source: `let x =`
+                source: `// The \`=\` expects an expression on its right — nothing there.
+// Parse errors show before type-checking even starts.
+let x =`
             }
         ]
     }

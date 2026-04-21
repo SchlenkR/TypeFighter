@@ -25,3 +25,24 @@ let ``whitespace is tolerated around tokens`` () =
 [<Test>]
 let ``parenthesized expression is transparent`` () =
     """(42)""" |> shouldParseTo (X.Lit 42)
+
+// ---- Line comments ---------------------------------------------
+// `// …` to end-of-line is skipped like whitespace — so comments can
+// appear anywhere a space could.
+
+[<Test>]
+let ``line comment at start of source`` () =
+    "// the answer\n42" |> shouldParseTo (X.Lit 42)
+
+[<Test>]
+let ``line comment after expression`` () =
+    "42 // trailing" |> shouldParseTo (X.Lit 42)
+
+[<Test>]
+let ``line comment without trailing newline at eof`` () =
+    "42 // no newline after this" |> shouldParseTo (X.Lit 42)
+
+[<Test>]
+let ``line comment between statements`` () =
+    "let x = 1; // bind\nx" |> shouldParseTo
+        (X.Let (X.Ident "x") (X.Lit 1) (X.Var "x"))

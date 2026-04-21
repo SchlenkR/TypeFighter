@@ -152,7 +152,14 @@ let private spaceChar =
         (fun c -> c = ' ' || c = '\t' || c = '\r' || c = '\n')
         (sprintf "Expected whitespace, but got '%c'.")
 
-let private ws = many spaceChar |> pignore
+// Line comment: `//` until end-of-line (or end-of-input). The newline
+// itself is left for `spaceChar` to consume in the outer `ws` loop.
+let private lineComment : Parser<unit> =
+    pstr "//"
+    .>> many (pchar (fun c -> c <> '\n') (sprintf "Expected non-newline, but got '%c'."))
+    |> pignore
+
+let private ws = many ((spaceChar |> pignore) <|> lineComment) |> pignore
 
 let private tok p = p .>> ws
 
@@ -462,8 +469,13 @@ let private stmt = letStmt <|> exprStmt
 let private program =
     parse {
         let! _     = ws                                   // leading whitespace
-        let! prefix = many (stmt .>> sym ";")
+        // Stop the prefix loop from eating the last `stmt;` when the
+        // source ends right after it — otherwise `log(x);` at end of
+        // file leaves nothing for `final` to parse. Also stop when only
+        // more `;` follows so `42;;;` doesn't loop past the first `;`.
+        let! prefix = many (stmt .>> sym ";" .>> pnot (eoi <|> pignore (sym ";")))
         let! final = expr
+        let! tail  = many (sym ";")                       // tolerate trailing `;`
         let body =
             List.foldBack
                 (fun s acc ->
@@ -472,11 +484,15 @@ let private program =
                     | StmtExpr e    -> X.Do e acc)
                 (prefix.result |> List.map (fun pv -> pv.result))
                 final.result
+        // `tail.range` covers the (possibly empty) trailing `;` run and
+        // always ends at the parser cursor — use it as the program's
+        // end so `.>> eoi` checks the right position.
+        let startIdx =
+            match prefix.result with
+            | [] -> final.range.startIdx
+            | _  -> prefix.range.startIdx
         return
-            { range =
-                (match prefix.result with
-                 | [] -> final.range
-                 | _  -> Range.add prefix.range final.range)
+            { range = { startIdx = startIdx; endIdx = tail.range.endIdx }
               result = body }
     }
     .>> eoi
