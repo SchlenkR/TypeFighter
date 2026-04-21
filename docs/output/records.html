@@ -36,11 +36,11 @@
 <a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
 <a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
 <a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
-<a class="nav-item active" href="records.html"><span class="nav-name">Records</span><span class="nav-count">8</span></a>
+<a class="nav-item active" href="records.html"><span class="nav-name">Records</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
-<a class="nav-item" href="intersections.html"><span class="nav-name">Intersection types</span><span class="nav-count">3</span></a>
 <a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+<a class="nav-item" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
   </nav>
 </aside>
     <main class="main">
@@ -336,6 +336,59 @@ X.Let
         right)
 |&gt; solve env None
 |&gt; shouldSolveType (Mono(BuiltinTypes.boolean))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">record with single positional literal</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">{ 42 }</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">{ Number }</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Positional record item — Option Z's second row in action. The record carries a single positional of type Number and no named fields.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.MkRecord [ X.Positional (X.Lit 42) ]
+|&gt; solve [] None
+|&gt; shouldSolveType (
+    Mono (TDef.RecordWithItems [] [ BuiltinTypes.number ]))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">record with positional string and named field</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">{ &quot;Circle&quot; &amp; radius = 3 }</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">{ String &amp; radius: Number }</code></pre>
+    </div>
+  </div>
+  <p class="test-note">Mix of positional and named items. The positional literal widens to <code>String</code> at the term level (literal types only appear via type-annotations, not from expression literals) — this is the same behavior as numeric / string literals everywhere else.</p>
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.MkRecord [
+    X.Positional (X.Lit &quot;Circle&quot;)
+    X.Field &quot;radius&quot; (X.Lit 3)
+]
+|&gt; solve [] None
+|&gt; shouldSolveType (
+    Mono (TDef.RecordWithItems
+            [ &quot;radius&quot;, BuiltinTypes.number ]
+            [ BuiltinTypes.string ]))</code></pre>
   </details>
 </article>
       </div>

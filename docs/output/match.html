@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Expr.Match  (Step 6 of TypeSyntaxWithSets) — TypeFighter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/fsharp.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+  <div class="sidebar-head">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 14 10 L 34 6 L 40 30 L 34 54 L 14 50 Z"/>
+    <line x1="24" y1="8" x2="24" y2="52"/>
+    <line x1="40" y1="30" x2="54" y2="30"/>
+    <path d="M 126 10 L 106 6 L 100 30 L 106 54 L 126 50 Z"/>
+    <line x1="116" y1="8" x2="116" y2="52"/>
+    <line x1="100" y1="30" x2="86" y2="30"/>
+  </g>
+  <circle cx="70" cy="30" r="15" fill="#181825" stroke="currentColor" stroke-width="2"/>
+  <text x="70" y="36" text-anchor="middle" font-size="17" font-family="'Times New Roman', serif" fill="currentColor" font-weight="700">&#8704;</text>
+</svg>
+      <span class="brand-text">TypeFighter</span>
+    </a>
+    <div class="tagline">Test-driven type system docs</div>
+  </div>
+  <nav class="nav">
+<a class="nav-item" href="literals.html"><span class="nav-name">Literals</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="functions.html"><span class="nav-name">Functions</span><span class="nav-count">8</span></a>
+<a class="nav-item" href="let.html"><span class="nav-name">Let bindings</span><span class="nav-count">5</span></a>
+<a class="nav-item" href="generalization.html"><span class="nav-name">Generalization</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="arrays.html"><span class="nav-name">Arrays</span><span class="nav-count">4</span></a>
+<a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
+<a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
+<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
+<a class="nav-item active" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
+  </nav>
+</aside>
+    <main class="main">
+      <h1>Expr.Match  (Step 6 of TypeSyntaxWithSets)</h1>
+      <p class="intro">Patterns supported in this first pass: - Literal   (<code>| 0 -&gt;</code>, <code>| &quot;yes&quot; -&gt;</code>, <code>| true -&gt;</code>) - Var     (catch-all that binds the scrutinee to a name) - Wildcard  (catch-all that ignores the scrutinee) Record / positional patterns will follow once the demand is real. Narrowing happens implicitly: literal patterns emit CHasMember against the scrutinee, so the scrutinee's type closes to the UnionTyp of the literals.</p>
+      <div class="tests">
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match on numeric literals narrows scrutinee to union</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun x -&gt; match x with | 0 -&gt; &quot;zero&quot; | 1 -&gt; &quot;one&quot;</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">{0 | 1} -&gt; String</code></pre>
+    </div>
+  </div>
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;x&quot;) (
+    X.Match (X.Var &quot;x&quot;) [
+        X.Arm (X.PatLit 0) (X.Lit &quot;zero&quot;)
+        X.Arm (X.PatLit 1) (X.Lit &quot;one&quot;)
+    ])
+|&gt; solve [] None
+|&gt; shouldSolveType (
+    Mono (
+        UnionTyp (set [ LiteralTyp (Number 0.0); LiteralTyp (Number 1.0) ])
+        ^-&gt; BuiltinTypes.string))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match on booleans covers both arms</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun x -&gt; match x with | true -&gt; 1 | false -&gt; 0</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">           Bool -&gt; Number
+(set { true, false } collapses to Bool per TDef.RecordDefWith / literal-set semantics)</code></pre>
+    </div>
+  </div>
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;x&quot;) (
+    X.Match (X.Var &quot;x&quot;) [
+        X.Arm (X.PatLit true) (X.Lit 1)
+        X.Arm (X.PatLit false) (X.Lit 0)
+    ])
+|&gt; solve [] None
+|&gt; shouldSolveType (
+    Mono (BuiltinTypes.boolean ^-&gt; BuiltinTypes.number))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match with catch-all Var pattern binds scrutinee</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun x -&gt; match x with | 42 -&gt; &quot;yes&quot; | y -&gt; &quot;other&quot;</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">           {42} -&gt; String
+A Var arm is a catch-all — it binds but adds no constraint on the
+scrutinee's type. So the scrutinee only has the literal's member
+constraint and narrows accordingly. Explicit widening (via a type
+annotation on `x`) would change this.</code></pre>
+    </div>
+  </div>
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;x&quot;) (
+    X.Match (X.Var &quot;x&quot;) [
+        X.Arm (X.PatLit 42) (X.Lit &quot;yes&quot;)
+        X.Arm (X.PatVar &quot;y&quot;) (X.Lit &quot;other&quot;)
+    ])
+|&gt; solve [] None
+|&gt; shouldSolveType (
+    Mono (
+        UnionTyp (set [ LiteralTyp (Number 42.0) ])
+        ^-&gt; BuiltinTypes.string))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match with single Var arm is identity</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">fun x -&gt; match x with | y -&gt; y</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">           forall a. a -&gt; a
+(pure catch-all: the scrutinee is returned as-is)</code></pre>
+    </div>
+  </div>
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Fun (X.Ident &quot;x&quot;) (
+    X.Match (X.Var &quot;x&quot;) [
+        X.Arm (X.PatVar &quot;y&quot;) (X.Var &quot;y&quot;)
+    ])
+|&gt; solve [] None
+|&gt; shouldSolveType (TDef.Generalize (%1 ^-&gt; %1))</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match with wildcard as default arm</h3>
+    <span class="badge badge-ok">Inferred</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">match 5 with | 5 -&gt; &quot;five&quot; | _ -&gt; &quot;other&quot;</code></pre>
+    </div>
+    <div class="doc-section doc-inferred">
+      <span class="doc-label">Inferred</span>
+      <pre class="doc-value"><code class="language-fsharp">String</code></pre>
+    </div>
+  </div>
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Match (X.Lit 5) [
+    X.Arm (X.PatLit 5) (X.Lit &quot;five&quot;)
+    X.Arm X.PatWild (X.Lit &quot;other&quot;)
+]
+|&gt; solve [] None
+|&gt; shouldSolveType (Mono BuiltinTypes.string)</code></pre>
+  </details>
+</article>
+<article class="test-card">
+  <header class="test-head">
+    <h3 class="test-name">match arm body type mismatch fails</h3>
+    <span class="badge badge-error">Expected error</span>
+  </header>
+  <div class="test-doc">
+    <div class="doc-section doc-source">
+      <span class="doc-label">Source</span>
+      <pre class="doc-value"><code class="language-fsharp">match 5 with | 5 -&gt; &quot;five&quot; | 6 -&gt; 42</code></pre>
+    </div>
+    <div class="doc-section doc-error">
+      <span class="doc-label">Error</span>
+      <pre class="doc-value">arm body types do not unify (String vs Number)</pre>
+    </div>
+  </div>
+  
+  <details class="test-src">
+    <summary>F# test body</summary>
+    <pre><code class="language-fsharp">X.Match (X.Lit 5) [
+    X.Arm (X.PatLit 5) (X.Lit &quot;five&quot;)
+    X.Arm (X.PatLit 6) (X.Lit 42)
+]
+|&gt; solve [] None
+|&gt; shouldFail</code></pre>
+  </details>
+</article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

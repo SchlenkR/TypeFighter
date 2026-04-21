@@ -35,7 +35,6 @@ type MonoTyp =
     | SaturatedTyp of {| name: string; args: MonoTyp list |}
     | FunTyp of MonoTyp * MonoTyp
     | RecordTyp of RecordDefinition
-    | IntersectionTyp of RecordDefinition list
     | LiteralTyp of Literal
     | UnionTyp of Set<MonoTyp>
     override this.ToString() = ShowTyp.Show(this)
@@ -119,10 +118,6 @@ and ShowTyp =
                     $"{x.name}<{printedArgs}>"
             | FunTyp (t1, t2) -> $"({t1} -> {t2})"
             | RecordTyp record -> ShowTyp.Show record
-            | IntersectionTyp records ->
-                records
-                |> List.map ShowTyp.Show
-                |> String.concat " & "
             | LiteralTyp lit ->
                 match lit with
                 | Number n -> n.ToString()
@@ -424,11 +419,6 @@ module Typ =
                 ]
             | RecordTyp record ->
                 loopRecord record acc
-            | IntersectionTyp records ->
-                [
-                    for r in records do
-                        yield! loopRecord r acc
-                ]
             | LiteralTyp _ -> acc
             | UnionTyp members ->
                 [
@@ -475,7 +465,6 @@ module Typ =
                     SaturatedTyp {| name = x.name; args = x.args |> List.map renameMono |}
                 | FunTyp (a, b) -> FunTyp (renameMono a, renameMono b)
                 | RecordTyp r -> RecordTyp (renameRecord r)
-                | IntersectionTyp rs -> IntersectionTyp (rs |> List.map renameRecord)
                 | LiteralTyp l -> LiteralTyp l
                 | UnionTyp ms -> UnionTyp (ms |> Set.map renameMono)
             and renameRecord (r: RecordDefinition) : RecordDefinition =
@@ -618,10 +607,8 @@ module TypeSystem =
             let t1 = substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn t1)
             let t2 = substTypWithTypInTyp (SubstThis typToReplace) (SubstWith withTyp) (SubstIn t2)
             FunTyp (t1, t2)
-        | RecordTyp record -> 
+        | RecordTyp record ->
             RecordTyp (substRecord record)
-        | IntersectionTyp records ->
-            IntersectionTyp [ for record in records do substRecord record ]
         | LiteralTyp _ -> inTyp
         | UnionTyp members ->
             UnionTyp (set [
@@ -963,21 +950,6 @@ module TypeSystem =
                         | FunTyp (ta, tb), FunTyp (tc, td) ->
                             do unifyTypes source ta tc
                             do unifyTypes source tb td
-                        | RecordTyp rec1, IntersectionTyp records
-                        | IntersectionTyp records, RecordTyp rec1 ->
-                            // Step 5: an IntersectionTyp is a compound
-                            // record constraint — the record must satisfy
-                            // all arms. Unify against each arm's field set
-                            // pairwise. Positional items from arms are
-                            // concatenated (same merge-semantics as the
-                            // parser's `&` normaliser).
-                            for arm in records do
-                                unifyRecordFields arm.fields rec1.fields
-                                let armPositionals =
-                                    [ for r in records do yield! r.positionals ]
-                                if List.length armPositionals = List.length rec1.positionals then
-                                    for p1, p2 in List.zip armPositionals rec1.positionals do
-                                        unifyTypes source p1 p2
                         | RecordTyp rec1, RecordTyp rec2 ->
                             unifyRecordFields rec1.fields rec2.fields
                             // Positionals: treated as an ordered list for
@@ -1250,8 +1222,6 @@ module Solver =
                             SaturatedTyp {| app with args = app.args |> List.map reindexMono |}
                         | FunTyp (t1, t2) -> 
                             FunTyp (reindexMono t1, reindexMono t2)
-                        | IntersectionTyp records ->
-                            IntersectionTyp [ for r in records do reindexRecord r ]
                         | RecordTyp record ->
                             RecordTyp (reindexRecord record)
                         | LiteralTyp _ -> typ
