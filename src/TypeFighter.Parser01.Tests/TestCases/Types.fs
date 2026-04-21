@@ -222,16 +222,23 @@ let ``precedence - A and B or C at top`` () =
 // ---- Top-level `&` (intersection of records) ----
 
 [<Test>]
-let ``top-level & intersection of two records`` () =
+let ``top-level & merges two records`` () =
+    // After Step 5: `&` at the type level normalises into a single
+    // merged RecordTyp. No more IntersectionTyp from the parser.
     "{ name: String } & { age: Number }"
     |> shouldParseTypTo
-        (IntersectionTyp
-            [ TDef.RecordDefWith NameHint.Anonymous [ "name", BuiltinTypes.string ]
-              TDef.RecordDefWith NameHint.Anonymous [ "age",  BuiltinTypes.number ] ])
+        (TDef.RecordWithItems
+            [ "name", BuiltinTypes.string
+              "age",  BuiltinTypes.number ]
+            [])
 
 [<Test>]
 let ``top-level & rejects non-record operand`` () =
     "Number & String" |> shouldFailToParseTyp
+
+[<Test>]
+let ``top-level & rejects conflicting field types`` () =
+    "{ x: Number } & { x: String }" |> shouldFailToParseTyp
 
 
 // ---- Discriminated unions via record-set syntax ----

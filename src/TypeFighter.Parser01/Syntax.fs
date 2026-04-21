@@ -635,9 +635,10 @@ let private primTypReal : Parser<MonoTyp> =
 do primTypImpl <- primTypReal
 
 // altTyp: `A & B & C` at the TOP level (outside braces).
-// All operands must be records; the result is an IntersectionTyp of
-// their RecordDefinitions. Step 5 will reconcile this with a unified
-// semantics.
+// All operands must be records; the result is a MERGED record (Step 5).
+// The two-row record (named + positional) is exactly what the `&`
+// algebra wants: named fields become a set-union (same-name fields
+// must agree), positionals concatenate.
 let private altTyp : Parser<MonoTyp> =
     parse {
         let! head = primTyp
@@ -669,9 +670,36 @@ let private altTyp : Parser<MonoTyp> =
                         match t with
                         | RecordTyp r -> yield r
                         | _ -> () ]
-                return
-                    { range = Range.add head.range tail.range
-                      result = IntersectionTyp recordDefs }
+                // Merge: collect all named fields, detect name collisions
+                // with incompatible types.
+                let allNamed =
+                    [ for r in recordDefs do yield! r.fields ]
+                let grouped = allNamed |> List.groupBy (fun f -> f.fname)
+                let conflict =
+                    grouped
+                    |> List.tryFind (fun (_, fs) ->
+                        fs |> List.map (fun f -> f.typ) |> List.distinct |> List.length > 1)
+                match conflict with
+                | Some (name, fs) ->
+                    return
+                        { idx = head.range.startIdx
+                          message =
+                              sprintf
+                                  "Conflicting types for field '%s' in record intersection: %A"
+                                  name
+                                  (fs |> List.map (fun f -> f.typ)) }
+                | None ->
+                    let mergedFields =
+                        grouped |> List.map (fun (_, fs) -> List.head fs) |> Set.ofList
+                    let mergedPositionals =
+                        [ for r in recordDefs do yield! r.positionals ]
+                    let merged =
+                        { nameHint = NameHint.Anonymous
+                          fields = mergedFields
+                          positionals = mergedPositionals }
+                    return
+                        { range = Range.add head.range tail.range
+                          result = RecordTyp merged }
     }
 
 // typExpr: `A | B | C`. Union of alternatives.

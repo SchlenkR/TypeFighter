@@ -868,9 +868,21 @@ module TypeSystem =
                         | FunTyp (ta, tb), FunTyp (tc, td) ->
                             do unifyTypes source ta tc
                             do unifyTypes source tb td
-                        | RecordTyp _, IntersectionTyp _
-                        | IntersectionTyp _, RecordTyp _ ->
-                            failwith "TRecord and TIntersection: We need to tweak that, too."
+                        | RecordTyp rec1, IntersectionTyp records
+                        | IntersectionTyp records, RecordTyp rec1 ->
+                            // Step 5: an IntersectionTyp is a compound
+                            // record constraint — the record must satisfy
+                            // all arms. Unify against each arm's field set
+                            // pairwise. Positional items from arms are
+                            // concatenated (same merge-semantics as the
+                            // parser's `&` normaliser).
+                            for arm in records do
+                                unifyRecordFields arm.fields rec1.fields
+                                let armPositionals =
+                                    [ for r in records do yield! r.positionals ]
+                                if List.length armPositionals = List.length rec1.positionals then
+                                    for p1, p2 in List.zip armPositionals rec1.positionals do
+                                        unifyTypes source p1 p2
                         | RecordTyp rec1, RecordTyp rec2 ->
                             unifyRecordFields rec1.fields rec2.fields
                             // Positionals: treated as an ordered list for
