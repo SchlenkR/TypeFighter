@@ -11,7 +11,6 @@ natural type-level counterpart is a **type-set** with the same shape. We
 already have the ingredients:
 
 - `UnionTyp of Set<MonoTyp>` — a "bag of type alternatives" ([Lang.fs:40](../../src/TypeFighter/Lang.fs#L40)).
-- `IntersectionTyp of RecordDefinition list` — conjunctive record shape ([Lang.fs:38](../../src/TypeFighter/Lang.fs#L38)).
 - `RecordTyp of RecordDefinition` — a row of named fields.
 - `LiteralTyp of Literal` — literal-as-type for `Number`, `String`, `Boolean`.
 - `BuiltinTypes.boolean = UnionTyp { true, false }` — unions already used for `bool`.
@@ -178,16 +177,14 @@ union, the match is exhaustive; otherwise the solver raises a warning.
 | Today                                           | After this change                           |
 | ----------------------------------------------- | ------------------------------------------- |
 | `UnionTyp of Set<MonoTyp>`                      | Keep as internal repr; no surface syntax.   |
-| `IntersectionTyp of RecordDefinition list`     | `&` at the surface. Semantics must align — needs audit. |
 | `RecordTyp of RecordDefinition` (named only)    | Extended by [RecordsAsHeterogeneousSets.md](RecordsAsHeterogeneousSets.md) to carry a positional row. |
 | `LiteralTyp of Literal`                         | Unchanged. Surface exposes it directly.     |
 | `BuiltinTypes.boolean` hardcoded                | Becomes library type `Bool = true \| false`. |
 
-The `IntersectionTyp` audit is the one with real uncertainty: today it
-holds a list of `RecordDefinition`, which suggests it's really
-"intersection of record shapes" rather than general type intersection.
-If the semantics don't already match "conjunction of record items,"
-we may need to repurpose or replace it.
+> **Resolved (Step 5).** `IntersectionTyp` was removed. At the surface,
+> top-level `&` between two record operands normalises at parse time
+> into a single merged `RecordTyp`. Conflicting fields are rejected by
+> the parser. No separate intersection constructor survives in the AST.
 
 ## 7. Parser implications
 
@@ -235,8 +232,6 @@ Inside `{ … }`, a named item `name: typeExpr` is alternative to a bare
 - **Exhaustiveness for `|` at the record level.** When `match` covers
   some but not all arms of a record-type union, is that an error or a
   warning? TypeScript warns; Rust errors. Pick one and stick with it.
-- **`IntersectionTyp` reconciliation.** Audit what it means today before
-  wiring `&` to it.
 - **Shorthand.** TypeScript allows `{ x, y }` as shorthand for
   `{ x: x; y: y }` at values; do we mirror that at the type level too?
   Probably yes — it's the same symmetry.
@@ -252,9 +247,9 @@ Inside `{ … }`, a named item `name: typeExpr` is alternative to a bare
 3. **Decide precedence** by trying both on a handful of real examples.
 4. **Add `{ … }` and `&` at the type level**, aligned with the
    het-record value syntax. This is where the surface becomes uniform.
-5. **Reconcile `IntersectionTyp`** with the new `&`. May need to
-   redesign its internal representation to match the two-row record
-   model.
+5. **Reconcile `&` with existing records.** Parser-level `&` between
+   two record operands merges them into a single `RecordTyp`. The
+   legacy `IntersectionTyp` constructor is dropped entirely.
 6. **Add `Expr.Match`** to the expression AST, with narrowing over
    record-set types. This is the real "pattern matching" milestone.
 
