@@ -18,8 +18,8 @@ let ``record with two fields`` () =
     |> shouldParseTo
         (X.MkRecord
             [
-                X.Field "age"  (X.Lit 22)
-                X.Field "name" (X.Lit "John")
+                X.Property "age"  (X.Lit 22)
+                X.Property "name" (X.Lit "John")
             ])
 
 

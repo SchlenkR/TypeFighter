@@ -39,7 +39,6 @@
 <a class="nav-item" href="records.html"><span class="nav-name">Records</span><span class="nav-count">10</span></a>
 <a class="nav-item active" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
-<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
 <a class="nav-item" href="composites.html"><span class="nav-name">Composites — putting the pieces together</span><span class="nav-count">7</span></a>
 <a class="nav-item" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
   </nav>
@@ -198,8 +197,8 @@ useName { name = &quot;Alice&quot;; age = 30 }</code></pre>
     <pre><code class="language-fsharp">X.Let (X.Ident &quot;useName&quot;) (X.Fun (X.Ident &quot;r&quot;) (X.PropAcc (X.Var &quot;r&quot;) &quot;name&quot;)) (
     X.App (X.Var &quot;useName&quot;)
         (X.MkRecord [
-            X.Field &quot;name&quot; (X.Lit &quot;Alice&quot;)
-            X.Field &quot;age&quot; (X.Lit 30)
+            X.Property &quot;name&quot; (X.Lit &quot;Alice&quot;)
+            X.Property &quot;age&quot; (X.Lit 30)
         ]))
 |&gt; solve [] None
 |&gt; shouldSolveType (Mono BuiltinTypes.string)</code></pre>
@@ -229,13 +228,13 @@ useName { name = &quot;Alice&quot;; age = 30 }</code></pre>
     X.MkArray [
         X.App (X.Var &quot;getName&quot;)
             (X.MkRecord [
-                X.Field &quot;name&quot; (X.Lit &quot;a&quot;)
-                X.Field &quot;age&quot; (X.Lit 1)
+                X.Property &quot;name&quot; (X.Lit &quot;a&quot;)
+                X.Property &quot;age&quot; (X.Lit 1)
             ])
         X.App (X.Var &quot;getName&quot;)
             (X.MkRecord [
-                X.Field &quot;name&quot; (X.Lit &quot;b&quot;)
-                X.Field &quot;city&quot; (X.Lit &quot;NYC&quot;)
+                X.Property &quot;name&quot; (X.Lit &quot;b&quot;)
+                X.Property &quot;city&quot; (X.Lit &quot;NYC&quot;)
             ])
     ])
 |&gt; solve [] None
@@ -298,7 +297,7 @@ useName { name = &quot;Alice&quot;; age = 30 }</code></pre>
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.Fun (X.Ident &quot;r&quot;)
     (X.MkRecord [
-        X.Field &quot;doubled&quot;
+        X.Property &quot;doubled&quot;
             (X.App
                 (X.App (X.Var &quot;add&quot;) (X.PropAcc (X.Var &quot;r&quot;) &quot;x&quot;))
                 (X.PropAcc (X.Var &quot;r&quot;) &quot;x&quot;))
@@ -334,7 +333,7 @@ useName { age = 30 }</code></pre>
     <pre><code class="language-fsharp">X.Let (X.Ident &quot;useName&quot;) (X.Fun (X.Ident &quot;r&quot;) (X.PropAcc (X.Var &quot;r&quot;) &quot;name&quot;)) (
     X.App (X.Var &quot;useName&quot;)
         (X.MkRecord [
-            X.Field &quot;age&quot; (X.Lit 30)
+            X.Property &quot;age&quot; (X.Lit 30)
         ]))
 |&gt; solve [] None
 |&gt; shouldFail</code></pre>

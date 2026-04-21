@@ -92,8 +92,8 @@ X.MkArray [ X.Lit "a"; X.Lit 1; X.Lit "c" ]
 X.Let (X.Ident "name") (X.Lit "Alice")
     (X.Let (X.Ident "age") (X.Lit 30)
         (X.MkRecord [
-            X.Field "name" (X.Var "name")
-            X.Field "age" (X.Var "age")
+            X.Property "name" (X.Var "name")
+            X.Property "age" (X.Var "age")
         ]))
 |> solve [] None
 |> shouldSolveType (Mono (TDef.NamedRecordWith (NameHint.Given "Record") [ "name", BuiltinTypes.string; "age", BuiltinTypes.number ]))
@@ -136,14 +136,14 @@ let defaultTcEnv =
 X.MkArray
     [
         X.MkRecord [
-            X.Field
+            X.Property
                 "validFrom"
                 (X.App
                     (X.Var "MkThing")
                     (X.Lit "foo1")) 
         ]
         X.MkRecord [
-            X.Field
+            X.Property
                 "validFrom"
                 (X.App
                     (X.Var "MkThing")

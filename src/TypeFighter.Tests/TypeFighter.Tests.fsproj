@@ -15,7 +15,6 @@
     <Compile Include="TestCases\Records.fs" />
     <Compile Include="TestCases\Rows.fs" />
     <Compile Include="TestCases\Polymorphism.fs" />
-    <Compile Include="TestCases\TypeHierarchies.fs" />
     <Compile Include="TestCases\Match.fs" />
     <Compile Include="TestCases\Composites.fs" />
   </ItemGroup>

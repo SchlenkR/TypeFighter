@@ -47,9 +47,9 @@ let envWithArithmetic =
 // simplest.
 let [<Test>] ``record creation from literals`` () =
     X.MkRecord [
-        X.Field "age" (X.Lit 22)
-        X.Field "name" (X.Lit "John")
-        X.Field "address" (X.Lit "123 Main St")
+        X.Property "age" (X.Lit 22)
+        X.Property "name" (X.Lit "John")
+        X.Property "address" (X.Lit "123 Main St")
     ]
     |> solve [] None
     |> shouldSolveType (
@@ -99,8 +99,8 @@ let [<Test>] ``property access on environment-provided record`` () =
 let [<Test>] ``let-bound record keeps its fields`` () =
     X.Let (X.Ident "myRecord") (
         X.MkRecord [
-            X.Field "age" (X.Lit 22)
-            X.Field "name" (X.Lit "John")
+            X.Property "age" (X.Lit 22)
+            X.Property "name" (X.Lit "John")
         ]
     ) (X.Var "myRecord")
     |> solve [] None
@@ -123,8 +123,8 @@ let [<Test>] ``let-bound record keeps its fields`` () =
 let [<Test>] ``property access on a let-bound record`` () =
     X.Let (X.Ident "myRecord") (
         X.MkRecord [
-            X.Field "age" (X.Lit 22)
-            X.Field "name" (X.Lit "John")
+            X.Property "age" (X.Lit 22)
+            X.Property "name" (X.Lit "John")
         ]
     ) (
         X.PropAcc (X.Var "myRecord") "name"
@@ -146,8 +146,8 @@ let [<Test>] ``property access on a let-bound record`` () =
 let [<Test>] ``property access on a let-bound record (2)`` () =
     X.Let (X.Ident "myRecord") (
         X.MkRecord [
-            X.Field "age" (X.Lit 22)
-            X.Field "name" (X.Lit "John")
+            X.Property "age" (X.Lit 22)
+            X.Property "name" (X.Lit "John")
         ]
     ) (
         X.PropAcc (X.Var "myRecord") "age"
@@ -169,8 +169,8 @@ let [<Test>] ``property access on a let-bound record (2)`` () =
 let [<Test>] ``accessing a non-existing field fails`` () =
     X.Let (X.Ident "myRecord") (
         X.MkRecord [
-            X.Field "age" (X.Lit 22)
-            X.Field "name" (X.Lit "John")
+            X.Property "age" (X.Lit 22)
+            X.Property "name" (X.Lit "John")
         ]
     ) (
         X.PropAcc (X.Var "myRecord") "xxxxxxxx"
@@ -196,8 +196,8 @@ let [<Test>] ``comparing two differently-typed fields fails`` () =
     X.Let
         (X.Ident "r")
         (X.MkRecord [
-            X.Field "IntField" (X.Lit 3)
-            X.Field "BooleanField" (X.Lit true)
+            X.Property "IntField" (X.Lit 3)
+            X.Property "BooleanField" (X.Lit true)
         ])
         (X.App
             (X.App (X.Var("EQUALS")) (X.PropAcc (X.Var "r") "BooleanField"))
@@ -234,8 +234,8 @@ let [<Test>] ``using multiple fields in a boolean expression`` () =
     X.Let
         (X.Ident "r")
         (X.MkRecord [
-            X.Field "IntField" (X.Lit 3)
-            X.Field "BooleanField" (X.Lit true)
+            X.Property "IntField" (X.Lit 3)
+            X.Property "BooleanField" (X.Lit true)
         ])
         (X.App
             (X.App (X.Var "AND") left)
@@ -269,7 +269,7 @@ let [<Test>] ``record with single positional literal`` () =
 let [<Test>] ``record with positional string and named field`` () =
     X.MkRecord [
         X.Positional (X.Lit "Circle")
-        X.Field "radius" (X.Lit 3)
+        X.Property "radius" (X.Lit 3)
     ]
     |> solve [] None
     |> shouldSolveType (

@@ -94,14 +94,14 @@ let [<Test>] ``array with multiple record elements having field value from funct
         X.MkArray
             [
                 X.MkRecord [
-                    X.Field
+                    X.Property
                         "validFrom"
                         (X.App
                           (X.Var "MkThing")
                           (X.Lit "foo1"))
                 ]
                 X.MkRecord [
-                    X.Field
+                    X.Property
                         "validFrom"
                         (X.App
                           (X.Var "MkThing")

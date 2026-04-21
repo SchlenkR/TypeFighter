@@ -31,8 +31,8 @@ let ``record creation and property access round trip`` () =
         (X.Let (X.Ident "p")
             (X.MkRecord
                 [
-                    X.Field "age"  (X.Lit 22)
-                    X.Field "name" (X.Lit "John")
+                    X.Property "age"  (X.Lit 22)
+                    X.Property "name" (X.Lit "John")
                 ])
             (X.PropAcc (X.Var "p") "name"))
 

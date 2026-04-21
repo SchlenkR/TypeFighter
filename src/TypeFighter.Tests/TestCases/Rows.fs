@@ -126,8 +126,8 @@ let [<Test>] ``lambda requiring one field accepts record with extra fields`` () 
     X.Let (X.Ident "useName") (X.Fun (X.Ident "r") (X.PropAcc (X.Var "r") "name")) (
         X.App (X.Var "useName")
             (X.MkRecord [
-                X.Field "name" (X.Lit "Alice")
-                X.Field "age" (X.Lit 30)
+                X.Property "name" (X.Lit "Alice")
+                X.Property "age" (X.Lit 30)
             ]))
     |> solve [] None
     |> shouldSolveType (Mono BuiltinTypes.string)
@@ -152,13 +152,13 @@ let [<Test; Ignore("requires AST-level let-polymorphism — see Let.fs")>]
         X.MkArray [
             X.App (X.Var "getName")
                 (X.MkRecord [
-                    X.Field "name" (X.Lit "a")
-                    X.Field "age" (X.Lit 1)
+                    X.Property "name" (X.Lit "a")
+                    X.Property "age" (X.Lit 1)
                 ])
             X.App (X.Var "getName")
                 (X.MkRecord [
-                    X.Field "name" (X.Lit "b")
-                    X.Field "city" (X.Lit "NYC")
+                    X.Property "name" (X.Lit "b")
+                    X.Property "city" (X.Lit "NYC")
                 ])
         ])
     |> solve [] None
@@ -197,7 +197,7 @@ let [<Test>] ``field used as function applied to another field`` () =
 let [<Test>] ``lambda returns record built from input fields`` () =
     X.Fun (X.Ident "r")
         (X.MkRecord [
-            X.Field "doubled"
+            X.Property "doubled"
                 (X.App
                     (X.App (X.Var "add") (X.PropAcc (X.Var "r") "x"))
                     (X.PropAcc (X.Var "r") "x"))
@@ -222,7 +222,7 @@ let [<Test>] ``error - applying row-polymorphic function to record missing a fie
     X.Let (X.Ident "useName") (X.Fun (X.Ident "r") (X.PropAcc (X.Var "r") "name")) (
         X.App (X.Var "useName")
             (X.MkRecord [
-                X.Field "age" (X.Lit 30)
+                X.Property "age" (X.Lit 30)
             ]))
     |> solve [] None
     |> shouldFail

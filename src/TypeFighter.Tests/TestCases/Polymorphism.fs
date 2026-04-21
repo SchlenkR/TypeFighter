@@ -72,8 +72,8 @@ let [<Test>] ``polymorphic "log"`` () =
 // different types.
 let [<Test>] ``polymorphic "mkPoly" with infered record`` () =
     X.MkRecord [
-        X.Field "r1" (X.App (X.Var "mkPoly") (X.Lit true))
-        X.Field "r2" (X.App (X.Var "mkPoly") (X.Lit 33))
+        X.Property "r1" (X.App (X.Var "mkPoly") (X.Lit true))
+        X.Property "r2" (X.App (X.Var "mkPoly") (X.Lit 33))
     ]
     |> solve
         [

@@ -26,10 +26,6 @@ type X =
     static member MkRecord items = Expr.MkRecord {| items = items; tvar = ()  |}
     static member Property field value = RecordItem.Property {| fname = field; value = value |}
     static member Positional value = RecordItem.Positional value
-    // X.Field is a historical alias for X.Property — every named entry
-    // in a record used to be a Field; now it's a Property inside a
-    // heterogeneous RecordItem list.
-    static member Field field value = RecordItem.Property {| fname = field; value = value |}
     static member Match scrutinee arms = Expr.Match {| scrutinee = scrutinee; arms = arms; tvar = () |}
     static member Arm pattern body : MatchArm<unit> = { pattern = pattern; body = body }
     static member PatLit(value: int) = MatchPattern.Literal {| value = Number value; tvar = () |}

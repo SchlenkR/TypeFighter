@@ -39,7 +39,6 @@
 <a class="nav-item active" href="records.html"><span class="nav-name">Records</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="rows.html"><span class="nav-name">Rows (row-polymorphic record access)</span><span class="nav-count">10</span></a>
 <a class="nav-item" href="polymorphism.html"><span class="nav-name">Polymorphism (via env-supplied polytypes)</span><span class="nav-count">2</span></a>
-<a class="nav-item" href="typehierarchies.html"><span class="nav-name">Type hierarchies / implicit conversions</span><span class="nav-count">1</span></a>
 <a class="nav-item" href="composites.html"><span class="nav-name">Composites — putting the pieces together</span><span class="nav-count">7</span></a>
 <a class="nav-item" href="match.html"><span class="nav-name">Expr.Match  (Step 6 of TypeSyntaxWithSets)</span><span class="nav-count">6</span></a>
   </nav>
@@ -71,9 +70,9 @@
   <details class="test-src">
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.MkRecord [
-    X.Field &quot;age&quot; (X.Lit 22)
-    X.Field &quot;name&quot; (X.Lit &quot;John&quot;)
-    X.Field &quot;address&quot; (X.Lit &quot;123 Main St&quot;)
+    X.Property &quot;age&quot; (X.Lit 22)
+    X.Property &quot;name&quot; (X.Lit &quot;John&quot;)
+    X.Property &quot;address&quot; (X.Lit &quot;123 Main St&quot;)
 ]
 |&gt; solve [] None
 |&gt; shouldSolveType (
@@ -144,8 +143,8 @@ myRecord</code></pre>
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.Let (X.Ident &quot;myRecord&quot;) (
     X.MkRecord [
-        X.Field &quot;age&quot; (X.Lit 22)
-        X.Field &quot;name&quot; (X.Lit &quot;John&quot;)
+        X.Property &quot;age&quot; (X.Lit 22)
+        X.Property &quot;name&quot; (X.Lit &quot;John&quot;)
     ]
 ) (X.Var &quot;myRecord&quot;)
 |&gt; solve [] None
@@ -177,8 +176,8 @@ myRecord.name</code></pre>
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.Let (X.Ident &quot;myRecord&quot;) (
     X.MkRecord [
-        X.Field &quot;age&quot; (X.Lit 22)
-        X.Field &quot;name&quot; (X.Lit &quot;John&quot;)
+        X.Property &quot;age&quot; (X.Lit 22)
+        X.Property &quot;name&quot; (X.Lit &quot;John&quot;)
     ]
 ) (
     X.PropAcc (X.Var &quot;myRecord&quot;) &quot;name&quot;
@@ -208,8 +207,8 @@ myRecord.age</code></pre>
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.Let (X.Ident &quot;myRecord&quot;) (
     X.MkRecord [
-        X.Field &quot;age&quot; (X.Lit 22)
-        X.Field &quot;name&quot; (X.Lit &quot;John&quot;)
+        X.Property &quot;age&quot; (X.Lit 22)
+        X.Property &quot;name&quot; (X.Lit &quot;John&quot;)
     ]
 ) (
     X.PropAcc (X.Var &quot;myRecord&quot;) &quot;age&quot;
@@ -239,8 +238,8 @@ myRecord.xxxxxxxx</code></pre>
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.Let (X.Ident &quot;myRecord&quot;) (
     X.MkRecord [
-        X.Field &quot;age&quot; (X.Lit 22)
-        X.Field &quot;name&quot; (X.Lit &quot;John&quot;)
+        X.Property &quot;age&quot; (X.Lit 22)
+        X.Property &quot;name&quot; (X.Lit &quot;John&quot;)
     ]
 ) (
     X.PropAcc (X.Var &quot;myRecord&quot;) &quot;xxxxxxxx&quot;
@@ -278,8 +277,8 @@ EQUALS r.BooleanField r.IntField</code></pre>
 X.Let
     (X.Ident &quot;r&quot;)
     (X.MkRecord [
-        X.Field &quot;IntField&quot; (X.Lit 3)
-        X.Field &quot;BooleanField&quot; (X.Lit true)
+        X.Property &quot;IntField&quot; (X.Lit 3)
+        X.Property &quot;BooleanField&quot; (X.Lit true)
     ])
     (X.App
         (X.App (X.Var(&quot;EQUALS&quot;)) (X.PropAcc (X.Var &quot;r&quot;) &quot;BooleanField&quot;))
@@ -329,8 +328,8 @@ let right =
 X.Let
     (X.Ident &quot;r&quot;)
     (X.MkRecord [
-        X.Field &quot;IntField&quot; (X.Lit 3)
-        X.Field &quot;BooleanField&quot; (X.Lit true)
+        X.Property &quot;IntField&quot; (X.Lit 3)
+        X.Property &quot;BooleanField&quot; (X.Lit true)
     ])
     (X.App
         (X.App (X.Var &quot;AND&quot;) left)
@@ -383,7 +382,7 @@ X.Let
     <summary>F# test body</summary>
     <pre><code class="language-fsharp">X.MkRecord [
     X.Positional (X.Lit &quot;Circle&quot;)
-    X.Field &quot;radius&quot; (X.Lit 3)
+    X.Property &quot;radius&quot; (X.Lit 3)
 ]
 |&gt; solve [] None
 |&gt; shouldSolveType (
