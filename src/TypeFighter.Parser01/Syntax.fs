@@ -626,26 +626,14 @@ let private appliedOrIdentTyp =
               result = typ }
     }
 
-let private parenTypExpr =
-    parse {
-        let! openP = sym "("
-        let! t     = typExpr
-        let! closeP = sym ")"
-        return
-            { range = Range.merge [ openP.range; t.range; closeP.range ]
-              result = t.result }
-    }
-
-// A record-type item inside `{ … }` at the type level. Either
-// `name: T` (named field) or a bare `T` (positional item).
+// A record-type item inside `( … )` at the type level: either
+// `name: T` or a bare positional `T`.
 type private RecTypItem =
     | NamedItem of string * MonoTyp
     | PositionalItem of MonoTyp
 
-// Flatten `A | B | C` over a sub-grammar that starts at `primTyp`.
-// Used both for the top-level typExpr and for the "item type" position
-// inside `{ … }` — the latter cannot consume `&` (it's the item
-// separator), so it goes via primTyp directly, skipping altTyp.
+// Flatten `A | B | C` over primTyp. Used at top level and inside a
+// `( … )` record item, where `&` is the item separator not the operator.
 let private unionOverPrim =
     parse {
         let! head = primTyp
@@ -664,11 +652,10 @@ let private unionOverPrim =
         return { range = finalRange; result = flattenUnion all }
     }
 
-// `{ item1 [& item2]* }` — items separated by `&` (serving as the
-// record-item conjunction combinator). The TYPE of each item may
-// itself contain `|` (alternative slot), but NOT a top-level `&` —
-// that's the separator.
-let private recordTypBraces =
+// `( … )` at the type level is both grouping and record-set construction.
+// Items are `&`-separated; trailing `&` disambiguates a 1-positional
+// record from grouping, mirroring the value-level trailing-comma rule.
+let private parensOrRecordTyp =
     let recordItemTyp =
         let asNamed =
             parse {
@@ -694,13 +681,16 @@ let private recordTypBraces =
                 | PositionalItem t -> yield t
                 | _ -> () ]
         TDef.RecordWithItems named positional
+    let trailingAmp =
+        (sym "&" |> map (fun _ -> true))
+        <|> mkParser (fun inp -> POk.create inp.idx inp.idx false)
     parse {
-        let! openB  = sym "{"
+        let! openP  = sym "("
         let! items  =
             (psepBy1 (sym "&") recordItemTyp
              |> map (fun pvs -> pvs |> List.map (fun pv -> pv.result)))
             <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
-        // Duplicate-fields check (runs at parse time).
+        let! trailing = trailingAmp
         let named =
             [ for i in items.result do
                 match i with
@@ -708,27 +698,27 @@ let private recordTypBraces =
                 | _ -> () ]
         let duplicates =
             named |> List.groupBy id |> List.filter (fun (_, xs) -> List.length xs > 1) |> List.map fst
-        let! closeB = sym "}"
+        let! closeP = sym ")"
         if not (List.isEmpty duplicates) then
             return
-                { idx = openB.range.startIdx
+                { idx = openP.range.startIdx
                   message = sprintf "Duplicate named fields in record type: %A" duplicates }
         else
-            return
-                { range = Range.merge [ openB.range; items.range; closeB.range ]
-                  result = buildRecord items.result }
+            let range = Range.merge [ openP.range; items.range; closeP.range ]
+            let result =
+                match items.result, trailing.result with
+                | [ PositionalItem t ], false -> t
+                | _                           -> buildRecord items.result
+            return { range = range; result = result }
     }
 
-// The real primTyp implementation. Order matters: `boolLitTyp` must
-// come before `appliedOrIdentTyp` so that `true` / `false` are parsed
-// as literal types, not as identifiers. Numbers and strings are fine
-// first. Record-set braces precede parens (distinct opening tokens).
+// `boolLitTyp` precedes `appliedOrIdentTyp` so `true` / `false` parse
+// as literal types, not identifiers.
 let private primTypReal : Parser<MonoTyp> =
     numberLitTyp
     <|> stringLitTyp
     <|> boolLitTyp
-    <|> recordTypBraces
-    <|> parenTypExpr
+    <|> parensOrRecordTyp
     <|> appliedOrIdentTyp
 
 do primTypImpl <- primTypReal
@@ -761,7 +751,7 @@ let private altTyp : Parser<MonoTyp> =
                     { idx = head.range.startIdx
                       message =
                           sprintf
-                              "Type intersection `&` outside `{ … }` requires record operands; got %A. Use `{ A & B }` to build a record-set."
+                              "Type intersection `&` outside `( … )` requires record operands; got %A. Use `( A & B )` to build a record-set."
                               other }
             | None ->
                 let recordDefs =

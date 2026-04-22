@@ -15,9 +15,8 @@ type Literal =
     | String of string
     | Boolean of bool
 
-// This is not a type in the final sense, but a constraint.
-// Some of the elements may not even appear in the final type
-// (e.g. TVar).
+// A constraint-shaped type; some variants (e.g. TVar) only appear
+// mid-inference and never in a final solution.
 type MonoTyp =
     | TVar of VarNum
     | SaturatedTyp of {| name: string; args: MonoTyp list |}
@@ -42,11 +41,8 @@ and Typ =
 and RecordDefinition =
     {
         fields: Set<FieldDefinition>
-        // Positional items carried at the TYPE level as a bag
-        // (order-insensitive, duplicates allowed — see
-        // docs/design/RecordsAsHeterogeneousSets.md §4 Option Z).
-        // A list is used to preserve the original source order for
-        // pretty-printing; unification treats it as a multiset.
+        // Bag-semantics at the type level; order only kept for pretty-
+        // printing. See docs/design/RecordsAsHeterogeneousSets.md §4.
         positionals: MonoTyp list
     }
     override this.ToString() = ShowTyp.Show(this)
@@ -84,8 +80,8 @@ and ShowTyp =
                 yield! positionalParts
                 yield! namedParts
             ]
-            |> String.concat "; "
-        $"{{ {allParts} }}"
+            |> String.concat " & "
+        $"( {allParts} )"
     static member Show (record: RecordDefinition) =
         ShowTyp.Show(record.fields, record.positionals)
     static member Show (typ: MonoTyp) =
@@ -159,10 +155,8 @@ type Expr<'noneOrVarnum> =
 
 and Ident<'noneOrVarnum> = internal { identName: string; tvar: 'noneOrVarnum }
 
-// RecordItem: a single entry of a record-set. Records generalise the
-// "map of named fields" model to "set of mixed items" — some items are
-// named (Property), some are positional (raw values in the set). See
-// docs/design/RecordsAsHeterogeneousSets.md.
+// One entry of a record-set: either named (Property) or positional.
+// See docs/design/RecordsAsHeterogeneousSets.md.
 and [<RequireQualifiedAccess>] RecordItem<'noneOrVarnum> =
     internal
     | Property of {| fname: string; value: Expr<'noneOrVarnum> |}
@@ -178,10 +172,8 @@ and [<RequireQualifiedAccess>] RecordItem<'noneOrVarnum> =
         | Positional v -> Some v
         | _ -> None
 
-// MatchArm / MatchPattern: the building blocks of `match` (Step 6).
-// An arm is a pattern + body; the pattern either matches a literal,
-// binds the scrutinee to a name (PVar), or matches anything (Wildcard).
-// Record patterns and deeper structural narrowing are a follow-up.
+// Pattern + body arm for `match`. Literal / Var / Wildcard patterns
+// today; record destructure is a follow-up.
 and MatchArm<'noneOrVarnum> =
     internal { pattern: MatchPattern<'noneOrVarnum>; body: Expr<'noneOrVarnum> }
 
@@ -219,8 +211,8 @@ and ShowExpr =
             let parts =
                 x.items
                 |> List.map printItem
-                |> String.concat "; "
-            $"{{ {parts} }}"
+                |> String.concat ", "
+            $"( {parts} )"
         | Expr.Match x ->
             let printPat (p: MatchPattern<_>) =
                 match p with
@@ -425,17 +417,8 @@ module Typ =
     let maxVar (typ: Typ) =
         0 :: collectTVars typ |> List.max
 
-    // Generalizes a MonoTyp into a PolyTyp.
-    //
-    // Bound TVars are renumbered canonically (0, 1, 2, …) in traversal order so
-    // that alpha-equivalent polytypes compare equal under structural F# equality
-    // (e.g. `%5 -> %5` and `%10 -> %10` both become `%0 -> %0`).
-    //
-    // This is the cheap normalization approach. If it ever gets in the way we
-    // can switch to one of:
-    //   - Custom equivalence: keep original TVars, implement alpha-aware
-    //     equality/hashing on PolyTyp.
-    //   - De Bruijn indices: drop named TVars in bound positions entirely.
+    // Canonically renumbers bound TVars (0, 1, …) so alpha-equivalent
+    // polytypes compare equal under F# structural equality.
     let gen (typ: MonoTyp) =
         let tvars = collectTVars (Mono typ) |> List.map VarNum
         match tvars with
@@ -739,9 +722,7 @@ module TypeSystem =
                 for item in x.items do
                     generateConstraints env item.Value
 
-                // Named items flow into the named-field row; positional
-                // items flow into the second row (Option Z per
-                // docs/design/RecordsAsHeterogeneousSets.md).
+                // Named items → named row, positionals → second row.
                 // TODO: field names must be distinct
                 let namedFields =
                     [ for item in x.items do
@@ -799,11 +780,8 @@ module TypeSystem =
 
         constraints.Values, exprToEnv, trace.ToString()
 
-    /// After the main solver loop, any row var that accumulated CHasField
-    /// constraints but was never pinned to a concrete record gets closed
-    /// into a RecordTyp carrying the collected fields. Any tvar that
-    /// accumulated CHasMember constraints but was never pinned gets closed
-    /// into a UnionTyp of the collected members.
+    /// Closes row vars that accumulated CHasField / CHasMember constraints
+    /// but never got pinned: into RecordTyp and UnionTyp respectively.
     let finalizeSubstitutions (substitutions: MonoSubstitution list) (pendingFields: RecordRefs) (pendingMembers: MemberRefs) =
         let closeRecord (subs: MonoSubstitution list) (varNum: int, fields: Set<FieldDefinition>) =
             let recordTyp =
@@ -830,9 +808,8 @@ module TypeSystem =
     let solveConstraints (constraints: Constraint list) maxSolverRuns =
         let mutable solverRuns = ResizeArray()
 
-        // Internal solver state: rows (TVars whose VarNum is the key)
-        // accumulate field requirements here as CHasField constraints are
-        // processed. Not exposed in MonoTyp — it's just an efficient index.
+        // Keyed by row-TVar, accumulating CHasField requirements as they
+        // come in. Internal index; not exposed in MonoTyp.
         let rec solve
             (constraints: Constraint list)
             (pendingFields: RecordRefs)
@@ -935,9 +912,8 @@ module TypeSystem =
                             do unifyTypes source tb td
                         | RecordTyp rec1, RecordTyp rec2 ->
                             unifyRecordFields rec1.fields rec2.fields
-                            // Positionals: treated as an ordered list for
-                            // Step 4. Bag/structural semantics may replace
-                            // this once pattern-matching (Step 6) lands.
+                            // Ordered-list unification for Step 4; bag
+                            // semantics will land with pattern-matching.
                             if List.length rec1.positionals <> List.length rec2.positionals then
                                 throwUniError
                                     $"Positional item count mismatch: {List.length rec1.positionals} vs {List.length rec2.positionals}"
@@ -1023,9 +999,8 @@ module TypeSystem =
                             for c' in constraints do
                                 do nextConstraints.Append c'
 
-                        // A LiteralTyp is a member of the built-in it
-                        // widens to — `LiteralTyp 5 ∈ Number`, etc. This
-                        // lets `match (x: Number) with | 5 -> ...` succeed.
+                        // `LiteralTyp 5 ∈ Number`, etc. — literals belong
+                        // to the built-in they widen to.
                         | builtin when
                             (match req.memberTyp with
                              | LiteralTyp (Number _) -> builtin = BuiltinTypes.number

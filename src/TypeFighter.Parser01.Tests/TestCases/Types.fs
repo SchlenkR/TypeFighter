@@ -7,16 +7,12 @@ open TypeFighter.Parser01.Tests.TestHelper
 
 
 // =================================================================
-// Type-expression parser
-// -----------------------------------------------------------------
-// Grammar (low → high precedence):
-//
+// Type-expression parser — grammar (low → high precedence):
 //   typExpr = altTyp { "|" altTyp }
-//   altTyp  = primTyp { "&" primTyp }          (Step 3)
-//   primTyp = literalTyp | identTyp | applied | "(" typExpr ")" | "{…}" (Step 3)
-//
-// Step 2 covers literal types, identifiers (incl. built-ins),
-// applied types, parens, and `|`. `&` / `{…}` land in Step 3.
+//   altTyp  = primTyp { "&" primTyp }
+//   primTyp = literal | ident | applied | parensOrRecord
+// Records and grouping share `(…)`; trailing `&` disambiguates the
+// 1-positional case, mirroring ADR-004 at the value level.
 // =================================================================
 
 
@@ -143,22 +139,22 @@ let ``error - empty input`` () =
     "" |> shouldFailToParseTyp
 
 
-// ---- Record-type `{ … }` with `&` (Step 3) ----
+// ---- Record-type `( … )` with `&` ----
 
 [<Test>]
 let ``record type - empty`` () =
-    "{}"
+    "()"
     |> shouldParseTypTo (TDef.RecordWithItems [] [])
 
 [<Test>]
 let ``record type - single named field`` () =
-    "{ name: String }"
+    "( name: String )"
     |> shouldParseTypTo
         (TDef.RecordWithItems [ "name", BuiltinTypes.string ] [])
 
 [<Test>]
 let ``record type - two named fields with &`` () =
-    "{ name: String & age: Number }"
+    "( name: String & age: Number )"
     |> shouldParseTypTo
         (TDef.RecordWithItems
             [ "name", BuiltinTypes.string
@@ -166,14 +162,18 @@ let ``record type - two named fields with &`` () =
             [])
 
 [<Test>]
-let ``record type - single positional`` () =
-    "{ Number }"
+let ``record type - single positional requires trailing &`` () =
+    "( Number & )"
     |> shouldParseTypTo
         (TDef.RecordWithItems [] [ BuiltinTypes.number ])
 
 [<Test>]
+let ``record type - parens without trailing & are grouping`` () =
+    "( Number )" |> shouldParseTypTo BuiltinTypes.number
+
+[<Test>]
 let ``record type - two positionals`` () =
-    "{ Number & String }"
+    "( Number & String )"
     |> shouldParseTypTo
         (TDef.RecordWithItems
             []
@@ -181,7 +181,7 @@ let ``record type - two positionals`` () =
 
 [<Test>]
 let ``record type - mixed named and positional`` () =
-    """ { "Circle" & radius: Number } """
+    """ ( "Circle" & radius: Number ) """
     |> shouldParseTypTo
         (TDef.RecordWithItems
             [ "radius", BuiltinTypes.number ]
@@ -189,7 +189,7 @@ let ``record type - mixed named and positional`` () =
 
 [<Test>]
 let ``record type - literal-tagged discriminated union arm`` () =
-    """ { "Some" & Number } """
+    """ ( "Some" & Number ) """
     |> shouldParseTypTo
         (TDef.RecordWithItems
             []
@@ -197,15 +197,15 @@ let ``record type - literal-tagged discriminated union arm`` () =
 
 [<Test>]
 let ``record type - nested record`` () =
-    "{ outer: { inner: Number } }"
+    "( outer: ( inner: Number ) )"
     |> shouldParseTypTo
         (TDef.RecordWithItems
             [ "outer", TDef.RecordWithItems [ "inner", BuiltinTypes.number ] [] ]
             [])
 
 [<Test>]
-let ``record type with union slot - { 0 | 1 }`` () =
-    "{ 0 | 1 }"
+let ``record type with union slot`` () =
+    "( 0 | 1 & )"
     |> shouldParseTypTo
         (TDef.RecordWithItems
             []
@@ -213,9 +213,7 @@ let ``record type with union slot - { 0 | 1 }`` () =
 
 [<Test>]
 let ``precedence - A and B or C at top`` () =
-    // `&` binds tighter than `|`. Top-level `&` requires record operands,
-    // but `A | B & C` parses by grouping `B & C` first — and since B/C
-    // here aren't both records, this must fail at parse time.
+    // `&` binds tighter than `|`. Top-level `&` requires record operands.
     "Number | String & Number" |> shouldFailToParseTyp
 
 
@@ -223,9 +221,8 @@ let ``precedence - A and B or C at top`` () =
 
 [<Test>]
 let ``top-level & merges two records`` () =
-    // After Step 5: `&` at the type level normalises into a single
-    // merged RecordTyp. No more IntersectionTyp from the parser.
-    "{ name: String } & { age: Number }"
+    // Parse-time normalisation into a single merged RecordTyp.
+    "( name: String ) & ( age: Number )"
     |> shouldParseTypTo
         (TDef.RecordWithItems
             [ "name", BuiltinTypes.string
@@ -238,14 +235,14 @@ let ``top-level & rejects non-record operand`` () =
 
 [<Test>]
 let ``top-level & rejects conflicting field types`` () =
-    "{ x: Number } & { x: String }" |> shouldFailToParseTyp
+    "( x: Number ) & ( x: String )" |> shouldFailToParseTyp
 
 
 // ---- Discriminated unions via record-set syntax ----
 
 [<Test>]
 let ``discriminated union - Option Some or None`` () =
-    """ { "None" } | { "Some" & Number } """
+    """ ( "None" & ) | ( "Some" & Number ) """
     |> shouldParseTypTo
         (UnionTyp (set [
             TDef.RecordWithItems [] [ LiteralTyp (String "None") ]
@@ -254,7 +251,7 @@ let ``discriminated union - Option Some or None`` () =
 
 [<Test>]
 let ``discriminated union - Shape union`` () =
-    """ { "Circle" & radius: Number } | { "Square" & side: Number } """
+    """ ( "Circle" & radius: Number ) | ( "Square" & side: Number ) """
     |> shouldParseTypTo
         (UnionTyp (set [
             TDef.RecordWithItems

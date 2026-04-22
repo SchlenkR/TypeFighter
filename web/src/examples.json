@@ -4,7 +4,7 @@
     "examples": [
       {
         "title": "hello world",
-        "source": "// Simplest program: build a string, hand it to log.\n// Both `concat` and `log` live in the prelude (see \"In scope\" below).\n\nlet greeting = concat(\"Hello, \")(\"World\");\nlog(greeting);"
+        "source": "// Simplest program: a string literal handed to log.\n// `log` lives in the prelude — see \"In scope\" on the right.\n\nlog(\"Hello, World\");"
       },
       {
         "title": "literals",
@@ -16,28 +16,7 @@
       },
       {
         "title": "let binding",
-        "source": "// `let` introduces a new name for the rest of the program.\n// Semicolons separate statements; a trailing one is optional.\n\nlet name = \"Ada\";\nlet greeting = concat(\"Hi, \")(name);\nlog(greeting);"
-      }
-    ]
-  },
-  {
-    "name": "Functions",
-    "examples": [
-      {
-        "title": "identity",
-        "source": "// The identity function is fully polymorphic: `tv_0 -> tv_0`.\n// Hover `id` in the source to see the inferred type.\n\nlet id = x => x;\nlog(ToString(id(42)));"
-      },
-      {
-        "title": "currying",
-        "source": "// All multi-arg functions are curried — `a => b => ...` is the\n// idiomatic shape. Application is one-at-a-time: `add(\"foo\")(\"bar\")`.\n\nlet add = a => b => concat(a)(b);\nlog(add(\"foo\")(\"bar\"));"
-      },
-      {
-        "title": "higher-order",
-        "source": "// `twice` takes a function and feeds its output back into it.\n// Inferred type: `(tv_0 -> tv_0) -> tv_0 -> tv_0`.\n\nlet twice = f => x => f(f(x));\nlet exclaim = s => concat(s)(\"!\");\nlog(twice(exclaim)(\"yo\"));"
-      },
-      {
-        "title": "compose",
-        "source": "// Classic function composition. Three type variables flow through:\n// `compose : (b -> c) -> (a -> b) -> a -> c`.\n\nlet compose = f => g => x => f(g(x));\nlet shout = s => concat(s)(\"!!!\");\nlet greet = s => concat(\"Hello, \")(s);\nlog(compose(shout)(greet)(\"Ada\"));"
+        "source": "// `let` introduces a new name for the rest of the program.\n// Semicolons separate statements; a trailing one is optional.\n\nlet name = \"Ada\";\nlog(name);"
       }
     ]
   },
@@ -46,19 +25,40 @@
     "examples": [
       {
         "title": "property access",
-        "source": "// Records are structural: the type is the set of fields, not a\n// declared name. Use round brackets for records — see ADR-004.\n\nlet p = (age: 22, name: \"John\");\nlog(p.name);"
+        "source": "// Records use round brackets (ADR-004). The type is the set of\n// fields — structural, no declaration.\n\nlet p = (age: 22, name: \"John\");\nlog(p.name);"
       },
       {
         "title": "nested records",
         "source": "// Nesting is just a record field whose type is another record.\n// Property access chains: `u.user.name`.\n\nlet u = (user: (id: 1, name: \"Ada\"), active: true);\nlog(u.user.name);"
       },
       {
-        "title": "record from function",
-        "source": "// Field order in a literal doesn't matter for the type — records\n// are bags of fields, not sequences. This is the pay-off of structural\n// typing: `mkUser` works the same regardless of which order you write\n// `name` and `age` in its result.\n\nlet mkUser = n => a => (name: n, age: a);\nlet u = mkUser(\"Ada\")(42);\nlog(u.name);"
+        "title": "structural accessor",
+        "source": "// `getName` is inferred from its body alone — no annotations.\n// Any record with a `name` field of type String works.\n\nlet getName = r => r.name;\nlog(getName((name: \"Ada\", age: 42)));\nlog(getName((name: \"Bob\", age: 31)));"
       },
       {
-        "title": "structural accessor",
-        "source": "// `getName` is inferred from its body alone — no type annotations.\n// Both calls pass a record matching `{ name: String, age: Number }`.\n\nlet getName = r => r.name;\nlog(getName((name: \"Ada\", age: 42)));\nlog(getName((name: \"Bob\", age: 31)));"
+        "title": "record from function",
+        "source": "// Field order in a literal doesn't matter for the type — records\n// are bags of fields, not sequences.\n\nlet mkUser = n => a => (name: n, age: a);\nlet u = mkUser(\"Ada\")(42);\nlog(u.name);"
+      }
+    ]
+  },
+  {
+    "name": "Functions",
+    "examples": [
+      {
+        "title": "identity",
+        "source": "// Identity is fully polymorphic: `tv_0 -> tv_0`.\n// One type variable carries through.\n\nlet id = x => x;\nlog(ToString(id(42)));"
+      },
+      {
+        "title": "higher-order",
+        "source": "// `twice` takes a function and feeds its output back into it.\n// Inferred type: `(tv_0 -> tv_0) -> tv_0 -> tv_0`.\n\nlet twice = f => x => f(f(x));\nlet exclaim = s => concat(s)(\"!\");\nlog(twice(exclaim)(\"yo\"));"
+      },
+      {
+        "title": "compose",
+        "source": "// Function composition with three type variables:\n// `compose : (b -> c) -> (a -> b) -> a -> c`.\n\nlet compose = f => g => x => f(g(x));\nlet shout = s => concat(s)(\"!!!\");\nlet greet = s => concat(\"Hello, \")(s);\nlog(compose(shout)(greet)(\"Ada\"));"
+      },
+      {
+        "title": "partial application",
+        "source": "// Under curried semantics, applying fewer args returns a function\n// of the remaining ones. Here `greet5` is a pre-filled greeter.\n\nlet greet = prefix => name => concat(prefix)(name);\nlet sayHi = greet(\"Hi, \");\nlog(sayHi(\"Ada\"));\nlog(sayHi(\"Bob\"));"
       }
     ]
   },
@@ -75,7 +75,7 @@
       },
       {
         "title": "array of records",
-        "source": "// Records inside arrays share the element type, which is itself\n// a record shape. Inferred: `Array<{ x: Number, y: Number }>`.\n\nlet points = [\n  (x: 1, y: 2),\n  (x: 3, y: 4)\n];\nlog(ToString(points));"
+        "source": "// Records inside arrays share the element type, which is itself\n// a record shape. Inferred: `Array<( x: Number & y: Number )>`.\n\nlet points = [\n  (x: 1, y: 2),\n  (x: 3, y: 4)\n];\nlog(ToString(points));"
       }
     ]
   },
@@ -92,11 +92,11 @@
       },
       {
         "title": "inferred record shape",
-        "source": "// `getX`'s inferred type is `{ x: tv_0, y: Number } -> tv_0` —\n// the checker figures out both the field set *and* each field's type\n// from the call sites, without any annotation on `getX` itself.\n\nlet getX = p => p.x;\nlog(ToString(getX((x: 10, y: 20))));\nlog(ToString(getX((x: 99, y: 100))));"
+        "source": "// `getX`'s inferred type is `( x: tv_0 & y: Number ) -> tv_0` —\n// both the field set and each field's type come from the call\n// sites, with no annotation on `getX`.\n\nlet getX = p => p.x;\nlog(ToString(getX((x: 10, y: 20))));\nlog(ToString(getX((x: 99, y: 100))));"
       },
       {
         "title": "function as value",
-        "source": "// Functions are first-class values. `apply` has the most general\n// type a one-arg higher-order function can have:\n//   (tv_0 -> tv_1) -> tv_0 -> tv_1\n\nlet apply = f => x => f(x);\nlet greet = s => concat(\"Hi, \")(s);\nlog(apply(greet)(\"Ada\"));"
+        "source": "// Functions are first-class. `apply` has the most general type\n// a one-arg higher-order function can have:\n//   (tv_0 -> tv_1) -> tv_0 -> tv_1\n\nlet apply = f => x => f(x);\nlet greet = s => concat(\"Hi, \")(s);\nlog(apply(greet)(\"Ada\"));"
       }
     ]
   },
@@ -118,11 +118,11 @@
       },
       {
         "title": "missing record field",
-        "source": "// p's inferred type is `{ x: Number, y: Number }`. Accessing .z\n// adds a constraint the record doesn't satisfy → type error.\n\nlet p = (x: 1, y: 2);\nlog(ToString(p.z));"
+        "source": "// p's inferred type is `( x: Number & y: Number )`. Accessing .z\n// adds a constraint the record doesn't satisfy → type error.\n\nlet p = (x: 1, y: 2);\nlog(ToString(p.z));"
       },
       {
         "title": "record shape mismatch",
-        "source": "// useName demands `{ name: tv_0, ... }`. The argument has `age`\n// but no `name` — the \"required field missing\" error fires.\n\nlet useName = r => r.name;\nuseName((age: 30));"
+        "source": "// useName demands a record with a `name` field. The argument has\n// `age` but no `name` — \"required field missing\" fires.\n\nlet useName = r => r.name;\nuseName((age: 30));"
       },
       {
         "title": "parse error",
