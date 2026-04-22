@@ -51,16 +51,17 @@ jobs:
 
       - name: Build playground
         working-directory: web
-        # Repo is served at /TypeFighter/ on GH Pages; the playground
-        # lives under /playground/ so its assets resolve via this base.
+        # Playground is the landing page at /TypeFighter/, so its asset
+        # base matches. The generated test-suite docs sit one level down
+        # at /TypeFighter/docs/ (build.fsx writes there directly).
         env:
-          PLAYGROUND_BASE: /TypeFighter/playground/
+          PLAYGROUND_BASE: /TypeFighter/
         run: npm run build
 
       - name: Copy playground into docs output
         run: |
-          mkdir -p docs/output/playground
-          cp -r web/dist/. docs/output/playground/
+          mkdir -p docs/output
+          cp -r web/dist/. docs/output/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

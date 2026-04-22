@@ -87,15 +87,15 @@ const srcModel = srcEditor.getModel()!;
 
 document.getElementById("brand-logo")!.innerHTML = logoSvg;
 
-// Docs link target: in a production build the playground ships under
-// `/TypeFighter/playground/` on GH Pages, so `../` reaches the docs
-// root. In dev there is no local docs site (Vite serves only this app),
-// so point at the live one instead to avoid the dead `/` → playground
-// loop.
+// Docs link target: in a production build the playground is the
+// landing page at `/TypeFighter/` on GH Pages; the test-suite docs
+// sit one level down at `/TypeFighter/docs/`. In dev there's no
+// local docs site (Vite serves only this app), so point at the live
+// one instead.
 const docsLink = document.getElementById("docs-link") as HTMLAnchorElement;
 docsLink.href = import.meta.env.PROD
-    ? "../"
-    : "https://schlenkr.github.io/TypeFighter/";
+    ? "docs/"
+    : "https://schlenkr.github.io/TypeFighter/docs/";
 
 // Latest IntelliSense snapshot. Providers read from here; the compile
 // callback refreshes it. Stale data during a failed parse still beats

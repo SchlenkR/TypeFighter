@@ -7,8 +7,9 @@ import { resolve } from "path";
 // default config is for the dev server and the Monaco app bundle.
 //
 // `base` is read from the env so the same config serves local dev at `/`
-// and the GitHub Pages deploy at `/TypeFighter/playground/`. The GH
-// Actions workflow sets PLAYGROUND_BASE before running `npm run build`.
+// and the GitHub Pages deploy at `/TypeFighter/` (playground is the
+// landing page). The GH Actions workflow sets PLAYGROUND_BASE before
+// running `npm run build`.
 export default defineConfig({
     root: ".",
     base: process.env.PLAYGROUND_BASE || "/",

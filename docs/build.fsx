@@ -9,7 +9,11 @@ open System.Text.RegularExpressions
 let scriptDir = __SOURCE_DIRECTORY__
 let repoRoot  = Path.GetFullPath(Path.Combine(scriptDir, ".."))
 let testsDir  = Path.Combine(repoRoot, "src", "TypeFighter.Tests", "TestCases")
-let outputDir = Path.Combine(scriptDir, "output")
+// The GH Pages deploy serves `docs/output/` at `/TypeFighter/`. The
+// playground is the landing page (copied into `docs/output/` by CI),
+// so the test-suite docs generate one level down at
+// `/TypeFighter/docs/` → `docs/output/docs/`.
+let outputDir = Path.Combine(scriptDir, "output", "docs")
 
 // ─── Model ──────────────────────────────────────────────────────────
 
@@ -386,7 +390,7 @@ let renderSidebar (files: TestFile list) (activeSlug: string option) =
   </div>
   <nav class="nav">
     <div class="nav-group-label">Try it</div>
-    <a class="nav-item nav-item-playground" href="playground/"><span class="nav-name">Playground →</span></a>
+    <a class="nav-item nav-item-playground" href="../"><span class="nav-name">Playground →</span></a>
     <div class="nav-group-label">Reference</div>
     <a class="{conceptsCls}" href="concepts.html"><span class="nav-name">Concepts</span></a>
     <div class="nav-group-label">Test categories</div>
