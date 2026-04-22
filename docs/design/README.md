@@ -7,6 +7,10 @@ Firm commitments (what we've actually decided) live in
 [DesignDecisions.md](DesignDecisions.md) as a short ADR-style ledger.
 Check there first when wondering "is X decided or still speculative?"
 
+Flagged-but-unresolved questions live in
+[OpenResearch.md](OpenResearch.md) — a running to-do list that
+migrates into ADRs as items get answered.
+
 ## Language surface
 
 - [SyntaxAlternatives.md](SyntaxAlternatives.md) — five genuinely different
