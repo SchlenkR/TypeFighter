@@ -23,7 +23,7 @@ let ``let bound identity applied`` () =
 [<Test>]
 let ``record creation and property access round trip`` () =
     let source = """
-        let p = { age: 22, name: "John" };
+        let p = ( age: 22, name: "John" );
         p.name
     """
     source
@@ -46,10 +46,10 @@ let ``record creation and property access round trip`` () =
 [<Test>]
 let ``demo - nested record literal`` () =
     let source = """
-        {
-            user: { id: 1, name: "Ada" },
+        (
+            user: ( id: 1, name: "Ada" ),
             active: true
-        }
+        )
     """
     shouldParseSuccessfully source
 
@@ -57,9 +57,9 @@ let ``demo - nested record literal`` () =
 let ``demo - array of records`` () =
     let source = """
         [
-            { x: 1, y: 2 },
-            { x: 3, y: 4 },
-            { x: 5, y: 6 }
+            ( x: 1, y: 2 ),
+            ( x: 3, y: 4 ),
+            ( x: 5, y: 6 )
         ]
     """
     shouldParseSuccessfully source
@@ -86,11 +86,11 @@ let ``demo - small pipeline-style program`` () =
 [<Test>]
 let ``demo - configuration-style nested object`` () =
     let source = """
-        let config = {
-            server: { host: "localhost", port: 8080 },
+        let config = (
+            server: ( host: "localhost", port: 8080 ),
             retries: 3,
             debug: true
-        };
+        );
         config.server.port
     """
     shouldParseSuccessfully source

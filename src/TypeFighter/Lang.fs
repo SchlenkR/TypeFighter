@@ -173,6 +173,11 @@ and [<RequireQualifiedAccess>] RecordItem<'noneOrVarnum> =
         | Property x -> x.value
         | Positional v -> v
 
+    member this.TryAsPositional =
+        match this with
+        | Positional v -> Some v
+        | _ -> None
+
 // MatchArm / MatchPattern: the building blocks of `match` (Step 6).
 // An arm is a pattern + body; the pattern either matches a literal,
 // binds the scrutinee to a name (PVar), or matches anything (Wildcard).

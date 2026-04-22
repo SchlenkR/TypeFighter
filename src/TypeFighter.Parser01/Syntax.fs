@@ -262,17 +262,9 @@ let private expr : Parser<Expr<unit>> =
     mkParser (fun inp -> getParser exprImpl.Value inp)
 
 
-// -------- Primaries: ( expr ), arrays, records, var --------
-
-let private parenExpr =
-    parse {
-        let! openP = sym "("
-        let! e     = expr
-        let! closeP = sym ")"
-        return
-            { range = Range.merge [ openP.range; e.range; closeP.range ]
-              result = e.result }
-    }
+// -------- Primaries: ( … ), arrays, var --------
+// Records and grouping share `(…)` per ADR-004 — see
+// docs/design/CallsAreRecords.md for the rationale.
 
 let inline private commaList (p: Parser<'a>) : Parser<'a list> =
     (psepBy1 (sym ",") p |> map (fun pvs -> pvs |> List.map (fun pv -> pv.result)))
@@ -289,10 +281,8 @@ let private arrayLit =
     }
 
 let private recordItem =
-    // A record item is either `name: expr` (property) or a bare expr
-    // (positional). `Property` is tried first because it commits on the
-    // `identifier : ` prefix — if that prefix fails, we backtrack to
-    // parse a plain expression.
+    // Try `name: expr` first; fall back to a bare expression if the
+    // `identifier :` prefix doesn't match.
     let asProperty =
         parse {
             let! name  = identifier
@@ -306,14 +296,26 @@ let private recordItem =
         expr |> map X.Positional
     asProperty <|> asPositional
 
-let private recordLit =
+let private parensOrRecord =
+    // `(x)` is grouping; `()`, `(x,)`, `(a, b)`, `(name: v, …)` are records.
+    // Trailing comma is the disambiguator for the 1-element record case.
+    let trailingComma =
+        (sym "," |> map (fun _ -> true))
+        <|> mkParser (fun inp -> POk.create inp.idx inp.idx false)
     parse {
-        let! openB  = sym "{"
+        let! openP  = sym "("
         let! items  = commaList recordItem
-        let! closeB = sym "}"
-        return
-            { range = Range.merge [ openB.range; items.range; closeB.range ]
-              result = X.MkRecord items.result }
+        let! comma  = trailingComma
+        let! closeP = sym ")"
+        let range = Range.merge [ openP.range; items.range; closeP.range ]
+        let result =
+            match items.result, comma.result with
+            | [ only ], false ->
+                match only.TryAsPositional with
+                | Some e -> e
+                | None   -> X.MkRecord items.result
+            | _ -> X.MkRecord items.result
+        return { range = range; result = result }
     }
 
 let private varExpr =
@@ -328,8 +330,7 @@ let private primary =
             stringLit
             boolLit
             arrayLit
-            recordLit
-            parenExpr
+            parensOrRecord
             varExpr
         ]
 

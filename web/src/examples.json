@@ -46,19 +46,19 @@
     "examples": [
       {
         "title": "property access",
-        "source": "// Records are structural: the type is the set of fields, not a\n// declared name. The inferred type here is `{ age: Number, name: String }`.\n\nlet p = { age: 22, name: \"John\" };\nlog(p.name);"
+        "source": "// Records are structural: the type is the set of fields, not a\n// declared name. Use round brackets for records — see ADR-004.\n\nlet p = (age: 22, name: \"John\");\nlog(p.name);"
       },
       {
         "title": "nested records",
-        "source": "// Nesting is just a record field whose type is another record.\n// Property access chains: `u.user.name`.\n\nlet u = { user: { id: 1, name: \"Ada\" }, active: true };\nlog(u.user.name);"
+        "source": "// Nesting is just a record field whose type is another record.\n// Property access chains: `u.user.name`.\n\nlet u = (user: (id: 1, name: \"Ada\"), active: true);\nlog(u.user.name);"
       },
       {
         "title": "record from function",
-        "source": "// Field order in a literal doesn't matter for the type — records\n// are bags of fields, not sequences. This is the pay-off of structural\n// typing: `mkUser` works the same regardless of which order you write\n// `name` and `age` in its result.\n\nlet mkUser = n => a => { name: n, age: a };\nlet u = mkUser(\"Ada\")(42);\nlog(u.name);"
+        "source": "// Field order in a literal doesn't matter for the type — records\n// are bags of fields, not sequences. This is the pay-off of structural\n// typing: `mkUser` works the same regardless of which order you write\n// `name` and `age` in its result.\n\nlet mkUser = n => a => (name: n, age: a);\nlet u = mkUser(\"Ada\")(42);\nlog(u.name);"
       },
       {
         "title": "structural accessor",
-        "source": "// `getName` is inferred from its body alone — no type annotations.\n// Both calls use the same record shape `{ name: String, age: Number }`.\n\nlet getName = r => r.name;\nlog(getName({ name: \"Ada\", age: 42 }));\nlog(getName({ name: \"Bob\", age: 31 }));"
+        "source": "// `getName` is inferred from its body alone — no type annotations.\n// Both calls pass a record matching `{ name: String, age: Number }`.\n\nlet getName = r => r.name;\nlog(getName((name: \"Ada\", age: 42)));\nlog(getName((name: \"Bob\", age: 31)));"
       }
     ]
   },
@@ -75,7 +75,7 @@
       },
       {
         "title": "array of records",
-        "source": "// Records inside arrays share the element type, which is itself\n// a record shape. Inferred: `Array<{ x: Number, y: Number }>`.\n\nlet points = [\n  { x: 1, y: 2 },\n  { x: 3, y: 4 }\n];\nlog(ToString(points));"
+        "source": "// Records inside arrays share the element type, which is itself\n// a record shape. Inferred: `Array<{ x: Number, y: Number }>`.\n\nlet points = [\n  (x: 1, y: 2),\n  (x: 3, y: 4)\n];\nlog(ToString(points));"
       }
     ]
   },
@@ -84,7 +84,7 @@
     "examples": [
       {
         "title": "ToString is polymorphic",
-        "source": "// ToString's type is `tv_0 -> String` — one instantiation per\n// call site. Three unrelated argument types, one function.\n\nlog(ToString(42));\nlog(ToString(true));\nlog(ToString({ x: 1, y: 2 }));"
+        "source": "// ToString's type is `tv_0 -> String` — one instantiation per\n// call site. Three unrelated argument types, one function.\n\nlog(ToString(42));\nlog(ToString(true));\nlog(ToString((x: 1, y: 2)));"
       },
       {
         "title": "inferred function type",
@@ -92,7 +92,7 @@
       },
       {
         "title": "inferred record shape",
-        "source": "// `getX`'s inferred type is `{ x: tv_0, y: Number } -> tv_0` —\n// the checker figures out both the field set *and* each field's type\n// from the call sites, without any annotation on `getX` itself.\n\nlet getX = p => p.x;\nlog(ToString(getX({ x: 10, y: 20 })));\nlog(ToString(getX({ x: 99, y: 100 })));"
+        "source": "// `getX`'s inferred type is `{ x: tv_0, y: Number } -> tv_0` —\n// the checker figures out both the field set *and* each field's type\n// from the call sites, without any annotation on `getX` itself.\n\nlet getX = p => p.x;\nlog(ToString(getX((x: 10, y: 20))));\nlog(ToString(getX((x: 99, y: 100))));"
       },
       {
         "title": "function as value",
@@ -118,11 +118,11 @@
       },
       {
         "title": "missing record field",
-        "source": "// p's inferred type is `{ x: Number, y: Number }`. Accessing .z\n// adds a constraint the record doesn't satisfy → type error.\n\nlet p = { x: 1, y: 2 };\nlog(ToString(p.z));"
+        "source": "// p's inferred type is `{ x: Number, y: Number }`. Accessing .z\n// adds a constraint the record doesn't satisfy → type error.\n\nlet p = (x: 1, y: 2);\nlog(ToString(p.z));"
       },
       {
         "title": "record shape mismatch",
-        "source": "// useName demands `{ name: tv_0, ... }`. The argument has `age`\n// but no `name` — the \"required field missing\" error fires.\n\nlet useName = r => r.name;\nuseName({ age: 30 });"
+        "source": "// useName demands `{ name: tv_0, ... }`. The argument has `age`\n// but no `name` — the \"required field missing\" error fires.\n\nlet useName = r => r.name;\nuseName((age: 30));"
       },
       {
         "title": "parse error",
