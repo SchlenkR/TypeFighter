@@ -30,3 +30,6 @@ not decided plans — each one frames options, tradeoffs, and open questions.
   `|`, `&`, and `{ … }` as set combinators with literal types. Subsumes
   `UnionTyp` as a surface concept, gives discriminated unions for free,
   sets up pattern matching.
+- [DoWeNeedCurrying.md](DoWeNeedCurrying.md) — is mandatory currying still
+  paying for itself given planned pipelines and operators? Tentative lean
+  toward multi-arg surface + `_` placeholder sections, curried HM core.
