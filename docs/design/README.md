@@ -42,6 +42,10 @@ migrates into ADRs as items get answered.
   (ESOP 2025) give the type-theoretic frame, Smalltalk gives the precedent,
   Rémy/Wand row polymorphism is the engine we already have. Decides round
   brackets (ADR-004); leans toward named-only call sites (ADR-005).
+- [RecordBracketsReconsidered.md](RecordBracketsReconsidered.md) — the full
+  research matrix (ML-classic vs F#-mixed vs Mainstream), and the synthesis
+  behind ADR-009: `{…}` for records, `(…)` for grouping only, calls still
+  sugar named args into a record.
 - [TypeSyntaxWithSets.md](TypeSyntaxWithSets.md) — type-level counterpart:
   `|`, `&`, and `{ … }` as set combinators with literal types. Subsumes
   `UnionTyp` as a surface concept, gives discriminated unions for free,

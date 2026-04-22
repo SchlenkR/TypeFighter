@@ -61,7 +61,7 @@ commitment yet; revisit once real code exists.
 
 ## ADR-004 — Record syntax uses round brackets, not curly
 
-**Status:** Decided
+**Status:** Superseded by ADR-009 (2026-04-22)
 **Date:** 2026-04-22
 **Context:** Research into Scala 3 named tuples, Smalltalk, Rémy/Wand
 row polymorphism, and the [Sun & Oliveira (ESOP 2025) paper on named
@@ -185,6 +185,41 @@ Worth asking: collapse them?
   (subtyping-based, not unification-based). Not what TypeFighter is.
 
 **Related:** [TypeSyntaxWithSets.md §4.1](TypeSyntaxWithSets.md)
+
+---
+
+## ADR-009 — Curly braces for records; parens are grouping only
+
+**Status:** Decided (supersedes ADR-004)
+**Date:** 2026-04-22
+**Context:** ADR-004's unified `(…)` for grouping + records forced
+the parser to sniff content to pick its meaning, and needed a
+trailing-separator tax (`(x,)` vs `(x)`, `(T &)` vs `(T)`) for the
+1-element case. Reconsidering against the broader research matrix
+— ML-classic, F#-mixed, Mainstream — none of the three pure models
+gave all four properties we want (records/calls rhyme, auto-partial
+on named under-application, optional-args with union-type fundament,
+beginner-friendly). A synthesis works: Mainstream-style record
+brackets `{ … }` on the surface, with the call-site still reading
+named args into a record (so `f(name: "Ada")` is sugar for
+`f({ name: "Ada" })`).
+**Decision:** Value-level record literals use `{ … }`. Type-level
+record syntax uses `{ … }`. Parens `( … )` are pure grouping —
+one expression inside, no sniffing. Tuples are subsumed by
+positional records (`{ 1, 2, 3 }`). Arrays keep `[ … ]`. Empty
+parens `()` remain the unit value as a special case.
+**Consequences:**
+- Reverts the surface-level changes from Slices A and B; printers
+  back to `{ … }`.
+- Each bracket shape now has a single role — parser-cognitive cost
+  drops.
+- Call-site named-arg sugar (from the Slice after A) stays as-is;
+  it was independent of ADR-004.
+- Tuples don't get their own AST constructor; positional records
+  cover the use case.
+**Related:** [RecordBracketsReconsidered.md](RecordBracketsReconsidered.md),
+[CallsAreRecords.md](CallsAreRecords.md),
+[TypeSyntaxWithSets.md](TypeSyntaxWithSets.md)
 
 ---
 
