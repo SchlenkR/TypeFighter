@@ -32,6 +32,20 @@ let ``parens without trailing comma are grouping`` () =
     """( 42 )"""
     |> shouldParseTo (X.Lit 42)
 
+[<Test>]
+let ``call-with-named-arg collapses to single parens`` () =
+    """f(name: "Ada")"""
+    |> shouldParseTo
+        (X.App (X.Var "f")
+            (X.MkRecord [ X.Property "name" (X.Lit "Ada") ]))
+
+[<Test>]
+let ``call-with-double-parens equals call-with-single`` () =
+    let a = parse """f(name: "Ada")"""
+    let b = parse """f((name: "Ada"))"""
+    if a <> b then
+        failwithf "Expected same AST.\n  a: %A\n  b: %A" a b
+
 
 // ---- Property access --------------------------------------------
 

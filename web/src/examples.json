@@ -33,7 +33,7 @@
       },
       {
         "title": "structural accessor",
-        "source": "// `getName` is inferred from its body alone — no annotations.\n// Any record with a `name` field of type String works.\n\nlet getName = r => r.name;\nlog(getName((name: \"Ada\", age: 42)));\nlog(getName((name: \"Bob\", age: 31)));"
+        "source": "// `getName` is inferred from its body alone — no annotations.\n// Any record with a `name` field of type String works.\n\nlet getName = r => r.name;\nlog(getName(name: \"Ada\", age: 42));\nlog(getName(name: \"Bob\", age: 31));"
       },
       {
         "title": "record from function",
@@ -84,7 +84,7 @@
     "examples": [
       {
         "title": "ToString is polymorphic",
-        "source": "// ToString's type is `tv_0 -> String` — one instantiation per\n// call site. Three unrelated argument types, one function.\n\nlog(ToString(42));\nlog(ToString(true));\nlog(ToString((x: 1, y: 2)));"
+        "source": "// ToString's type is `tv_0 -> String` — one instantiation per\n// call site. Three unrelated argument types, one function.\n\nlog(ToString(42));\nlog(ToString(true));\nlog(ToString(x: 1, y: 2));"
       },
       {
         "title": "inferred function type",
@@ -92,7 +92,7 @@
       },
       {
         "title": "inferred record shape",
-        "source": "// `getX`'s inferred type is `( x: tv_0 & y: Number ) -> tv_0` —\n// both the field set and each field's type come from the call\n// sites, with no annotation on `getX`.\n\nlet getX = p => p.x;\nlog(ToString(getX((x: 10, y: 20))));\nlog(ToString(getX((x: 99, y: 100))));"
+        "source": "// `getX`'s inferred type is `( x: tv_0 & y: Number ) -> tv_0` —\n// both the field set and each field's type come from the call\n// sites, with no annotation on `getX`.\n\nlet getX = p => p.x;\nlog(ToString(getX(x: 10, y: 20)));\nlog(ToString(getX(x: 99, y: 100)));"
       },
       {
         "title": "function as value",
@@ -122,7 +122,7 @@
       },
       {
         "title": "record shape mismatch",
-        "source": "// useName demands a record with a `name` field. The argument has\n// `age` but no `name` — \"required field missing\" fires.\n\nlet useName = r => r.name;\nuseName((age: 30));"
+        "source": "// useName demands a record with a `name` field. The argument has\n// `age` but no `name` — \"required field missing\" fires.\n\nlet useName = r => r.name;\nuseName(age: 30);"
       },
       {
         "title": "parse error",

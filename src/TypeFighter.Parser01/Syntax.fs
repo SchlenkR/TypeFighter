@@ -391,17 +391,32 @@ let private arrow =
 
 type private CallTail = Expr<unit> -> Expr<unit>
 
+// Call-site `(…)` accepts the same shape as a record primary.
+// Named items or a trailing `,` ⇒ one record arg; pure-positional
+// lists keep today's curried fold so existing code is unaffected.
 let private callArgs : Parser<CallTail> =
+    let trailingComma =
+        (sym "," |> map (fun _ -> true))
+        <|> mkParser (fun inp -> POk.create inp.idx inp.idx false)
     parse {
         let! openP  = sym "("
-        let! args   = commaList expr
+        let! items  = commaList recordItem
+        let! comma  = trailingComma
         let! closeP = sym ")"
         let apply (src: Expr<unit>) =
-            match args.result with
-            | []   -> X.App src (X.Var "UnitValue")           // f() ≡ f UnitValue
-            | xs   -> xs |> List.fold (fun acc a -> X.App acc a) src
+            let hasNamed =
+                items.result |> List.exists (fun i -> i.TryAsPositional.IsNone)
+            match items.result, comma.result, hasNamed with
+            | [], _, _ ->
+                X.App src (X.Var "UnitValue")
+            | _, true, _
+            | _, _, true ->
+                X.App src (X.MkRecord items.result)
+            | xs, false, false ->
+                let exprs = xs |> List.choose (fun i -> i.TryAsPositional)
+                exprs |> List.fold (fun acc a -> X.App acc a) src
         return
-            { range = Range.merge [ openP.range; args.range; closeP.range ]
+            { range = Range.merge [ openP.range; items.range; closeP.range ]
               result = apply }
     }
 
