@@ -1,7 +1,11 @@
 # TypeFighter Design Notes
 
-Working notes for language and parser design. These are *design documents*,
-not decided plans — each one frames options, tradeoffs, and open questions.
+Working notes for language and parser design. Most files here are
+*design documents* — options, tradeoffs, open questions.
+
+Firm commitments (what we've actually decided) live in
+[DesignDecisions.md](DesignDecisions.md) as a short ADR-style ledger.
+Check there first when wondering "is X decided or still speculative?"
 
 ## Language surface
 
@@ -26,6 +30,14 @@ not decided plans — each one frames options, tradeoffs, and open questions.
   records from *maps of named fields* to *sets of mixed items* (properties +
   positional values). AST, parser, and inference implications, with a
   recommended path (row polymorphism, twice).
+- [RecordsTuplesUnified.md](RecordsTuplesUnified.md) — push the het-record
+  further: one `(…)` bracket for records + tuples, plus a fourth "type-keyed"
+  item kind. Surveys Scala 3 named tuples, Nim, Swift, Roc, CDuce; tentative
+  lean is to park both extensions until the simpler het-record ships.
+- [CallsAreRecords.md](CallsAreRecords.md) — the convergence: Sun & Oliveira
+  (ESOP 2025) give the type-theoretic frame, Smalltalk gives the precedent,
+  Rémy/Wand row polymorphism is the engine we already have. Decides round
+  brackets (ADR-004); leans toward named-only call sites (ADR-005).
 - [TypeSyntaxWithSets.md](TypeSyntaxWithSets.md) — type-level counterpart:
   `|`, `&`, and `{ … }` as set combinators with literal types. Subsumes
   `UnionTyp` as a surface concept, gives discriminated unions for free,
