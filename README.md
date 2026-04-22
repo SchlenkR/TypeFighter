@@ -1,6 +1,6 @@
 # TypeFighter
 
-> **📖 [Browse the generated docs site →](https://schlenkr.github.io/TypeFighter/)**
+> **📖 [Playground + Docs](https://schlenkr.github.io/TypeFighter/)**
 
 TypeFighter is a small, experimental language built around a modern, inference-first type system. The headline feature is **structural records instead of nominal ones**: records are compared by the fields they actually have, not by a declared name — so a function that needs `{ name: String }` accepts *any* record with that field, no boilerplate declarations required.
 
