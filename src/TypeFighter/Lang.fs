@@ -81,7 +81,7 @@ and ShowTyp =
                 yield! namedParts
             ]
             |> String.concat " & "
-        $"( {allParts} )"
+        $"{{ {allParts} }}"
     static member Show (record: RecordDefinition) =
         ShowTyp.Show(record.fields, record.positionals)
     static member Show (typ: MonoTyp) =
@@ -212,7 +212,7 @@ and ShowExpr =
                 x.items
                 |> List.map printItem
                 |> String.concat ", "
-            $"( {parts} )"
+            $"{{ {parts} }}"
         | Expr.Match x ->
             let printPat (p: MatchPattern<_>) =
                 match p with

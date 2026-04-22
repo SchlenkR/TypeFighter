@@ -262,9 +262,8 @@ let private expr : Parser<Expr<unit>> =
     mkParser (fun inp -> getParser exprImpl.Value inp)
 
 
-// -------- Primaries: ( … ), arrays, var --------
-// Records and grouping share `(…)` per ADR-004 — see
-// docs/design/CallsAreRecords.md for the rationale.
+// -------- Primaries: ( expr ), arrays, records, var --------
+// `{ … }` builds records, `( … )` groups one expression. ADR-009.
 
 let inline private commaList (p: Parser<'a>) : Parser<'a list> =
     (psepBy1 (sym ",") p |> map (fun pvs -> pvs |> List.map (fun pv -> pv.result)))
@@ -281,8 +280,7 @@ let private arrayLit =
     }
 
 let private recordItem =
-    // Try `name: expr` first; fall back to a bare expression if the
-    // `identifier :` prefix doesn't match.
+    // Named `name: expr` tried first; falls back to a bare expression.
     let asProperty =
         parse {
             let! name  = identifier
@@ -296,25 +294,33 @@ let private recordItem =
         expr |> map X.Positional
     asProperty <|> asPositional
 
-let private parensOrRecord =
-    // `(x)` is grouping; `()`, `(x,)`, `(a, b)`, `(name: v, …)` are records.
-    // Trailing comma is the disambiguator for the 1-element record case.
-    let trailingComma =
-        (sym "," |> map (fun _ -> true))
-        <|> mkParser (fun inp -> POk.create inp.idx inp.idx false)
+let private recordLit =
     parse {
-        let! openP  = sym "("
+        let! openB  = sym "{"
         let! items  = commaList recordItem
-        let! comma  = trailingComma
+        let! closeB = sym "}"
+        return
+            { range = Range.merge [ openB.range; items.range; closeB.range ]
+              result = X.MkRecord items.result }
+    }
+
+let private parenExpr =
+    // `()` is the unit value (an empty record), `(x)` groups x.
+    parse {
+        let! openP = sym "("
+        let! inner = commaList expr
         let! closeP = sym ")"
-        let range = Range.merge [ openP.range; items.range; closeP.range ]
+        let range = Range.merge [ openP.range; inner.range; closeP.range ]
         let result =
-            match items.result, comma.result with
-            | [ only ], false ->
-                match only.TryAsPositional with
-                | Some e -> e
-                | None   -> X.MkRecord items.result
-            | _ -> X.MkRecord items.result
+            match inner.result with
+            | []  -> X.MkRecord []
+            | [e] -> e
+            | _   ->
+                // Multiple items inside `(...)` — not a grouping and
+                // not (under ADR-009) a record literal. Parse error via
+                // primary-level fallback; here we pick the first to let
+                // the outer grammar fail cleanly.
+                List.head inner.result
         return { range = range; result = result }
     }
 
@@ -330,7 +336,8 @@ let private primary =
             stringLit
             boolLit
             arrayLit
-            parensOrRecord
+            recordLit
+            parenExpr
             varExpr
         ]
 
@@ -641,14 +648,13 @@ let private appliedOrIdentTyp =
               result = typ }
     }
 
-// A record-type item inside `( … )` at the type level: either
-// `name: T` or a bare positional `T`.
+// A record-type item inside `{ … }`: `name: T` or a bare `T`.
 type private RecTypItem =
     | NamedItem of string * MonoTyp
     | PositionalItem of MonoTyp
 
-// Flatten `A | B | C` over primTyp. Used at top level and inside a
-// `( … )` record item, where `&` is the item separator not the operator.
+// `A | B | C` over primTyp — used at top level and inside record items,
+// where `&` is the item separator and can't be consumed by altTyp.
 let private unionOverPrim =
     parse {
         let! head = primTyp
@@ -667,10 +673,18 @@ let private unionOverPrim =
         return { range = finalRange; result = flattenUnion all }
     }
 
-// `( … )` at the type level is both grouping and record-set construction.
-// Items are `&`-separated; trailing `&` disambiguates a 1-positional
-// record from grouping, mirroring the value-level trailing-comma rule.
-let private parensOrRecordTyp =
+let private parenTypExpr =
+    parse {
+        let! openP = sym "("
+        let! t     = typExpr
+        let! closeP = sym ")"
+        return
+            { range = Range.merge [ openP.range; t.range; closeP.range ]
+              result = t.result }
+    }
+
+// `{ item1 [& item2]* }` — record-set type. Items `&`-separated.
+let private recordTypBraces =
     let recordItemTyp =
         let asNamed =
             parse {
@@ -696,16 +710,12 @@ let private parensOrRecordTyp =
                 | PositionalItem t -> yield t
                 | _ -> () ]
         TDef.RecordWithItems named positional
-    let trailingAmp =
-        (sym "&" |> map (fun _ -> true))
-        <|> mkParser (fun inp -> POk.create inp.idx inp.idx false)
     parse {
-        let! openP  = sym "("
+        let! openB  = sym "{"
         let! items  =
             (psepBy1 (sym "&") recordItemTyp
              |> map (fun pvs -> pvs |> List.map (fun pv -> pv.result)))
             <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
-        let! trailing = trailingAmp
         let named =
             [ for i in items.result do
                 match i with
@@ -713,18 +723,15 @@ let private parensOrRecordTyp =
                 | _ -> () ]
         let duplicates =
             named |> List.groupBy id |> List.filter (fun (_, xs) -> List.length xs > 1) |> List.map fst
-        let! closeP = sym ")"
+        let! closeB = sym "}"
         if not (List.isEmpty duplicates) then
             return
-                { idx = openP.range.startIdx
+                { idx = openB.range.startIdx
                   message = sprintf "Duplicate named fields in record type: %A" duplicates }
         else
-            let range = Range.merge [ openP.range; items.range; closeP.range ]
-            let result =
-                match items.result, trailing.result with
-                | [ PositionalItem t ], false -> t
-                | _                           -> buildRecord items.result
-            return { range = range; result = result }
+            return
+                { range = Range.merge [ openB.range; items.range; closeB.range ]
+                  result = buildRecord items.result }
     }
 
 // `boolLitTyp` precedes `appliedOrIdentTyp` so `true` / `false` parse
@@ -733,7 +740,8 @@ let private primTypReal : Parser<MonoTyp> =
     numberLitTyp
     <|> stringLitTyp
     <|> boolLitTyp
-    <|> parensOrRecordTyp
+    <|> recordTypBraces
+    <|> parenTypExpr
     <|> appliedOrIdentTyp
 
 do primTypImpl <- primTypReal
@@ -766,7 +774,7 @@ let private altTyp : Parser<MonoTyp> =
                     { idx = head.range.startIdx
                       message =
                           sprintf
-                              "Type intersection `&` outside `( … )` requires record operands; got %A. Use `( A & B )` to build a record-set."
+                              "Type intersection `&` outside `{ … }` requires record operands; got %A. Use `{ A & B }` to build a record-set."
                               other }
             | None ->
                 let recordDefs =
