@@ -7,9 +7,13 @@ import { attachCompileInfo } from "./attachments";
 import { fetchEval, fetchPrelude, type PreludeEntry } from "./api";
 import "./TypeFighterPlayground.scss";
 
-type Props = { categories?: Category[] };
+type Props = {
+  categories?: Category[];
+  // Start screen: the tutorial overview (default) or the editor directly.
+  initialView?: "overview" | "editor";
+};
 
-export default function TypeFighterPlayground({ categories = defaultCategories }: Props) {
+export default function TypeFighterPlayground({ categories = defaultCategories, initialView = "overview" }: Props) {
   const csContainerRef = useRef<HTMLDivElement>(null);
   const srcEditorRef = useRef<TypeFighterEditorInstance | null>(null);
   const csEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -29,7 +33,7 @@ export default function TypeFighterPlayground({ categories = defaultCategories }
 
   // Card overview as the entry screen; the editor stays mounted underneath,
   // so switching back and forth never loses editor state.
-  const [view, setView] = useState<"overview" | "editor">("overview");
+  const [view, setView] = useState<"overview" | "editor">(initialView);
 
   useEffect(() => {
     fetchPrelude().then(setPrelude).catch((e) => {

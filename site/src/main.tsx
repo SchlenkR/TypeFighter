@@ -6,15 +6,15 @@ import {
   createTypeFighterWasmTransport,
 } from "@purestate/typefighter-editor";
 
-const bootStyle: React.CSSProperties = {
+const screenStyle: React.CSSProperties = {
   height: "100%", display: "flex", flexDirection: "column", gap: 12,
   alignItems: "center", justifyContent: "center",
   background: "#1e1e1e", color: "#d4d4d4",
   fontFamily: "system-ui, sans-serif", fontSize: 14,
 };
 
-// Das TypeFighter-Logo (assets/logo.svg aus dem GitHub-Repo), in drei
-// animierbare Gruppen zerlegt: linker Kaempfer, rechter Kaempfer, Forall-Kern.
+// Das TypeFighter-Logo (assets/logo.svg), in drei animierbare Gruppen
+// zerlegt: linker Kaempfer, rechter Kaempfer, Forall-Kern.
 function AnimatedLogo() {
   return (
     <svg className="tf-logo" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -38,12 +38,63 @@ function AnimatedLogo() {
   );
 }
 
+function Tile({ title, text, onClick }: { title: string; text: string; onClick: () => void }) {
+  return (
+    <div
+      className="tf-tile"
+      onClick={onClick}
+      style={{
+        width: 300, padding: "20px 22px", cursor: "pointer",
+        border: "1px solid #3c3c3c", borderRadius: 10, background: "#252526",
+        transition: "border-color 0.15s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#4ec9b0")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#3c3c3c")}
+    >
+      <div style={{ fontSize: 18, fontWeight: 600, color: "#4ec9b0", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "#c8c8c8" }}>{text}</div>
+    </div>
+  );
+}
+
+function Landing({ onPick }: { onPick: (page: "docs" | "playground") => void }) {
+  return (
+    <div style={{ ...screenStyle, gap: 20 }}>
+      <AnimatedLogo />
+      <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: 0.5, color: "#4ec9b0" }}>TypeFighter</div>
+      <div style={{ maxWidth: 620, textAlign: "center", fontSize: 14.5, lineHeight: 1.6, color: "#c8c8c8" }}>
+        An inference-first expression language: structural records, constrained
+        polymorphism and a monadic step protocol, compiled to C# and executed
+        by Roslyn.
+      </div>
+      <div style={{ display: "flex", gap: 18, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        <Tile
+          title="Documentation"
+          text="A guided tour of the language: every concept explained, every example one click away from running."
+          onClick={() => onPick("docs")}
+        />
+        <Tile
+          title="Playground"
+          text="Write TypeFighter with full IDE support: hover types, completion, error squiggles. Run instantly."
+          onClick={() => onPick("playground")}
+        />
+      </div>
+      <div style={{ marginTop: 14, fontSize: 12, color: "#8a8a8a" }}>
+        No backend involved: the complete compiler runs in your browser (WebAssembly).
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [status, setStatus] = useState<"booting" | "ready" | "failed">("booting");
   const [error, setError] = useState("");
+  const [page, setPage] = useState<"landing" | "docs" | "playground">("landing");
 
+  // Boot starts immediately, so the compiler warms up while the visitor is
+  // still reading the landing page.
   useEffect(() => {
-    createTypeFighterWasmTransport({ dotnetUrl: "/wasm/_framework/dotnet.js" })
+    createTypeFighterWasmTransport({ dotnetUrl: `${import.meta.env.BASE_URL}wasm/_framework/dotnet.js` })
       .then((request) => {
         configureTypeFighterTransport({ request, languageBasePath: "" });
         setStatus("ready");
@@ -54,23 +105,42 @@ function App() {
       });
   }, []);
 
+  if (page === "landing") {
+    return <Landing onPick={setPage} />;
+  }
+  if (status === "failed") {
+    return (
+      <div style={screenStyle}>
+        <div style={{ fontSize: 20, color: "#f48771" }}>The compiler could not be loaded</div>
+        <pre style={{ maxWidth: 700, whiteSpace: "pre-wrap", color: "#f48771" }}>{error}</pre>
+      </div>
+    );
+  }
   if (status === "booting") {
     return (
-      <div style={bootStyle}>
+      <div style={screenStyle}>
         <AnimatedLogo />
         <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: 0.5, color: "#4ec9b0" }}>TypeFighter</div>
       </div>
     );
   }
-  if (status === "failed") {
-    return (
-      <div style={bootStyle}>
-        <div style={{ fontSize: 20, color: "#f48771" }}>Compiler konnte nicht geladen werden</div>
-        <pre style={{ maxWidth: 700, whiteSpace: "pre-wrap", color: "#f48771" }}>{error}</pre>
-      </div>
-    );
-  }
-  return <TypeFighterPlayground />;
+  return (
+    <>
+      <TypeFighterPlayground key={page} initialView={page === "docs" ? "overview" : "editor"} />
+      <button
+        onClick={() => setPage("landing")}
+        title="Back to start"
+        style={{
+          position: "fixed", left: 12, bottom: 12, zIndex: 50,
+          padding: "4px 12px", fontSize: 12, cursor: "pointer",
+          background: "#252526", color: "#9d9d9d",
+          border: "1px solid #3c3c3c", borderRadius: 6,
+        }}
+      >
+        Home
+      </button>
+    </>
+  );
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
