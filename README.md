@@ -8,17 +8,14 @@ On top of that: row polymorphism, set-theoretic literal and union types, and cla
 
 > Companion repository for the YouTube video: [Type Inference Explained](https://www.youtube.com/watch?v=fSRTVrjvo70)
 
-## Documentation
+## Playground
 
-The [documentation site](https://schlenkr.github.io/TypeFighter/) is generated directly from the test suite under `src/TypeFighter.Tests/TestCases/`. Every test is a minimal example of what the type system can — and can't yet — do, grouped into categories:
-
-Literals · Functions · Let bindings · Generalization · Arrays · Records · Rows · Polymorphism · Intersections · Type hierarchies
-
-To build the site locally:
+The playground is a fully static site: the complete compiler (including Roslyn) runs in the browser via WebAssembly. Examples double as a top-to-bottom language tutorial.
 
 ```bash
-dotnet fsi docs/build.fsx
-open docs/output/index.html
+./build-wasm.sh          # publish the WASM compiler into site/public/wasm
+pnpm install
+cd site && pnpm dev      # http://localhost:3100
 ```
 
 ## Running the test suite
@@ -31,25 +28,17 @@ dotnet test
 
 ```
 TypeFighter/
-├── docs/
-│   ├── build.fsx              # Site generator (reads tests → emits HTML)
-│   └── output/                # Generated site (gitignored)
 ├── src/
-│   ├── TypeFighter/           # Type inference engine
-│   │   ├── Lang.fs            # Core types, constraints, solver
-│   │   └── ExpressionDsl.fs   # AST-building DSL used in tests
-│   ├── TypeFighter.Tests/     # NUnit tests; one file per feature area
-│   └── visu/                  # Optional AST visualizer (TypeScript + Vite)
-└── .github/workflows/docs.yml # CI: builds and deploys the docs site
-```
-
-## Visualizer (optional)
-
-A legacy AST visualizer lives under `src/visu/`. To start it:
-
-```bash
-npm install
-npm start
+│   ├── TypeFighter/         # Language core: parser, desugar, solver, C# emit, Roslyn
+│   ├── TypeFighter.Web/     # Hosting facade: builtin catalog, eval service, API surface
+│   ├── TypeFighter.Wasm/    # Browser host: the compiler as WebAssembly (JSExport facade)
+│   └── TypeFighter.Tests/   # NUnit tests
+├── libs/LocSta2/            # Vendored stream-block library (math, gen, logic, dsp)
+├── editor/                  # @purestate/typefighter-editor: Monaco language support,
+│                            # editor component, playground, tutorial overview
+├── site/                    # Static playground site (Vite), served without any backend
+├── docs/design/             # Design ADRs
+└── build-wasm.sh            # dotnet publish + copy the WASM bundle into site/
 ```
 
 ## License

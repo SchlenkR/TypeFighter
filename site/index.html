@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TypeFighter Playground</title>
+    <style>
+        html, body, #root { height: 100%; margin: 0; }
+        body { background: #1e1e1e; }
+        /* Animiertes TypeFighter-Logo als Loader: die beiden Kaempfer
+           stossen rhythmisch Richtung Mitte, der Forall-Kern pulsiert. */
+        @keyframes tf-jab-left {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(5px); }
+        }
+        @keyframes tf-jab-right {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(-5px); }
+        }
+        @keyframes tf-core-pulse {
+            0%, 100% { transform: scale(1); opacity: 0.85; }
+            50% { transform: scale(1.12); opacity: 1; }
+        }
+        .tf-logo { color: #4ec9b0; width: 160px; }
+        .tf-logo .tf-left, .tf-logo .tf-right, .tf-logo .tf-core {
+            transform-box: fill-box;
+            transform-origin: center;
+        }
+        .tf-logo .tf-left { animation: tf-jab-left 1.2s ease-in-out infinite; }
+        .tf-logo .tf-right { animation: tf-jab-right 1.2s ease-in-out infinite; }
+        .tf-logo .tf-core { animation: tf-core-pulse 1.2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

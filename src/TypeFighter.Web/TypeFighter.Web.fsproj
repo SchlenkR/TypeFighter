@@ -1,17 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <LangVersion>preview</LangVersion>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Library</OutputType>
+        <AssemblyName>PureState.TypeFighter.Web</AssemblyName>
+        <RootNamespace>PureState.TypeFighter.Web</RootNamespace>
+        <LangVersion>preview</LangVersion>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="Api.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="LocStaAdapter.fs" />
+        <Compile Include="Builtins.fs" />
+        <Compile Include="Eval.fs" />
+        <Compile Include="Api.fs" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
-    <ProjectReference Include="..\TypeFighter.Parser01\TypeFighter.Parser01.fsproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
+        <ProjectReference Include="..\..\libs\LocSta2\LocSta2.fsproj" />
+    </ItemGroup>
 
 </Project>

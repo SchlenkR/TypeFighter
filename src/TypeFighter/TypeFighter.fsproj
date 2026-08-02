@@ -1,17 +1,28 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
-   <LangVersion>preview</LangVersion>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Library</OutputType>
+        <AssemblyName>PureState.TypeFighter</AssemblyName>
+        <RootNamespace>PureState.TypeFighter</RootNamespace>
+        <LangVersion>preview</LangVersion>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="Utils.fs" />
-    <Compile Include="Lang.fs" />
-    <Compile Include="ExpressionDsl.fs" />
-    <Compile Include="IdentInfo.fs" />
-    <Compile Include="Emit.fs" />
-  </ItemGroup>
-  
+    <ItemGroup>
+        <Compile Include="TheBlunt.fs" />
+        <Compile Include="Utils.fs" />
+        <Compile Include="Lang.fs" />
+        <Compile Include="Desugar.fs" />
+        <Compile Include="ExpressionDsl.fs" />
+        <Compile Include="Roslyn.fs" />
+        <Compile Include="EmitCSharp.fs" />
+        <Compile Include="Parser01/Syntax.fs" />
+        <Compile Include="Parser01/EmitCSharp.fs" />
+        <Compile Include="EmitStreamMachine.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+    </ItemGroup>
+
 </Project>

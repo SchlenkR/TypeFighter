@@ -1,0 +1,24 @@
+{
+  "name": "@purestate/typefighter-editor",
+  "version": "0.0.0-preview.1",
+  "description": "TypeFighter editor UI: Monaco language support, playground, examples, formula assistant.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "files": [
+    "./src"
+  ],
+  "scripts": {
+    "build": ";",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.55.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "typescript": "5.2.2"
+  }
+}

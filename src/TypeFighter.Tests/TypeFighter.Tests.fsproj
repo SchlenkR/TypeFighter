@@ -1,33 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>PureState.TypeFighter.Tests</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <GenerateProgramFile>false</GenerateProgramFile>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="TestHelper.fs" />
-    <Compile Include="TestCases\Literals.fs" />
-    <Compile Include="TestCases\Functions.fs" />
-    <Compile Include="TestCases\Let.fs" />
-    <Compile Include="TestCases\Generalization.fs" />
-    <Compile Include="TestCases\Arrays.fs" />
-    <Compile Include="TestCases\Records.fs" />
-    <Compile Include="TestCases\Rows.fs" />
-    <Compile Include="TestCases\Polymorphism.fs" />
-    <Compile Include="TestCases\Match.fs" />
-    <Compile Include="TestCases\Composites.fs" />
-    <Compile Include="TestCases\Emit.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="TheBluntTests.fs" />
+        <Compile Include="BuildExprParserTests.fs" />
+        <Compile Include="ConstrainedPolyTests.fs" />
+        <Compile Include="StepRecordTests.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FsUnit" Version="6.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
+        <PackageReference Include="NUnit" Version="3.13.3" />
+        <PackageReference Include="NUnit3TestAdapter" Version="4.4.2" />
+        <PackageReference Include="FsUnit" Version="5.3.0" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\TypeFighter\TypeFighter.fsproj" />
+    </ItemGroup>
 
 </Project>

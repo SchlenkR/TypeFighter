@@ -1,4 +1,9 @@
-namespace TypeFighter
+// Copyright (c) Ronald Schlenker
+// Evaluation use only. Commercial use prohibited.
+
+namespace PureState.TypeFighter
+
+open TheBlunt
 
 type VarNum = VarNum of int
     with override this.ToString() = let (VarNum v) = this in $"tv_{v}"
@@ -29,6 +34,10 @@ type MonoTyp =
 and PolyTyp =
     {
         vars: Set<VarNum>
+        // Per-tvar membership constraints (`T ∈ {Number, String}`). Each entry
+        // limits the named tvar to the listed monotypes; empty map = unconstrained.
+        // Re-emitted as CIsOneOf when the polytype is instantiated.
+        constraints: Map<VarNum, Set<MonoTyp>>
         monoTyp: MonoTyp
     }
     override this.ToString() = ShowTyp.Show(this)
@@ -110,7 +119,22 @@ and ShowTyp =
     
     static member Show (typ: PolyTyp) =
         let printedVars = [ for v in typ.vars -> v.ToString() ] |> String.concat ", "
-        $"<{printedVars}>.{ShowTyp.Show typ.monoTyp}"
+        let printedConstraints =
+            if Map.isEmpty typ.constraints then ""
+            else
+                let parts =
+                    typ.constraints
+                    |> Map.toList
+                    |> List.map (fun (v, allowed) ->
+                        let allowedStr =
+                            allowed
+                            |> Set.toList
+                            |> List.map ShowTyp.Show
+                            |> String.concat " | "
+                        $"{v} in ({allowedStr})")
+                    |> String.concat ", "
+                $" where {parts}"
+        $"<{printedVars}>{printedConstraints}.{ShowTyp.Show typ.monoTyp}"
     
     static member Show (typ: Typ) =
         match typ with
@@ -226,7 +250,7 @@ and ShowExpr =
             $"MATCH := {ShowExpr.Expr x.scrutinee} with {arms}"
 
 // TODO: Replace this (and throwing) with a "TError"
-type UnificationError(source: Expr<_>, t1: MonoTyp, t2: MonoTyp, reason: string option) =
+type UnificationError(source: Expr<VarNum>, t1: MonoTyp, t2: MonoTyp, reason: string option) =
     inherit System.Exception(
         [
             $"Can't unify"
@@ -243,6 +267,7 @@ type UnificationError(source: Expr<_>, t1: MonoTyp, t2: MonoTyp, reason: string 
     member _.T1 = t1
     member _.T2 = t2
     member _.Reason = reason
+    member _.SourceTVar : VarNum = source.TVar
 
 module Expr =
 
@@ -417,7 +442,7 @@ module Typ =
     let maxVar (typ: Typ) =
         0 :: collectTVars typ |> List.max
 
-    // Canonically renumbers bound TVars (0, 1, …) so alpha-equivalent
+    // Canonically renumbers bound TVars (0, 1, ...) so alpha-equivalent
     // polytypes compare equal under F# structural equality.
     let gen (typ: MonoTyp) =
         let tvars = collectTVars (Mono typ) |> List.map VarNum
@@ -446,7 +471,7 @@ module Typ =
                         r.positionals
                         |> List.map renameMono }
             let canonicalVars = renaming |> Map.toSeq |> Seq.map snd |> Set.ofSeq
-            Poly { vars = canonicalVars; monoTyp = renameMono typ }
+            Poly { vars = canonicalVars; constraints = Map.empty; monoTyp = renameMono typ }
 
 module Env =
     let collectTVars (env: Env) =
@@ -474,7 +499,30 @@ module TDef =
 
     let Poly (vars: int list) (monoTyp: MonoTyp) =
         let vars = vars |> List.map VarNum |> set
-        Poly { vars = vars; monoTyp = monoTyp }
+        Poly { vars = vars; constraints = Map.empty; monoTyp = monoTyp }
+
+    /// Generalize with per-tvar membership constraints. Each `(varIdx, allowed)`
+    /// pair limits `tv_varIdx` to one of the listed monotypes. The constraints
+    /// flow through `inst`/solve so polymorphic operators (e.g. `op_add` over
+    /// Number|String) work without ad-hoc dispatch.
+    let PolyWithConstraints
+        (vars: int list)
+        (constraints: (int * MonoTyp list) list)
+        (monoTyp: MonoTyp)
+        =
+        let varSet = vars |> List.map VarNum |> set
+        let cmap =
+            constraints
+            |> List.map (fun (v, allowed) -> VarNum v, Set.ofList allowed)
+            |> Map.ofList
+        Typ.Poly { vars = varSet; constraints = cmap; monoTyp = monoTyp }
+
+    let GeneralizeWithConstraints
+        (constraints: (int * MonoTyp list) list)
+        (monoTyp: MonoTyp)
+        =
+        let tvars = Typ.collectTVars (Mono monoTyp)
+        PolyWithConstraints tvars constraints monoTyp
     
     let RecordDefWith (fields: (string * MonoTyp) list) =
         let fields =
@@ -513,8 +561,76 @@ module BuiltinTypes =
     let boolean = UnionTyp (set [ LiteralTyp (Boolean true); LiteralTyp (Boolean false) ])
     let number = TDef.SaturatedWith Names.number []
     let string = TDef.SaturatedWith Names.string []
-    
+
     let array elemTyp = TDef.SaturatedWith Names.array [ elemTyp ]
+
+    // The four magic field names that make a record a state-machine step.
+    // Kept here as the single source of truth so the type-side helpers below,
+    // the solver's step-let detection and the emit pass all agree.
+    module StepFields =
+        let [<Literal>] init = "__init"
+        let [<Literal>] step = "__step"
+        let [<Literal>] value = "val"
+        let [<Literal>] nextState = "nextState"
+
+    // Step-record shape: a value of this type is a state-machine step.
+    // The emit pass recognises records with these two fields structurally
+    // and compiles each let-binding into a flat C# state slot: no nominal
+    // "Stream" type, no implicit context, just records.
+    //
+    //   { __init: S; __step: S -> { val: V, nextState: S } }
+    let stepResult v s =
+        TDef.RecordWith [
+            StepFields.value, v
+            StepFields.nextState, s
+        ]
+    let stepRecord v s =
+        TDef.RecordWith [
+            StepFields.init, s
+            StepFields.step, FunTyp (s, stepResult v s)
+        ]
+
+    // Structural test: is this MonoTyp a step-record?
+    let isStepRecord (typ: MonoTyp) =
+        match typ with
+        | RecordTyp r ->
+            let fnames = r.fields |> Seq.map (fun f -> f.fname) |> Set.ofSeq
+            Set.contains StepFields.init fnames && Set.contains StepFields.step fnames
+        | _ -> false
+
+    // Extract the V (val) component from a step-record's `__step` return
+    // type: used by the emit to type the result list.
+    let stepRecordV (typ: MonoTyp) : MonoTyp option =
+        match typ with
+        | RecordTyp r ->
+            r.fields
+            |> Seq.tryFind (fun f -> f.fname = StepFields.step)
+            |> Option.bind (fun f ->
+                match f.typ with
+                | FunTyp (_, RecordTyp resR) ->
+                    resR.fields
+                    |> Seq.tryFind (fun rf -> rf.fname = StepFields.value)
+                    |> Option.map (fun rf -> rf.typ)
+                | _ -> None)
+        | _ -> None
+
+    // Extract V and S from a step-record. Returns None if the shape doesn't
+    // match: useful for tests and diagnostics.
+    let stepRecordVS (typ: MonoTyp) : (MonoTyp * MonoTyp) option =
+        match typ with
+        | RecordTyp r ->
+            let init = r.fields |> Seq.tryFind (fun f -> f.fname = StepFields.init)
+            let step = r.fields |> Seq.tryFind (fun f -> f.fname = StepFields.step)
+            match init, step with
+            | Some i, Some s ->
+                match s.typ with
+                | FunTyp (_, RecordTyp resR) ->
+                    resR.fields
+                    |> Seq.tryFind (fun rf -> rf.fname = StepFields.value)
+                    |> Option.map (fun rf -> rf.typ, i.typ)
+                | _ -> None
+            | _ -> None
+        | _ -> None
 
     ShowTyp.AddPrinter(fun typ ->
         match typ with
@@ -522,12 +638,275 @@ module BuiltinTypes =
         | _ -> None
     )
 
+// Structural step-record helpers on the AST level. Shared by the solver's
+// step-let detection, the desugar pass and the state-machine emit so all
+// agree on what counts as a step. Stateless; generic over the tvar tag
+// (the desugar pass runs on `Expr<unit>`, solver/emit on `Expr<VarNum>`).
+module StepRecord =
+
+    // Property field names present in a record literal's items.
+    let propFieldNames (items: RecordItem<'a> list) : Set<string> =
+        items
+        |> List.choose (fun item ->
+            match item with
+            | RecordItem.Property f -> Some f.fname
+            | _ -> None)
+        |> Set.ofList
+
+    // Does a record literal carry the `{ __init, __step }` step shape?
+    let hasStepShape (items: RecordItem<'a> list) : bool =
+        let names = propFieldNames items
+        Set.contains BuiltinTypes.StepFields.init names
+        && Set.contains BuiltinTypes.StepFields.step names
+
+    // Does a record literal carry the `{ val, nextState }` result shape a
+    // `__step` body terminates in?
+    let hasResultShape (items: RecordItem<'a> list) : bool =
+        let names = propFieldNames items
+        Set.contains BuiltinTypes.StepFields.value names
+        && Set.contains BuiltinTypes.StepFields.nextState names
+
+    // Value expression of a named property in a record literal, if present.
+    let fieldOf (name: string) (items: RecordItem<'a> list) : Expr<'a> option =
+        items
+        |> List.tryPick (fun item ->
+            match item with
+            | RecordItem.Property f when f.fname = name -> Some f.value
+            | _ -> None)
+
+    // Decompose a curried application into (head, args) in left-to-right order:
+    // `App(App(f, a), b)` -> `(f, [a; b])`.
+    let collectAppChain (e: Expr<'a>) : Expr<'a> * Expr<'a> list =
+        let rec loop e args =
+            match e with
+            | Expr.App app -> loop app.func (app.arg :: args)
+            | _ -> e, args
+        loop e []
+
+    // Head identifier of a curried application chain, if it is a Var.
+    let headIdentOf (e: Expr<'a>) : string option =
+        match collectAppChain e |> fst with
+        | Expr.Var v -> Some v.ident
+        | _ -> None
+
+    // Beta-substitution: replace every unbound occurrence of `name` in `e`
+    // with `replacement`, respecting shadowing in inner Fun / Let / Match-Var
+    // binders. Capture-avoidance relies on `replacement` having no free vars
+    // that collide with inner binders; the emit only substitutes fresh slot
+    // identifiers, so that holds at its call sites.
+    let rec substVar (name: string) (replacement: Expr<'a>) (e: Expr<'a>) : Expr<'a> =
+        let go = substVar name replacement
+        match e with
+        | Expr.Var v when v.ident = name -> replacement
+        | Expr.Var _ | Expr.Lit _ -> e
+        | Expr.App app ->
+            Expr.App {| func = go app.func; arg = go app.arg; tvar = app.tvar |}
+        | Expr.Fun f when f.ident.identName = name -> e
+        | Expr.Fun f ->
+            Expr.Fun {| ident = f.ident; body = go f.body; tvar = f.tvar |}
+        | Expr.Let l when l.ident.identName = name ->
+            Expr.Let {| ident = l.ident; value = go l.value; body = l.body; tvar = l.tvar |}
+        | Expr.Let l ->
+            Expr.Let
+                {| ident = l.ident
+                   value = go l.value
+                   body  = go l.body
+                   tvar  = l.tvar |}
+        | Expr.Do d ->
+            Expr.Do {| action = go d.action; body = go d.body; tvar = d.tvar |}
+        | Expr.PropAcc p ->
+            Expr.PropAcc {| source = go p.source; ident = p.ident; tvar = p.tvar |}
+        | Expr.MkArray a ->
+            Expr.MkArray {| values = a.values |> List.map go; tvar = a.tvar |}
+        | Expr.MkRecord r ->
+            let mapItem item =
+                match item with
+                | RecordItem.Property f ->
+                    RecordItem.Property {| fname = f.fname; value = go f.value |}
+                | RecordItem.Positional v -> RecordItem.Positional (go v)
+            Expr.MkRecord {| items = r.items |> List.map mapItem; tvar = r.tvar |}
+        | Expr.Match m ->
+            let mapArm arm =
+                let body =
+                    match arm.pattern with
+                    | MatchPattern.Var v when v.identName = name -> arm.body
+                    | _ -> go arm.body
+                { pattern = arm.pattern; body = body }
+            Expr.Match
+                {| scrutinee = go m.scrutinee
+                   arms      = m.arms |> List.map mapArm
+                   tvar      = m.tvar |}
+
+    // Apply a curried lambda chain to its argument list. Stops when either
+    // runs out, returning whatever's left of the body (handy for partial app
+    // in nested cases, though for our use we expect full application).
+    let applyLambda (lambda: Expr<'a>) (args: Expr<'a> list) : Expr<'a> =
+        let rec collectParams e acc =
+            match e with
+            | Expr.Fun f -> collectParams f.body (f.ident.identName :: acc)
+            | _ -> List.rev acc, e
+        let parameters, body = collectParams lambda []
+        let paired = List.zip (List.truncate args.Length parameters) args
+        paired |> List.fold (fun acc (n, r) -> substVar n r acc) body
+
+    // Every identifier that occurs in `e` -- binders and references alike.
+    // Used to pick fresh synthetic names that cannot collide.
+    let usedIdents (e: Expr<'a>) : Set<string> =
+        let acc = System.Collections.Generic.HashSet<string>()
+        let rec go e =
+            match e with
+            | Expr.Lit _ -> ()
+            | Expr.Var v -> acc.Add v.ident |> ignore
+            | Expr.App a -> go a.func; go a.arg
+            | Expr.Fun f -> acc.Add f.ident.identName |> ignore; go f.body
+            | Expr.Let l -> acc.Add l.ident.identName |> ignore; go l.value; go l.body
+            | Expr.Do d -> go d.action; go d.body
+            | Expr.PropAcc p -> go p.source
+            | Expr.MkArray a -> for v in a.values do go v
+            | Expr.MkRecord r -> for item in r.items do go item.Value
+            | Expr.Match m ->
+                go m.scrutinee
+                for arm in m.arms do
+                    match arm.pattern with
+                    | MatchPattern.Var v -> acc.Add v.identName |> ignore
+                    | _ -> ()
+                    go arm.body
+        go e
+        Set.ofSeq acc
+
+    // Alpha-rename every Fun / Let / Match-Var binder in `e` to a fresh name.
+    // The emit beta-reduces stream-fn bodies with RAW user argument
+    // expressions; without freshening, a user identifier colliding with an
+    // inner binder (e.g. user `s` vs `__step: s => ...`) would be captured.
+    let freshenBinders (fresh: unit -> string) (e: Expr<'a>) : Expr<'a> =
+        let rec go e =
+            match e with
+            | Expr.Lit _ | Expr.Var _ -> e
+            | Expr.App a ->
+                Expr.App {| func = go a.func; arg = go a.arg; tvar = a.tvar |}
+            | Expr.Fun f ->
+                let n = fresh ()
+                let renamed =
+                    substVar f.ident.identName
+                        (Expr.Var {| ident = n; tvar = f.ident.tvar |}) f.body
+                Expr.Fun {| ident = { identName = n; tvar = f.ident.tvar }; body = go renamed; tvar = f.tvar |}
+            | Expr.Let l ->
+                let n = fresh ()
+                let renamed =
+                    substVar l.ident.identName
+                        (Expr.Var {| ident = n; tvar = l.ident.tvar |}) l.body
+                Expr.Let {| ident = { identName = n; tvar = l.ident.tvar }; value = go l.value; body = go renamed; tvar = l.tvar |}
+            | Expr.Do d ->
+                Expr.Do {| action = go d.action; body = go d.body; tvar = d.tvar |}
+            | Expr.PropAcc p ->
+                Expr.PropAcc {| source = go p.source; ident = p.ident; tvar = p.tvar |}
+            | Expr.MkArray a ->
+                Expr.MkArray {| values = a.values |> List.map go; tvar = a.tvar |}
+            | Expr.MkRecord r ->
+                let mapItem item =
+                    match item with
+                    | RecordItem.Property f ->
+                        RecordItem.Property {| fname = f.fname; value = go f.value |}
+                    | RecordItem.Positional v -> RecordItem.Positional (go v)
+                Expr.MkRecord {| items = r.items |> List.map mapItem; tvar = r.tvar |}
+            | Expr.Match m ->
+                let mapArm (arm: MatchArm<'a>) =
+                    match arm.pattern with
+                    | MatchPattern.Var v ->
+                        let n = fresh ()
+                        let renamed =
+                            substVar v.identName
+                                (Expr.Var {| ident = n; tvar = v.tvar |}) arm.body
+                        { pattern = MatchPattern.Var { identName = n; tvar = v.tvar }; body = go renamed }
+                    | _ -> { pattern = arm.pattern; body = go arm.body }
+                Expr.Match
+                    {| scrutinee = go m.scrutinee
+                       arms      = m.arms |> List.map mapArm
+                       tvar      = m.tvar |}
+        go e
+
+    // ─── Shared stream-binding classification ─────────────────────────
+    // One classifier used by the desugar pass, the solver's step-let
+    // detection and the emit's stream-fn registration, so the three can
+    // never drift apart. Scoped: shadowing a name (e.g. `count = 5`)
+    // reclassifies it for the rest of the chain.
+    //
+    //   StreamValue : the name holds a step-record itself (count, now,
+    //                 custom `{ __init, __step }` literals)
+    //   StreamFn n  : curried fn of arity n ultimately producing a step-record
+    //   Plain       : everything else -- INCLUDING stream-let bindings,
+    //                 whose name is lifted to the per-tick value V.
+    [<RequireQualifiedAccess>]
+    type BindingKind =
+        | StreamValue
+        | StreamFn of arity: int
+        | Plain
+
+    type StreamKinds = Map<string, BindingKind>
+
+    // Classify a prelude (External) entry by its declared type.
+    let bindingKindOfTyp (typ: Typ) : BindingKind =
+        let mono = match typ with Mono m -> m | Poly p -> p.monoTyp
+        let rec walk t n =
+            match t with
+            | FunTyp (_, ret) -> walk ret (n + 1)
+            | other ->
+                if BuiltinTypes.isStepRecord other then
+                    if n = 0 then BindingKind.StreamValue else BindingKind.StreamFn n
+                else BindingKind.Plain
+        walk mono 0
+
+    // Is `e` a stream-typed expression under `kinds`: a Var naming a
+    // StreamValue, or a saturated call of a StreamFn? This is exactly the
+    // let-lift trigger -- and the hoist trigger in the desugar pass. A
+    // step-record LITERAL is deliberately not one: `count = { __init, .. }`
+    // DEFINES a StreamValue, it doesn't get lifted.
+    let isStreamExpr (kinds: StreamKinds) (e: Expr<'a>) : bool =
+        match e with
+        | Expr.Var v -> kinds.TryFind v.ident = Some BindingKind.StreamValue
+        | Expr.App _ ->
+            match headIdentOf e with
+            | Some name ->
+                match kinds.TryFind name with
+                | Some (BindingKind.StreamFn arity) ->
+                    let argCount = collectAppChain e |> snd |> List.length
+                    argCount >= arity
+                | _ -> false
+            | None -> false
+        | _ -> false
+
+    // Classify what a let-binding's NAME means downstream, given its RHS.
+    // A stream-typed RHS means the let is LIFTED (name = per-tick V = Plain).
+    let rec bindingKindOfRhs (kinds: StreamKinds) (rhs: Expr<'a>) : BindingKind =
+        match rhs with
+        | Expr.MkRecord r when hasStepShape r.items -> BindingKind.StreamValue
+        | Expr.Fun _ ->
+            let rec arityAndBody e n =
+                match e with
+                | Expr.Fun f -> arityAndBody f.body (n + 1)
+                | _ -> e, n
+            let body, arity = arityAndBody rhs 0
+            if chainIsStream kinds body then BindingKind.StreamFn arity
+            else BindingKind.Plain
+        | _ -> BindingKind.Plain
+
+    // Does a statement chain (Let/Do spine) produce a step-record: any
+    // stream-let inside it, or a terminal stream expression / step literal.
+    and chainIsStream (kinds: StreamKinds) (e: Expr<'a>) : bool =
+        match e with
+        | Expr.Let l ->
+            isStreamExpr kinds l.value
+            || chainIsStream (kinds |> Map.add l.ident.identName (bindingKindOfRhs kinds l.value)) l.body
+        | Expr.Do d -> chainIsStream kinds d.body
+        | Expr.MkRecord r -> hasStepShape r.items
+        | e -> isStreamExpr kinds e
+
 module BuiltinValues =
     let [<Literal>] unitValueIdent = "UnitValue"
     let [<Literal>] toStringFunctionIdent = "ToString"
 
 module TypeSystem =
-    open TypeFighter.Utils
+    open PureState.TypeFighter.Utils
 
     /// A constraint represents a relation between types that the solver must satisfy.
     /// Each variant is a different relation; the solver dispatches over them.
@@ -535,6 +914,11 @@ module TypeSystem =
         | CEq of MonoTyp * MonoTyp
         | CHasField of {| row: MonoTyp; fname: string; ftyp: MonoTyp |}
         | CHasMember of {| row: MonoTyp; memberTyp: MonoTyp |}
+        // Restricts a tvar to a finite set of monotypes. Emitted by `inst`
+        // for polytypes that carry per-tvar constraints. Solved by checking
+        // membership when the tvar gets unified with a concrete type, or by
+        // intersecting allowed sets when two constrained tvars meet.
+        | CIsOneOf of {| tvar: VarNum; allowed: Set<MonoTyp> |}
 
     type Constraint =
         { triviaSource: Expr<VarNum>; kind: ConstraintKind }
@@ -547,6 +931,9 @@ module TypeSystem =
 
     type RecordRefs = Map<int, Set<FieldDefinition>>
     type MemberRefs = Map<int, Set<MonoTyp>>
+    // Per-tvar membership constraints accumulated during solving. Closed
+    // out at the end as a UnionTyp if the tvar didn't get unified concretely.
+    type MembershipRefs = Map<int, Set<MonoTyp>>
 
     type SolverRun =
         {
@@ -554,6 +941,7 @@ module TypeSystem =
             constraints: Constraint list
             recordRefs: RecordRefs
             memberRefs: MemberRefs
+            memberships: MembershipRefs
             substitutions: Substitution list
         }
 
@@ -595,7 +983,23 @@ module TypeSystem =
         let addEnv (expr: Expr<VarNum>) (env: Env) =
             do exprToEnv <- exprToEnv |> Map.add expr env
 
-        let rec generateConstraints (env: Env) (expr: Expr<VarNum>) =
+        // Scoped stream classification (StreamValue / StreamFn / Plain) for
+        // every binding in scope, threaded exactly like `env` so shadowing
+        // (e.g. `count = 5`) reclassifies a name for the rest of the chain.
+        // Built by the shared classifier in `module StepRecord`.
+        let initialKinds : StepRecord.StreamKinds =
+            env
+            |> Map.toSeq
+            |> Seq.choose (fun (name, item) ->
+                match item with
+                | EnvItem.External typ ->
+                    match StepRecord.bindingKindOfTyp typ with
+                    | StepRecord.BindingKind.Plain -> None
+                    | kind -> Some (name, kind)
+                | EnvItem.Internal _ -> None)
+            |> Map.ofSeq
+
+        let rec generateConstraints (env: Env) (kinds: StepRecord.StreamKinds) (expr: Expr<VarNum>) =
 
             let appendConstraint (tvar: VarNum) (typ: MonoTyp) =
                 trace.AppendLine($"{expr}    :::     {TVar tvar} := {typ}") |> ignore
@@ -606,13 +1010,24 @@ module TypeSystem =
                 | Mono mono ->
                     mono
                 | Poly poly ->
-                    let rec substPoly remainingVars typ =
-                        match remainingVars with
-                        | [] -> typ
-                        | v :: remainingVars ->
-                            let substedTyp = substVarWithTypInTyp v (SubstWith (TVar (newVar ()))) (SubstIn typ)
-                            substPoly remainingVars substedTyp
-                    substPoly (poly.vars |> Set.toList) poly.monoTyp
+                    // Build a renaming map orig -> fresh so per-tvar constraints
+                    // can be re-emitted against the fresh tvars.
+                    let renaming =
+                        poly.vars
+                        |> Set.toList
+                        |> List.map (fun v -> v, newVar ())
+                        |> Map.ofList
+                    let mutable substed = poly.monoTyp
+                    for KeyValue (origVar, freshVar) in renaming do
+                        substed <- substVarWithTypInTyp origVar (SubstWith (TVar freshVar)) (SubstIn substed)
+                    for KeyValue (origVar, allowed) in poly.constraints do
+                        match Map.tryFind origVar renaming with
+                        | Some freshVar ->
+                            do constraints.Append
+                                { triviaSource = expr
+                                  kind = CIsOneOf {| tvar = freshVar; allowed = allowed |} }
+                        | None -> ()
+                    substed
 
             do addEnv expr env
 
@@ -649,45 +1064,91 @@ module TypeSystem =
                     P: func: t1 -> t2, arg:t1
                     C: expr:t2
                 *)
-                generateConstraints env x.func
-                generateConstraints env x.arg
+                generateConstraints env kinds x.func
+                generateConstraints env kinds x.arg
                 appendConstraint x.func.TVar (FunTyp (TVar x.arg.TVar, TVar x.tvar))
 
             | Expr.Fun x ->
                 (*
-                    S:fun ident -> body 
+                    S:fun ident -> body
                     P: ident:t1, body:t2
                     C: expr: t1 -> t2
                 *)
-                generateConstraints 
+                generateConstraints
                     (env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar))
+                    (kinds |> Map.add x.ident.identName StepRecord.BindingKind.Plain)
                     x.body
 
                 appendConstraint x.tvar (FunTyp (TVar x.ident.tvar, TVar x.body.TVar))
-            
+
             | Expr.Let x ->
                 (*
                     S: let ident = value in body
                     P: value:t1, body:t2
                     C: expr:t2
-                *)
-                generateConstraints env x.value
 
-                appendConstraint x.ident.tvar (TVar x.value.TVar)
-                appendConstraint x.tvar (TVar x.body.TVar)
+                    Step-let detection: if `value` is a stream expression (a
+                    step-record literal, a StreamValue var or a saturated
+                    StreamFn call -- see StepRecord.isStreamExpr), lift this
+                    Let: bind `ident` to the inner V (the per-tick value) and
+                    tag the enclosing block as itself a step-record. The body
+                    is the continuation, so every step in a block composes
+                    into one state-machine. Falls back to plain-let otherwise.
+
+                    Detection is purely structural and runs before types are
+                    solved, via the shared scoped classifier in `StepRecord`.
+                    A value whose step-record nature only emerges from
+                    inference (e.g. arriving via a function parameter) is
+                    not lifted.
+                *)
+                generateConstraints env kinds x.value
+
+                let isStreamRhs = StepRecord.isStreamExpr kinds x.value
+
+                // The lifted name is the per-tick value -- Plain, never a
+                // stream. Only non-lifted bindings can classify as
+                // StreamValue (record literal) or StreamFn (fn chain).
+                let identKind =
+                    if isStreamRhs then StepRecord.BindingKind.Plain
+                    else StepRecord.bindingKindOfRhs kinds x.value
+
+                let bodyKinds = kinds |> Map.add x.ident.identName identKind
+
+                if isStreamRhs then
+                    let s1 = newVar ()
+                    appendConstraint x.value.TVar
+                        (BuiltinTypes.stepRecord (TVar x.ident.tvar) (TVar s1))
+                    // Body chain containing a stream-let or ending in a
+                    // stream expression is itself a step-record: passthrough,
+                    // don't double-wrap.
+                    if StepRecord.chainIsStream bodyKinds x.body then
+                        let bodyV = newVar ()
+                        let bodyS = newVar ()
+                        appendConstraint x.body.TVar
+                            (BuiltinTypes.stepRecord (TVar bodyV) (TVar bodyS))
+                        appendConstraint x.tvar (TVar x.body.TVar)
+                    else
+                        // Body is pure — wrap it as the inner V of the block.
+                        let s2 = newVar ()
+                        appendConstraint x.tvar
+                            (BuiltinTypes.stepRecord (TVar x.body.TVar) (TVar s2))
+                else
+                    appendConstraint x.ident.tvar (TVar x.value.TVar)
+                    appendConstraint x.tvar (TVar x.body.TVar)
 
                 generateConstraints
                     (env |> Map.add x.ident.identName (EnvItem.Internal x.ident.tvar))
+                    bodyKinds
                     x.body
 
             | Expr.Do x ->
-                (*  
+                (*
                     S: do action in body
                     P: action:unit, body:t2
                     C: expr:t2
                 *)
-                generateConstraints env x.body
-                generateConstraints env x.action
+                generateConstraints env kinds x.body
+                generateConstraints env kinds x.action
 
                 appendConstraint x.tvar (TVar x.body.TVar)
                 appendConstraint x.action.TVar BuiltinTypes.unit
@@ -699,7 +1160,7 @@ module TypeSystem =
                     C: expr:t2
                 *)
 
-                generateConstraints env x.source
+                generateConstraints env kinds x.source
 
                 do constraints.Append
                     { triviaSource = expr
@@ -714,15 +1175,15 @@ module TypeSystem =
 
                 for v in x.values do
                     appendConstraint v.TVar elemTyp
-                    generateConstraints env v
+                    generateConstraints env kinds v
 
                 appendConstraint x.tvar (BuiltinTypes.array elemTyp)
 
             | Expr.MkRecord x ->
                 for item in x.items do
-                    generateConstraints env item.Value
+                    generateConstraints env kinds item.Value
 
-                // Named items → named row, positionals → second row.
+                // Named items -> named row, positionals -> second row.
                 // TODO: field names must be distinct
                 let namedFields =
                     [ for item in x.items do
@@ -752,10 +1213,10 @@ module TypeSystem =
                         all body_i : tR
                     C: expr : tR
                 *)
-                generateConstraints env x.scrutinee
+                generateConstraints env kinds x.scrutinee
                 let scrutineeTyp = TVar x.scrutinee.TVar
                 for a in x.arms do
-                    let armEnv =
+                    let armEnv, armKinds =
                         match a.pattern with
                         | MatchPattern.Literal l ->
                             do constraints.Append
@@ -764,25 +1225,31 @@ module TypeSystem =
                                       row = scrutineeTyp
                                       memberTyp = LiteralTyp l.value |} }
                             appendConstraint l.tvar (LiteralTyp l.value)
-                            env
+                            env, kinds
                         | MatchPattern.Var ident ->
                             // Catch-all binder: bind `ident` to the
                             // scrutinee's type within this arm's body.
                             appendConstraint ident.tvar scrutineeTyp
-                            env |> Map.add ident.identName (EnvItem.Internal ident.tvar)
+                            env |> Map.add ident.identName (EnvItem.Internal ident.tvar),
+                            kinds |> Map.add ident.identName StepRecord.BindingKind.Plain
                         | MatchPattern.Wildcard w ->
                             appendConstraint w.tvar scrutineeTyp
-                            env
-                    generateConstraints armEnv a.body
+                            env, kinds
+                    generateConstraints armEnv armKinds a.body
                     appendConstraint x.tvar (TVar a.body.TVar)
 
-        do generateConstraints env expr
+        do generateConstraints env initialKinds expr
 
         constraints.Values, exprToEnv, trace.ToString()
 
     /// Closes row vars that accumulated CHasField / CHasMember constraints
     /// but never got pinned: into RecordTyp and UnionTyp respectively.
-    let finalizeSubstitutions (substitutions: MonoSubstitution list) (pendingFields: RecordRefs) (pendingMembers: MemberRefs) =
+    let finalizeSubstitutions
+        (substitutions: MonoSubstitution list)
+        (pendingFields: RecordRefs)
+        (pendingMembers: MemberRefs)
+        (pendingMemberships: MembershipRefs)
+        =
         let closeRecord (subs: MonoSubstitution list) (varNum: int, fields: Set<FieldDefinition>) =
             let recordTyp =
                 RecordTyp { fields = fields; positionals = [] }
@@ -800,7 +1267,10 @@ module TypeSystem =
             { tvar = alpha; monoTyp = unionTyp } :: substituted
         [
             let withRecords = pendingFields |> Map.toList |> List.fold closeRecord substitutions
-            let closed = pendingMembers |> Map.toList |> List.fold closeUnion withRecords
+            let withMembers = pendingMembers |> Map.toList |> List.fold closeUnion withRecords
+            // Tvars that retained CIsOneOf constraints without ever being unified
+            // to a single concrete type close as a UnionTyp of the allowed set.
+            let closed = pendingMemberships |> Map.toList |> List.fold closeUnion withMembers
             for s in closed do
                 { tvar = s.tvar; typ = Typ.gen s.monoTyp }
         ]
@@ -814,6 +1284,7 @@ module TypeSystem =
             (constraints: Constraint list)
             (pendingFields: RecordRefs)
             (pendingMembers: MemberRefs)
+            (pendingMemberships: MembershipRefs)
             (substitutions: MonoSubstitution list)
             =
             do
@@ -828,6 +1299,7 @@ module TypeSystem =
                         constraints = constraints
                         recordRefs = pendingFields
                         memberRefs = pendingMembers
+                        memberships = pendingMemberships
                         substitutions = substitutions
                     }
                 solverRuns.Add(solverRun)
@@ -840,13 +1312,14 @@ module TypeSystem =
 
             if continueSolve then
                 match constraints with
-                | [] -> substitutions, pendingFields, pendingMembers
+                | [] -> substitutions, pendingFields, pendingMembers, pendingMemberships
                 | c :: constraints ->
                     let mutable constraints = constraints
                     let mutable substitutions = substitutions
                     let nextConstraints = Mutable.fifo None
                     let pendingFields = Mutable.oneToMany (Some pendingFields)
                     let pendingMembers = Mutable.oneToMany (Some pendingMembers)
+                    let pendingMemberships = Mutable.oneToMany (Some pendingMemberships)
 
                     let applySubstToKind left right k =
                         match k with
@@ -863,6 +1336,20 @@ module TypeSystem =
                             CHasMember {| r with
                                             row = substVarWithTypInTyp left (SubstWith right) (SubstIn r.row)
                                             memberTyp = substVarWithTypInTyp left (SubstWith right) (SubstIn r.memberTyp) |}
+                        | CIsOneOf r ->
+                            // Substitute inside the allowed set in case any element references `left`.
+                            let substedAllowed =
+                                r.allowed
+                                |> Set.map (fun a -> substVarWithTypInTyp left (SubstWith right) (SubstIn a))
+                            if r.tvar = left then
+                                match right with
+                                | TVar y ->
+                                    CIsOneOf {| tvar = y; allowed = substedAllowed |}
+                                | concrete ->
+                                    // Re-target as membership check against a Union of allowed types.
+                                    CHasMember {| row = UnionTyp substedAllowed; memberTyp = concrete |}
+                            else
+                                CIsOneOf {| tvar = r.tvar; allowed = substedAllowed |}
 
                     let rec unifyTypes (source: Expr<VarNum>) (t1: MonoTyp) (t2: MonoTyp) =
                         let throwUniError message = raise (UnificationError(source, t1, t2, Some message))
@@ -953,7 +1440,7 @@ module TypeSystem =
                                 do nextConstraints.Append c'
 
                         | RecordTyp record ->
-                            // Row is already a concrete record — check field exists and emit CEq.
+                            // Row is already a concrete record -- check field exists and emit CEq.
                             let found =
                                 record.fields
                                 |> Set.toSeq
@@ -999,7 +1486,7 @@ module TypeSystem =
                             for c' in constraints do
                                 do nextConstraints.Append c'
 
-                        // `LiteralTyp 5 ∈ Number`, etc. — literals belong
+                        // `LiteralTyp 5 ∈ Number`, etc. -- literals belong
                         // to the built-in they widen to.
                         | builtin when
                             (match req.memberTyp with
@@ -1014,6 +1501,24 @@ module TypeSystem =
                             raise (UnificationError(
                                 c.triviaSource, other, req.memberTyp,
                                 Some $"'{req.memberTyp}' is not a member of non-union type {other}"))
+
+                    // ---- CIsOneOf: accumulate per-tvar membership constraint ----
+                    | CIsOneOf req ->
+                        let (VarNum tn) = req.tvar
+                        let current =
+                            pendingMemberships.Values
+                            |> Map.tryFind tn
+                        let intersected =
+                            match current with
+                            | Some existing -> Set.intersect existing req.allowed
+                            | None -> req.allowed
+                        if Set.isEmpty intersected then
+                            raise (UnificationError(
+                                c.triviaSource, TVar req.tvar, TVar req.tvar,
+                                Some $"Membership constraint cannot be satisfied: empty intersection of allowed sets for {TVar req.tvar}"))
+                        do pendingMemberships.Replace(tn, intersected)
+                        for c' in constraints do
+                            do nextConstraints.Append c'
 
                     // ---- CEq with TVar on the left: substitute everywhere ----
                     | CEq (TVar left, right) ->
@@ -1079,6 +1584,40 @@ module TypeSystem =
                                           kind = CHasMember {| row = right; memberTyp = m |} }
                                 do pendingMembers.Remove(leftN)
 
+                        // Interact pending membership constraints with the resolved right.
+                        let leftPendingMemberships =
+                            pendingMemberships.Values
+                            |> Map.tryFind leftN
+                            |> Option.defaultValue Set.empty
+
+                        if not (Set.isEmpty leftPendingMemberships) then
+                            match right with
+                            | TVar (VarNum rightN) ->
+                                let rightPending =
+                                    pendingMemberships.Values
+                                    |> Map.tryFind rightN
+                                let merged =
+                                    match rightPending with
+                                    | Some existing -> Set.intersect leftPendingMemberships existing
+                                    | None -> leftPendingMemberships
+                                if Set.isEmpty merged then
+                                    raise (UnificationError(
+                                        c.triviaSource, TVar left, right,
+                                        Some "Membership constraints have no common type"))
+                                do pendingMemberships.Remove(leftN)
+                                do pendingMemberships.Replace(rightN, merged)
+                            | concrete ->
+                                if not (Set.contains concrete leftPendingMemberships) then
+                                    let allowed =
+                                        leftPendingMemberships
+                                        |> Set.toList
+                                        |> List.map string
+                                        |> String.concat "; "
+                                    raise (UnificationError(
+                                        c.triviaSource, TVar left, concrete,
+                                        Some $"Type {concrete} is not in allowed set [{allowed}]"))
+                                do pendingMemberships.Remove(leftN)
+
                         // Rewrite remaining constraints with the substitution.
                         for c' in constraints do
                             do nextConstraints.Append
@@ -1095,6 +1634,11 @@ module TypeSystem =
                             let newMembers =
                                 set [ for m in r.Value -> substVarWithTypInTyp left (SubstWith right) (SubstIn m) ]
                             do pendingMembers.Replace(r.Key, newMembers)
+
+                        for r in pendingMemberships.Values do
+                            let newAllowed =
+                                set [ for a in r.Value -> substVarWithTypInTyp left (SubstWith right) (SubstIn a) ]
+                            do pendingMemberships.Replace(r.Key, newAllowed)
 
                         do substitutions <-
                             [
@@ -1113,19 +1657,26 @@ module TypeSystem =
                             do nextConstraints.Append(c')
                         do substitutions <- substitutions
 
-                    solve nextConstraints.Values pendingFields.Values pendingMembers.Values substitutions
+                    solve nextConstraints.Values pendingFields.Values pendingMembers.Values pendingMemberships.Values substitutions
             else
-                substitutions, pendingFields, pendingMembers
+                substitutions, pendingFields, pendingMembers, pendingMemberships
 
+        let mutable errorTVar : VarNum option = None
         let result =
             try
-                let substitutions, pendingFields, pendingMembers = solve constraints Map.empty Map.empty []
-                Ok (finalizeSubstitutions substitutions pendingFields pendingMembers)
-            with ex ->
+                let substitutions, pendingFields, pendingMembers, pendingMemberships =
+                    solve constraints Map.empty Map.empty Map.empty []
+                Ok (finalizeSubstitutions substitutions pendingFields pendingMembers pendingMemberships)
+            with
+            | :? UnificationError as ue ->
+                errorTVar <- Some ue.SourceTVar
+                Error ue.Message
+            | ex ->
                 Error ex.Message
 
         {|
             substitutions = result
+            errorTVar = errorTVar
             solverRuns = [ yield! solverRuns ]
         |}
 
@@ -1144,10 +1695,144 @@ module Solver =
                     |},
                     string
                 >
+            // The TVar of the AST node that triggered the unification failure
+            // (set when result is Error from a UnificationError). Combined with
+            // `tvarRanges` it lets callers point at the offending source range.
+            errorTVar: VarNum option
+            // Per-tvar source range, populated only via `solveWithRanges`.
+            // Empty when the caller used `solve` (no parser range info).
+            tvarRanges: Map<VarNum, Range>
             solverRuns: list<TypeSystem.SolverRun>
             exprToEnv: Map<Expr<VarNum>, Env>
             trace: string
         }
+
+    /// Walk an `Expr<unit>` and produce `Expr<VarNum>` while recording each
+    /// node's source range (when the parser tracked one). Returns the numbered
+    /// expression and a `Map<VarNum, Range>`.
+    let private numberWithRanges
+        (expr: Expr<unit>)
+        (newVar: unit -> VarNum)
+        (resolveRange: Expr<unit> -> Range option)
+        =
+        let ranges = System.Collections.Generic.Dictionary<VarNum, Range>()
+        let trackTvar (e: Expr<unit>) (tv: VarNum) =
+            match resolveRange e with
+            | Some r -> ranges.[tv] <- r
+            | None -> ()
+            tv
+        let numberIdent (ident: Ident<unit>) : Ident<VarNum> =
+            { identName = ident.identName; tvar = newVar () }
+        let rec loop (e: Expr<unit>) =
+            match e with
+            | Expr.Lit x ->
+                let v = trackTvar e (newVar ())
+                Expr.Lit {| value = x.value; tvar = v |}
+            | Expr.Var x ->
+                let v = trackTvar e (newVar ())
+                Expr.Var {| ident = x.ident; tvar = v |}
+            | Expr.App x ->
+                let func = loop x.func
+                let arg = loop x.arg
+                let v = trackTvar e (newVar ())
+                Expr.App {| func = func; arg = arg; tvar = v |}
+            | Expr.Fun x ->
+                let body = loop x.body
+                let v = trackTvar e (newVar ())
+                Expr.Fun {| ident = numberIdent x.ident; body = body; tvar = v |}
+            | Expr.Let x ->
+                let value = loop x.value
+                let body = loop x.body
+                let v = trackTvar e (newVar ())
+                Expr.Let {| ident = numberIdent x.ident; value = value; body = body; tvar = v |}
+            | Expr.Do x ->
+                let action = loop x.action
+                let body = loop x.body
+                let v = trackTvar e (newVar ())
+                Expr.Do {| action = action; body = body; tvar = v |}
+            | Expr.PropAcc x ->
+                let source = loop x.source
+                let identTvar = newVar ()
+                let v = trackTvar e (newVar ())
+                Expr.PropAcc {|
+                    source = source
+                    ident = { identName = x.ident.identName; tvar = identTvar }
+                    tvar = v
+                |}
+            | Expr.MkArray x ->
+                let values = [ for v in x.values -> loop v ]
+                let v = trackTvar e (newVar ())
+                Expr.MkArray {| values = values; tvar = v |}
+            | Expr.MkRecord x ->
+                let items =
+                    [ for item in x.items do
+                        match item with
+                        | RecordItem.Property f ->
+                            RecordItem.Property {| fname = f.fname; value = loop f.value |}
+                        | RecordItem.Positional v ->
+                            RecordItem.Positional (loop v) ]
+                let v = trackTvar e (newVar ())
+                Expr.MkRecord {| items = items; tvar = v |}
+            | Expr.Match x ->
+                let numberPattern (p: MatchPattern<unit>) : MatchPattern<VarNum> =
+                    match p with
+                    | MatchPattern.Literal l ->
+                        MatchPattern.Literal {| value = l.value; tvar = newVar () |}
+                    | MatchPattern.Var v ->
+                        MatchPattern.Var (numberIdent v)
+                    | MatchPattern.Wildcard _ ->
+                        MatchPattern.Wildcard {| tvar = newVar () |}
+                let scrut = loop x.scrutinee
+                let arms =
+                    [ for a in x.arms ->
+                        { pattern = numberPattern a.pattern; body = loop a.body } ]
+                let v = trackTvar e (newVar ())
+                Expr.Match {| scrutinee = scrut; arms = arms; tvar = v |}
+        let numbered = loop expr
+        let tvarRanges = Map.ofSeq (seq { for kv in ranges -> kv.Key, kv.Value })
+        numbered, tvarRanges
+
+    // Shift every TVar in the prelude env by `varOffset` so its numbering
+    // can't collide with the freshly-numbered expression's tvars. Shared by
+    // `solve` and `solveWithRanges`.
+    let private reindexEnv (varOffset: int) (env: (string * Typ) list) =
+        [
+            for ident, typ in env do
+                let rec reindexedVarNums typ =
+                    match typ with
+                    | Mono typ -> Mono (reindexMono typ)
+                    | Poly poly ->
+                        let vars = [ for (VarNum v) in poly.vars do VarNum (v + varOffset) ]
+                        let monoTyp = reindexMono poly.monoTyp
+                        // Re-key constraints to the shifted tvars; allowed-sets contain
+                        // monotypes (e.g. Number/String) that don't reference our tvars.
+                        let constraints =
+                            poly.constraints
+                            |> Map.toList
+                            |> List.map (fun (VarNum v, allowed) -> VarNum (v + varOffset), allowed)
+                            |> Map.ofList
+                        Poly { vars = vars |> Set.ofList; constraints = constraints; monoTyp = monoTyp }
+                and reindexMono (typ: MonoTyp) =
+                    let reindexRecord record =
+                        let fields = [ for f in record.fields do { f with typ = reindexMono f.typ } ]
+                        let positionals = [ for p in record.positionals -> reindexMono p ]
+                        { record with fields = fields |> Set.ofList; positionals = positionals }
+                    match typ with
+                    | TVar (VarNum n) ->
+                        TVar (VarNum (n + varOffset))
+                    | SaturatedTyp app ->
+                        SaturatedTyp {| app with args = app.args |> List.map reindexMono |}
+                    | FunTyp (t1, t2) ->
+                        FunTyp (reindexMono t1, reindexMono t2)
+                    | RecordTyp record ->
+                        RecordTyp (reindexRecord record)
+                    | LiteralTyp _ -> typ
+                    | UnionTyp members ->
+                        UnionTyp (set [ for m in members -> reindexMono m ])
+
+                ident, EnvItem.External (reindexedVarNums typ)
+        ]
+        |> Map.ofList
 
     let solve (env: (string * Typ) list) maxSolverRuns (expr: Expr<Unit>) =
         let newVar = NumGen.mkGenerator()
@@ -1155,40 +1840,8 @@ module Solver =
         let expr = Expr.toNumberedExpr expr newVar
 
         // TODO: In Env, it should be disallowed having unquantified TVars
-        
-        // reindex all TVars in env and expr
-        let env =
-            [
-                let varOffset = Expr.maxVar expr
-                for ident, typ in env do
-                    let rec reindexedVarNums typ = 
-                        match typ with
-                        | Mono typ -> Mono (reindexMono typ)
-                        | Poly poly ->
-                            let vars = [ for (VarNum v) in poly.vars do VarNum (v + varOffset) ]
-                            let monoTyp = reindexMono poly.monoTyp
-                            Poly { vars = vars |> Set.ofList; monoTyp = monoTyp }
-                    and reindexMono (typ: MonoTyp) =
-                        let reindexRecord record =
-                            let fields = [ for f in record.fields do { f with typ = reindexMono f.typ } ]
-                            let positionals = [ for p in record.positionals -> reindexMono p ]
-                            { record with fields = fields |> Set.ofList; positionals = positionals }
-                        match typ with
-                        | TVar (VarNum n) ->
-                            TVar (VarNum (n + varOffset))
-                        | SaturatedTyp app -> 
-                            SaturatedTyp {| app with args = app.args |> List.map reindexMono |}
-                        | FunTyp (t1, t2) -> 
-                            FunTyp (reindexMono t1, reindexMono t2)
-                        | RecordTyp record ->
-                            RecordTyp (reindexRecord record)
-                        | LiteralTyp _ -> typ
-                        | UnionTyp members ->
-                            UnionTyp (set [ for m in members -> reindexMono m ])
 
-                    ident, EnvItem.External (reindexedVarNums typ)
-            ]
-            |> Map.ofList
+        let env = reindexEnv (Expr.maxVar expr) env
 
         let constraints,exprToEnv,trace = TypeSystem.generateConstraints env expr newVar
         let sr = TypeSystem.solveConstraints constraints maxSolverRuns
@@ -1201,13 +1854,164 @@ module Solver =
                     Ok {|
                         substitutions = substitutions
                         // we can have limited solver runs; so the result is partial
-                        typ = 
-                            substitutions 
-                            |> List.tryFind (fun s -> s.tvar = expr.TVar) 
+                        typ =
+                            substitutions
+                            |> List.tryFind (fun s -> s.tvar = expr.TVar)
                             |> Option.map (fun x -> x.typ)
                     |}
                 | Error message -> Error message
+            errorTVar = sr.errorTVar
+            tvarRanges = Map.empty
             solverRuns = sr.solverRuns
             exprToEnv = exprToEnv
             trace = trace
         }
+
+    /// Like `solve` but also tracks per-tvar source ranges (collected from the
+    /// parser via the `resolveRange` callback). On a unification failure the
+    /// returned solution exposes the offending tvar plus the range map, so
+    /// callers can translate the error to a precise editor squiggle.
+    let solveWithRanges
+        (env: (string * Typ) list)
+        maxSolverRuns
+        (expr: Expr<Unit>)
+        (resolveRange: Expr<unit> -> Range option)
+        =
+        let newVar = NumGen.mkGenerator()
+        let numberedExpr, tvarRanges = numberWithRanges expr newVar resolveRange
+
+        let env = reindexEnv (Expr.maxVar numberedExpr) env
+
+        let constraints, exprToEnv, trace = TypeSystem.generateConstraints env numberedExpr newVar
+        let sr = TypeSystem.solveConstraints constraints maxSolverRuns
+
+        {
+            numberedExpr = numberedExpr
+            result =
+                match sr.substitutions with
+                | Ok substitutions ->
+                    Ok {|
+                        substitutions = substitutions
+                        typ =
+                            substitutions
+                            |> List.tryFind (fun s -> s.tvar = numberedExpr.TVar)
+                            |> Option.map (fun x -> x.typ)
+                    |}
+                | Error message -> Error message
+            errorTVar = sr.errorTVar
+            tvarRanges = tvarRanges
+            solverRuns = sr.solverRuns
+            exprToEnv = exprToEnv
+            trace = trace
+        }
+
+/// Ident walker -- surfaces every identifier occurrence in a numbered
+/// Expr together with its associated TVar so tools (hover, go-to-def)
+/// can correlate source locations to inferred types.
+/// Traversal order matches the surface-syntax order so callers can zip
+/// (name, kind, nth-by-name) with parser spans.
+[<RequireQualifiedAccess>]
+module IdentInfo =
+
+    type IdentKind =
+        | Var       // identifier used in expression position
+        | Binding   // `let NAME = ...` -- ident of a Let
+        | Param     // `(NAME) => ...` -- ident of a Fun
+        | Field     // `expr.NAME` -- ident of a PropAcc
+
+    type Occurrence =
+        {
+            name: string
+            kind: IdentKind
+            tvar: VarNum
+        }
+
+    /// Walk the numbered Expr and emit every identifier occurrence in
+    /// document (left-to-right, top-down) order.
+    let collect (expr: Expr<VarNum>) : Occurrence list =
+        let out = ResizeArray<Occurrence>()
+
+        let rec walk (e: Expr<VarNum>) =
+            match e with
+            | Expr.Lit _ -> ()
+            | Expr.Var x ->
+                out.Add { name = x.ident; kind = Var; tvar = x.tvar }
+            | Expr.App x ->
+                walk x.func
+                walk x.arg
+            | Expr.Fun x ->
+                out.Add { name = x.ident.identName; kind = Param; tvar = x.ident.tvar }
+                walk x.body
+            | Expr.Let x ->
+                out.Add { name = x.ident.identName; kind = Binding; tvar = x.ident.tvar }
+                walk x.value
+                walk x.body
+            | Expr.Do x ->
+                walk x.action
+                walk x.body
+            | Expr.PropAcc x ->
+                // The source expression contains the field owner; the
+                // field name comes *after* in source order.
+                walk x.source
+                out.Add { name = x.ident.identName; kind = Field; tvar = x.ident.tvar }
+            | Expr.MkArray x ->
+                for v in x.values do walk v
+            | Expr.MkRecord x ->
+                for item in x.items do
+                    match item with
+                    | RecordItem.Property f -> walk f.value
+                    | RecordItem.Positional v -> walk v
+            | Expr.Match x ->
+                walk x.scrutinee
+                for arm in x.arms do
+                    match arm.pattern with
+                    | MatchPattern.Literal _ -> ()
+                    | MatchPattern.Var ident ->
+                        out.Add { name = ident.identName; kind = Binding; tvar = ident.tvar }
+                    | MatchPattern.Wildcard _ -> ()
+                    walk arm.body
+
+        walk expr
+        List.ofSeq out
+
+    /// Like `collect`, but skips the leading `skipLets` Let bindings of the
+    /// chain entirely (binder AND value). Used to collect occurrences of the
+    /// user region only, so a host-injected stdlib prefix can't contaminate
+    /// the span-to-occurrence pairing for hovers.
+    let collectSkippingTopLets (skipLets: int) (expr: Expr<VarNum>) : Occurrence list =
+        let rec skip n (e: Expr<VarNum>) =
+            if n = 0 then e
+            else
+                match e with
+                | Expr.Let l -> skip (n - 1) l.body
+                | _ -> e
+        collect (skip skipLets expr)
+
+    /// Every `<varName>.<field>` PropAcc in the expression. Skips PropAccs
+    /// whose source isn't a bare Var (so `r.x.y` would yield `(r, x)` only).
+    let collectVarPropAccs (expr: Expr<'v>) : (string * string) list =
+        let out = ResizeArray<string * string>()
+        let rec walk (e: Expr<'v>) =
+            match e with
+            | Expr.Lit _ | Expr.Var _ -> ()
+            | Expr.App x -> walk x.func; walk x.arg
+            | Expr.Fun x -> walk x.body
+            | Expr.Let x -> walk x.value; walk x.body
+            | Expr.Do x -> walk x.action; walk x.body
+            | Expr.PropAcc x ->
+                match x.source with
+                | Expr.Var v -> out.Add (v.ident, x.ident.identName)
+                | _ -> walk x.source
+            | Expr.MkArray x ->
+                for v in x.values do walk v
+            | Expr.MkRecord x ->
+                for item in x.items do
+                    match item with
+                    | RecordItem.Property f -> walk f.value
+                    | RecordItem.Positional v -> walk v
+            | Expr.Match x ->
+                walk x.scrutinee
+                for arm in x.arms do walk arm.body
+        walk expr
+        List.ofSeq out
+

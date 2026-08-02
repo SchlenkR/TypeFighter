@@ -1,20 +1,7 @@
 {
-  "name": "visu",
+  "name": "typefighter-root",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "start": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "gif.js": "^0.2.0",
-    "highlight.js": "^11.11.1",
-    "html2canvas": "^1.4.1"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3",
-    "vite": "5.0.0"
+    "preinstall": "npx only-allow pnpm"
   }
 }

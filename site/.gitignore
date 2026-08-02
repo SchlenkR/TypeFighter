@@ -1,0 +1,3 @@
+# Aus dotnet publish kopiert (build-wasm.sh), nie einchecken
+/public/wasm/
+/dist/

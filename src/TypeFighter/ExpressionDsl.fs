@@ -1,4 +1,7 @@
-namespace TypeFighter
+// Copyright (c) Ronald Schlenker
+// Evaluation use only. Commercial use prohibited.
+
+namespace PureState.TypeFighter
 
 type X =
     static member Ident value = { identName = value; tvar = () }

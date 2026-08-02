@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Core.fs" />
+    <Compile Include="TimeSeries/TimeSeries.fs" />
+    <Compile Include="TimeSeries/LookBack.fs" />
+    <Compile Include="TimeSeries/LookAhead.fs" />
+    <Compile Include="TimeSeries/WindowAggregate.fs" />
+    <Compile Include="TimeSeries/StreamInterpolate.fs" />
+    <!-- Generators -->
+    <Compile Include="Generators/Counter.fs" />
+    <Compile Include="Generators/Fibonacci.fs" />
+    <!-- Delay -->
+    <Compile Include="Delay/DelayByN.fs" />
+    <Compile Include="Delay/DelayBy1.fs" />
+    <!-- State -->
+    <Compile Include="State/Hold.fs" />
+    <Compile Include="State/Latch.fs" />
+    <Compile Include="State/Edge.fs" />
+    <Compile Include="State/Changed.fs" />
+    <!-- Arithmetic -->
+    <Compile Include="Arithmetic/Diff.fs" />
+    <Compile Include="Arithmetic/CumulativeSum.fs" />
+    <Compile Include="Arithmetic/CumulativeProduct.fs" />
+    <Compile Include="Arithmetic/Clamp.fs" />
+    <Compile Include="Arithmetic/Rescale.fs" />
+    <!-- Statistics -->
+    <Compile Include="Statistics/MovingAverage.fs" />
+    <Compile Include="Statistics/Ema.fs" />
+    <Compile Include="Statistics/RollingStdDev.fs" />
+    <Compile Include="Statistics/RollingMin.fs" />
+    <Compile Include="Statistics/RollingMax.fs" />
+    <Compile Include="Statistics/RunningMin.fs" />
+    <Compile Include="Statistics/RunningMax.fs" />
+    <!-- Detection -->
+    <Compile Include="Detection/Crossover.fs" />
+    <Compile Include="Detection/Threshold.fs" />
+    <!-- Logic -->
+    <Compile Include="Logic/Debounce.fs" />
+    <Compile Include="Logic/Toggle.fs" />
+    <!-- Counting -->
+    <Compile Include="Counting/CountWhere.fs" />
+    <Compile Include="Counting/CountSince.fs" />
+    <Compile Include="Counting/CountIn.fs" />
+    <Compile Include="Counting/TimeSince.fs" />
+    <Compile Include="Counting/Rate.fs" />
+    <!-- Windowing -->
+    <Compile Include="Windowing/WindowedReduce.fs" />
+    <Compile Include="Windowing/Segment.fs" />
+    <!-- Operators -->
+    <Compile Include="Operators/Operators.fs" />
+    <!-- DSP: Oscillators -->
+    <Compile Include="Dsp/Oscillators/SineOsc.fs" />
+    <Compile Include="Dsp/Oscillators/SawOsc.fs" />
+    <Compile Include="Dsp/Oscillators/SquareOsc.fs" />
+    <Compile Include="Dsp/Oscillators/TriangleOsc.fs" />
+    <Compile Include="Dsp/Oscillators/WhiteNoise.fs" />
+    <!-- DSP: Filters -->
+    <Compile Include="Dsp/Filters/LowPass1.fs" />
+    <Compile Include="Dsp/Filters/HighPass1.fs" />
+    <Compile Include="Dsp/Filters/BiquadLowPass.fs" />
+    <Compile Include="Dsp/Filters/BiquadHighPass.fs" />
+    <Compile Include="Dsp/Filters/BiquadBandPass.fs" />
+    <Compile Include="Dsp/Filters/DcBlock.fs" />
+    <!-- DSP: Envelope -->
+    <Compile Include="Dsp/Envelope/EnvFollow.fs" />
+    <Compile Include="Dsp/Envelope/Adsr.fs" />
+    <!-- DSP: Dynamics -->
+    <Compile Include="Dsp/Dynamics/SoftClip.fs" />
+    <Compile Include="Dsp/Dynamics/HardClip.fs" />
+    <Compile Include="Dsp/Dynamics/Gate.fs" />
+    <!-- DSP: Modulation -->
+    <Compile Include="Dsp/Modulation/RingMod.fs" />
+    <Compile Include="Dsp/Modulation/BitCrush.fs" />
+    <Compile Include="Dsp/Modulation/Crossfade.fs" />
+    <!-- DSP: Analysis -->
+    <Compile Include="Dsp/Analysis/Rms.fs" />
+    <Compile Include="Dsp/Analysis/ZeroCrossRate.fs" />
+    <Compile Include="Dsp/Analysis/PeakHold.fs" />
+  </ItemGroup>
+
+</Project>

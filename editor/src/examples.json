@@ -1,0 +1,361 @@
+[
+  {
+    "name": "Basics",
+    "examples": [
+      {
+        "title": "hello world",
+        "source": "// Simplest program: a string literal handed to log.\n// `log` lives in the prelude — see \"In scope\" on the right.\n\nlog(\"Hello, World\")"
+      },
+      {
+        "title": "literals",
+        "source": "// ToString is polymorphic — the same function accepts any value.\n// Hover a name to see its type.\n\nlog(ToString(42))\nlog(ToString(\"hello\"))\nlog(ToString(true))"
+      },
+      {
+        "title": "floats",
+        "source": "// Number is a single type — no int/float split.\n\npi = 3.14159\nlog(ToString(pi))"
+      },
+      {
+        "title": "binding (line-based)",
+        "source": "// One binding per line, no `let`, no `;`. The last line is the\n// program's result.\n\nname = \"Ada\"\nlog(name)"
+      },
+      {
+        "title": "if / then / else",
+        "source": "// `if c then a else b` is sugar for `cond(c, a, b)` — same\n// inline-ternary emit, no Func chain.\n\nx = 7\nif x > 4 then \"big\" else \"small\""
+      }
+    ],
+    "description": "Programs are plain expressions: one binding per line, the last line is the result. Everything is inferred, without any type annotations.",
+    "intro": [
+      {
+        "text": "Reading a program: every line binds a name (name = expression), and the last line IS the program's result. There are no keywords, no statements and no return: a program is one big expression, evaluated once."
+      }
+    ]
+  },
+  {
+    "name": "Records",
+    "examples": [
+      {
+        "title": "property access",
+        "source": "// Records live in `{ … }`. Structural typing: the type is the\n// set of fields, no declaration needed.\n\np = { age: 22, name: \"John\" }\nlog(p.name)"
+      },
+      {
+        "title": "field shorthand",
+        "source": "// `{ name, age }` is sugar for `{ name: name, age: age }` — saves\n// repetition when binding existing names into a record.\n\nname = \"Ada\"\nage = 42\np = { name, age }\nlog(p.name)"
+      },
+      {
+        "title": "nested records",
+        "source": "// Nesting is just a record field whose type is another record.\n// Property access chains: `u.user.name`.\n\nu = {\n  user: {\n    id: 1,\n    name: \"Ada\"\n  },\n  active: true\n}\nlog(u.user.name)"
+      },
+      {
+        "title": "structural accessor",
+        "source": "// `getName` is inferred from its body alone — no annotations.\n// Named-arg call sugar: `getName(name: ...)` passes the record.\n\ngetName = r => r.name\nlog(getName(name: \"Ada\", age: 42))\nlog(getName(name: \"Bob\", age: 31))"
+      },
+      {
+        "title": "record from function",
+        "source": "// Field order in a literal doesn't matter for the type — records\n// are bags of fields, not sequences.\n\nmkUser = n => a => { name: n, age: a }\nu = mkUser(\"Ada\")(42)\nlog(u.name)"
+      }
+    ],
+    "description": "Records are structural. The type IS the set of fields, order never matters, and shapes emerge from use: two records with the same fields have the same type.",
+    "intro": [
+      {
+        "text": "You never declare a shape. Using it creates it. The type of { name: \"Ada\", age: 22 } IS the set of its fields; two records with the same fields have the same type, whatever they are called."
+      },
+      {
+        "code": "record Person(string Name, int Age);\nvar p = new Person(\"Ada\", 22);",
+        "lang": "csharp",
+        "caption": "For comparison, nominal typing (C#) needs the declaration before the value:"
+      },
+      {
+        "text": "TypeFighter goes the other way round: pass ANY record carrying a name field to a function that reads r.name and it type-checks. The declaration does not exist."
+      }
+    ]
+  },
+  {
+    "name": "Functions",
+    "examples": [
+      {
+        "title": "identity",
+        "source": "// Identity is fully polymorphic: `tv_0 -> tv_0`.\n// One type variable carries through.\n\nid = x => x\nlog(ToString(id(42)))"
+      },
+      {
+        "title": "higher-order",
+        "source": "// `twice` takes a function and feeds its output back into it.\n// Inferred type: `(tv_0 -> tv_0) -> tv_0 -> tv_0`.\n\ntwice = f => x => f(f(x))\nexclaim = s => concat(s)(\"!\")\nlog(twice(exclaim)(\"yo\"))"
+      },
+      {
+        "title": "compose",
+        "source": "// Function composition with three type variables:\n// `compose : (b -> c) -> (a -> b) -> a -> c`.\n\ncompose = f => g => x => f(g(x))\nshout = s => concat(s)(\"!!!\")\ngreet = s => concat(\"Hello, \")(s)\nlog(compose(shout)(greet)(\"Ada\"))"
+      },
+      {
+        "title": "partial application",
+        "source": "// Under curried semantics, applying fewer args returns a function\n// of the remaining ones. Here `sayHi` is a pre-filled greeter.\n\ngreet = prefix => name => concat(prefix)(name)\nsayHi = greet(\"Hi, \")\nlog(sayHi(\"Ada\"))\nlog(sayHi(\"Bob\"))"
+      },
+      {
+        "title": "method-call chaining (UFCS)",
+        "source": "// User functions work as methods too: `x.f()` is `f(x)`,\n// and chains read left-to-right like a pipeline.\n\nshout = s => concat(s, \"!!!\")\ngreet = s => concat(\"Hello, \", s)\n\"Ada\".greet().shout()"
+      }
+    ],
+    "description": "Functions are curried and first class: partial application, higher-order composition and full polymorphism, all inferred.",
+    "intro": [
+      {
+        "text": "Every function takes exactly ONE argument; multi-parameter functions are nested lambdas (currying), and f(a, b) is sugar for f(a)(b), so passing fewer arguments is not an error but partial application."
+      },
+      {
+        "text": "Any function is also a method (UFCS, Uniform Function Call Syntax): x.f(args) is uniformly rewritten to f(x, args), no classes or extension declarations involved, and chains compose left to right. Any expression works as a receiver, including function parameters, so chains are abstractable."
+      },
+      {
+        "text": "Resolution is by scope, not by type or shape: if f is a visible function (user binding, prelude, namespace member), x.f(args) applies that function; otherwise f is the record-field accessor. Conceptually a record field IS a function, namely the accessor of type { f: a & ... } -> a, so the dot always means 'apply f to x', and a visible function simply shadows the implicit accessor."
+      },
+      {
+        "text": "Edge cases of the scope rule: (1) a record field named like a visible function is unreachable via CALL syntax. That is ordinary shadowing; read it without call parens instead (g = r.f, then g(x)). (2) Plain x.f without parens always stays a field access."
+      }
+    ]
+  },
+  {
+    "name": "Arrays",
+    "examples": [
+      {
+        "title": "array literal",
+        "source": "// Arrays are homogeneous -- every element shares one type.\n// `length : Array<T> -> Number` works for any element type.\n\nxs = [1, 2, 3]\nnames = [\"Ada\", \"Bob\", \"Eve\"]\nlog(ToString(xs))\nlog(ToString(length(names)))"
+      },
+      {
+        "title": "indexed access via xs[i]",
+        "source": "// `xs[i]` is sugar for `at(xs)(i)` — the parser desugars it\n// to a normal application against the prelude's `at` binding.\n\nxs = [10, 20, 30]\nlog(ToString(xs[1]))"
+      },
+      {
+        "title": "index + property chain",
+        "source": "// Indexing chains with property access just like calls do:\n// `xs[0]` returns one record, then `.name` reads its field.\n\nusers = [\n  { name: \"Ada\", age: 22 },\n  { name: \"Bob\", age: 31 }\n]\nlog(users[1].name)"
+      },
+      {
+        "title": "head of records",
+        "source": "// `head` keeps the element's full type, so property access works\n// directly on the result.\n\nusers = [\n  { name: \"Ada\", age: 22 },\n  { name: \"Bob\", age: 31 }\n]\nlog(head(users).name)"
+      }
+    ],
+    "description": "Arrays are homogeneous (Array<T>). Indexing, head and length are ordinary polymorphic functions. xs[i] is just sugar for at(xs)(i).",
+    "intro": [
+      {
+        "text": "Indexing is not a special form: xs[i] is ordinary sugar for at(xs)(i), and head/length are plain polymorphic functions from the prelude."
+      }
+    ]
+  },
+  {
+    "name": "Type inference",
+    "examples": [
+      {
+        "title": "inferred function type",
+        "source": "// No annotations anywhere. The type checker works out:\n//   greet : String -> String\n// from the shape of concat and \"Hello, \".\n\ngreet = s => concat(\"Hello, \")(s)\nlog(greet(\"Ada\"))"
+      },
+      {
+        "title": "function as value",
+        "source": "// Functions are first-class. `apply` has the most general type\n// a one-arg higher-order function can have:\n//   (tv_0 -> tv_1) -> tv_0 -> tv_1\n\napply = f => x => f(x)\ngreet = s => concat(\"Hi, \")(s)\nlog(apply(greet)(\"Ada\"))"
+      }
+    ],
+    "description": "Hindley-Milner with constraints: hover anything to see its most general type. One definition, a fresh instantiation per call site.",
+    "intro": [
+      {
+        "text": "Hindley-Milner: every expression has a most general type, computed without a single annotation. Hover anything in the editor: what you see is the solver's result, not hand-written documentation."
+      },
+      {
+        "code": "function apply<A, B>(f: (a: A) => B, x: A): B {\n  return f(x);\n}",
+        "lang": "text",
+        "caption": "The same function in TypeScript needs the generics spelled out:"
+      },
+      {
+        "text": "In TypeFighter the whole <A, B> machinery is inferred: apply = f => x => f(x) gets the type (tv_0 -> tv_1) -> tv_0 -> tv_1 on its own."
+      }
+    ]
+  },
+  {
+    "name": "Operators",
+    "examples": [
+      {
+        "title": "arithmetic",
+        "source": "// `+ - * /` desugar to calls against `op_add`, `op_sub`, etc.\n// `*` and `/` bind tighter than `+` and `-`.\n\nlog(ToString(1 + 2 * 3))"
+      },
+      {
+        "title": "constrained polymorphism: + on strings",
+        "source": "// `+` is constrained-polymorphic over Number | String -- hover\n// `+` to see: <tv_0> where tv_0 in (Number | String).\n// The checker picks one type per use site.\n\ns = \"Hello, \" + \"World\"\nn = 1 + 2\nlog(s)\nlog(ToString(n))"
+      },
+      {
+        "title": "comparisons",
+        "source": "// `<`, `>`, `<=`, `>=` work on Number | String.\n// `==`, `!=` are fully polymorphic and return Boolean.\n\nlog(ToString(1 < 2))\nlog(ToString(\"apple\" < \"banana\"))\nlog(ToString(1 == 1))"
+      },
+      {
+        "title": "logical operators",
+        "source": "// `&&`, `||`, `!` are Boolean-only (no truthy coercion).\n\na = true\nb = false\nlog(ToString(a && !b))\nlog(ToString(a || b))"
+      },
+      {
+        "title": "operator precedence",
+        "source": "// Loosest -> tightest: || , && , == != , < > <= >= , + - , * /\n// Prefix `!` and unary `-` bind tighter than any infix.\n\nok = 1 + 2 * 3 == 7 && !(1 > 2)\nlog(ToString(ok))"
+      }
+    ],
+    "description": "Operators desugar to prelude calls (op_add, op_lt, and so on). Plus and the comparisons are constrained-polymorphic over Number | String. The logical operators are Boolean-only, equality is fully polymorphic.",
+    "intro": [
+      {
+        "text": "Operators are prelude functions in disguise: + is op_add. Plus and the comparisons are constrained-polymorphic, their type variable ranges over the SET {Number, String}. One operator, several types, still fully checked per use site."
+      }
+    ]
+  },
+  {
+    "name": "Step protocol (monadic)",
+    "description": "A record shaped { __init; __step } is a step machine. It is a structural, monadic protocol: binding a step value with = is BIND (the solver lifts the name to the per-step VALUE), plain values are RETURN. Streams are just ONE interpretation of this protocol; the same mechanics could drive others, async for example. The emit compiles the whole block into a flat C# state machine.",
+    "examples": [
+      {
+        "title": "useMemo: lazy constant",
+        "source": "// useMemo holds its argument in a state slot and emits the same\n// value every tick. The compiler emits a flat C# state-machine,\n// no bind/return tower.\n//\n// Run: 10 ticks -> [42, 42, 42, ...]\n\nuseMemo(42)"
+      },
+      {
+        "title": "let-chain = bind",
+        "source": "// A binding whose RHS is a stream becomes one step in the state-\n// machine; the name is the per-tick VALUE. Plain bindings like\n// `doubled` stay pure locals -- no extra state slot.\n//\n// Run: 10 ticks -> [1, 3, 5, 7, ...]\n\ni = count\ndoubled = i * 2\ndoubled + 1"
+      },
+      {
+        "title": "compose: step values + pure functions",
+        "source": "// Two independent state slots composed through a user-defined\n// pure function. Functions, plain math and stream steps mix\n// freely inside one block.\n//\n// Run: 10 ticks -> [7, 8, 9, ...]\n\nadd = x => y => x + y\na = useMemo(7)\nb = count\nadd(a)(b)"
+      },
+      {
+        "title": "user-defined step fn",
+        "source": "// `mkStream` is a user function whose body produces a stream.\n// Each call site gets its OWN state slot -- they don't share.\n//\n// Run: 10 ticks -> [15, 15, 15, ...]\n\nmkStream = a => useMemo(a)\nx = mkStream(7)\ny = mkStream(8)\nx + y"
+      },
+      {
+        "title": "custom step record (no useMemo)",
+        "source": "// You can write your own state-machine step from scratch — any\n// record with `__init: <S>` and `__step: <S> -> { val, nextState }`\n// is recognised. The emit inlines `__step`'s body into the tick loop.\n// No magic names, no implicit context.\n//\n// `myMemo` here is identical to `useMemo` but defined inline.\n//\n// Run: 10 ticks -> [42, 42, 42, ...]\n\nmyMemo = v => { __init: v, __step: s => { val: v, nextState: v } }\nmyMemo(42)"
+      },
+      {
+        "title": "branching: cap a counter at 4",
+        "source": "// `if c then a else b` works in any expr position, including\n// inside a stream-let. Emit is a single typed ternary per tick.\n//\n// Run: 10 ticks -> [0, 1, 2, 3, 4, 4, 4, 4, 4, 4]\n\ni = count\nif i > 4 then 4 else i"
+      }
+    ],
+    "intro": [
+      {
+        "text": "The heart of the language. A record { __init: s0, __step: s => { val, nextState } } is a step machine: __init is the starting state, __step maps state to a value plus the next state. That is the WHOLE protocol: structural, no classes, no interfaces, no registration."
+      },
+      {
+        "code": "useMemo = a => { __init: a, __step: s => { val: s, nextState: s } }",
+        "lang": "typefighter",
+        "caption": "useMemo, the smallest stdlib block, complete implementation:"
+      },
+      {
+        "text": "Binding a step value is monadic BIND: in i = count, the name i is the per-step VALUE (a Number), not the machine. The solver lifts the binding, and the emit weaves all steps of a block into ONE flat C# state machine. Plain values act as RETURN. Time-driven streams are just one interpretation of the protocol; async or other step-by-step effects could reuse the same mechanics."
+      },
+      {
+        "text": "Known soft spots (the pre-solve desugar decides structurally): a stream produced by your OWN function call used in argument position, and a plain value passed to your own stream-taking function, currently type-check but fail at runtime, so prefer prelude blocks for those shapes for now. Partial application of stream functions is rejected by the type checker."
+      }
+    ]
+  },
+  {
+    "name": "Streams (time-driven)",
+    "description": "The host interprets the step protocol over TIME: one step per sample instant. In the playground that is a 10-tick preview, in a computed curve it is the real sample times. count and now are the built-in time-driven streams.",
+    "examples": [
+      {
+        "title": "count: tick counter",
+        "source": "// `count` is a stdlib stream value (NOT a function): each tick it\n// yields the current state and increments by 1. Pure step-record.\n//\n// Run: 10 ticks -> [0, 1, 2, ..., 9]\n\ncount"
+      },
+      {
+        "title": "now: sample time",
+        "source": "// `now` is a stdlib stream: the sample instant in seconds since\n// epoch (one second per tick in the 10-tick preview; the real\n// sample time in a computed curve). useMemo pins the first value,\n// so this is \"seconds since start\".\n//\n// Run: 10 ticks -> [0, 1, 2, ...]\n\nstart = useMemo(now)\nnow - start"
+      }
+    ],
+    "intro": [
+      {
+        "text": "The host decides what a step means. The playground preview runs 10 ticks; a computed curve steps once per sample instant. count numbers the steps and now is the sample time in seconds; everything else is derived arithmetic over them."
+      }
+    ]
+  },
+  {
+    "name": "Library blocks",
+    "examples": [
+      {
+        "title": "ema: exponential smoothing",
+        "source": "// `math.ema` is imported from the LocSta stream library. Its input is\n// a stream by TYPE; any plain value is fed per tick.\n// Blocks live in namespaces: math, gen, logic, dsp.\n\ne = math.ema(gen.counter(0, 1), 0.3)\ne"
+      },
+      {
+        "title": "movingAverage over a stream",
+        "source": "// Windowed mean over the sampled values. State lives across ticks\n// (and across sample instants in a computed curve).\n\nm = math.movingAverage(gen.counter(0, 1), 5)\nm"
+      },
+      {
+        "title": "method-call syntax + chaining",
+        "source": "// `x.f(args)` is sugar for `f(x, args)` -- and it CHAINS: each call\n// result is an eligible receiver for the next method.\n\ngen.counter(0, 1).ema(0.3).delayByN(2, 0)"
+      },
+      {
+        "title": "composing blocks",
+        "source": "// Blocks compose like ordinary calls: the result of one stream is\n// the input of the next.\n\nsmooth = math.ema(gen.sineOsc(0.25, 8) * 10, 0.5)\nband = math.rollingMax(smooth, 10) - math.rollingMin(smooth, 10)\nband"
+      },
+      {
+        "title": "generator: counter",
+        "source": "// Generators need no input. gen.counter(start, increment) ticks up.\n\nc = gen.counter(0, 2)\nc"
+      },
+      {
+        "title": "oscillator: sineOsc",
+        "source": "// gen.sineOsc(freq, sampleRate) -- freq is itself a stream input, so\n// it can be modulated by another block or a formula.\n\ns = gen.sineOsc(0.25, 8)\ns * 10"
+      },
+      {
+        "title": "detection: threshold + countWhere",
+        "source": "// Boolean-style analytics: +1 on upward crossing, count of matches.\n// Binding `s` once feeds BOTH blocks the same per-tick value.\n\ns = gen.sineOsc(0.25, 8) * 60\nt = logic.threshold(s, 50)\nn = logic.countWhere(s, x => x > 50)\nt + n"
+      },
+      {
+        "title": "streams in plain expressions",
+        "source": "// A stream used where a value is expected is bound per tick\n// automatically -- write formulas, not plumbing.\n\nmath.ema(count, 0.5) * 2 + 1"
+      },
+      {
+        "title": "lambda argument: hold",
+        "source": "// Blocks take functions as arguments: logic.hold keeps the last\n// value matching the predicate and holds it between matches.\n\ns = gen.sineOsc(0.25, 8) * 60\nlogic.hold(s, v => v > 30, 0)"
+      },
+      {
+        "title": "delay: delayByN",
+        "source": "// logic.delayByN shifts a stream by n ticks; the first n values\n// are the seed.\n\nc = gen.counter(0, 1)\nlogic.delayByN(c, 3, 0)"
+      },
+      {
+        "title": "dsp: peakHold envelope",
+        "source": "// The dsp.* namespace: filters, envelopes, dynamics. peakHold\n// keeps peaks and lets them decay per tick.\n\ns = gen.sineOsc(0.25, 8) * 50\ndsp.peakHold(s, 0.9)"
+      }
+    ],
+    "description": "Stream blocks imported from the LocSta library, organised in namespaces (math, gen, logic, dsp). The source is always the FIRST argument, and method-call syntax works on any block.",
+    "intro": [
+      {
+        "text": "51 blocks imported from the LocSta stream library, purely BY TYPE: the language only knows their signatures, the implementations stay in the library. Namespaces (math, gen, logic, dsp) are ordinary record bindings. The source is always the FIRST argument, which is exactly why method-call syntax and chains read naturally."
+      }
+    ]
+  },
+  {
+    "name": "Type errors",
+    "expectsError": true,
+    "examples": [
+      {
+        "title": "concat expects strings",
+        "source": "// concat is monomorphic: String -> String -> String.\n// Passing a number violates that constraint — the error points\n// at the exact mismatch.\n\nconcat(42)(\"hello\")"
+      },
+      {
+        "title": "+ does not accept Boolean",
+        "source": "// `+` is constrained-polymorphic over Number | String only.\n// Boolean is not in the allowed set, so the constraint fails.\n\nlog(ToString(true + false))"
+      },
+      {
+        "title": "+ requires same operand types",
+        "source": "// Same `tv_0` on both sides of `+` — once it locks to Number,\n// the second operand can't be a String.\n\nlog(1 + \"two\")"
+      },
+      {
+        "title": "heterogeneous array",
+        "source": "// All array elements must share a type. Mixing Number and String\n// has no common type in the prelude, so inference fails.\n\nbad = [1, \"two\", 3]\nlog(ToString(bad))"
+      },
+      {
+        "title": "number is not a function",
+        "source": "// You can only apply values whose inferred type is a function.\n// x is a Number, so `x(1)` is rejected.\n\nx = 42\nx(1)"
+      },
+      {
+        "title": "missing record field",
+        "source": "// p's inferred type is `{ x: Number & y: Number }`. Accessing .z\n// adds a constraint the record doesn't satisfy → type error.\n\np = { x: 1, y: 2 }\nlog(ToString(p.z))"
+      },
+      {
+        "title": "record shape mismatch",
+        "source": "// useName demands a record with a `name` field. The argument has\n// `age` but no `name` — \"required field missing\" fires.\n\nuseName = r => r.name\nuseName(age: 30)"
+      },
+      {
+        "title": "parse error",
+        "source": "// The `=` expects an expression on its right — nothing there.\n// Parse errors show before type-checking even starts.\n\nx ="
+      }
+    ],
+    "description": "Errors are located, not just reported: each example shows the exact span the solver blames. Everything in this category is EXPECTED to fail.",
+    "intro": [
+      {
+        "text": "Errors carry a source span: the editor squiggles exactly the offending expression, not a random line. Everything in this category fails on purpose; click through and watch the messages point at the mismatch."
+      }
+    ]
+  }
+]

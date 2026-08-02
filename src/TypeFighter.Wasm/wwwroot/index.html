@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>TypeFighter.Wasm Smoke Test</title>
+    <style>
+        body { font-family: monospace; background: #1e1e1e; color: #ddd; margin: 16px; }
+        textarea { width: 100%; height: 140px; background: #252526; color: #ddd; border: 1px solid #3c3c3c; }
+        button { margin: 4px 4px 4px 0; padding: 4px 12px; }
+        pre { background: #252526; border: 1px solid #3c3c3c; padding: 8px; white-space: pre-wrap; max-height: 320px; overflow: auto; }
+        #status[data-ready="1"] { color: #4ec9b0; }
+        #status[data-ready="failed"] { color: #f48771; }
+    </style>
+</head>
+<body>
+    <h3>TypeFighter.Wasm Smoke Test</h3>
+    <div id="status">Loading runtime ...</div>
+    <textarea id="code">glatt = math.ema(gen.counter(0, 1), 0.5)
+glatt * 10</textarea>
+    <div>
+        <button id="compileinfo" disabled>compile-info</button>
+        <button id="eval" disabled>eval</button>
+        <button id="prelude" disabled>prelude</button>
+        <button id="completion" disabled>completion-at (cursor end)</button>
+    </div>
+    <pre id="out"></pre>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
