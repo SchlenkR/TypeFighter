@@ -150,9 +150,10 @@ export function ExampleOverview({
           }}
         >
           <div style={{
-            margin: "0 0 6px", fontSize: 12, fontWeight: 600,
-            textTransform: "uppercase", letterSpacing: 0.8,
-            color: cat.expectsError ? "var(--tfe-danger, #f48771)" : "var(--tfe-text-muted, #9d9d9d)",
+            margin: "0 0 10px", fontSize: 19, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: 1.2,
+            fontFamily: "system-ui, sans-serif",
+            color: cat.expectsError ? "var(--tfe-danger, #f48771)" : "var(--tfe-text, #e8e8e8)",
           }}>
             {cat.name}
           </div>
