@@ -16,29 +16,39 @@ type Str = System.ReadOnlySpan<char>
 type Parser<'value> = Cursor -> ParserResult<'value>
 
 and [<Struct>] Cursor =
-    { original: string
-      idx: int }
+    {
+        original: string
+        idx: int
+    }
 
 and [<Struct>] ParserResult<'out> =
     | POk of ok: PVal<'out>
     | PError of error: ParseError
 
 and [<Struct>] PVal<'out> =
-    { range: Range
-      result: 'out }
+    {
+        range: Range
+        result: 'out
+    }
 
 and [<Struct>] ParseError =
-    { idx: int
-      message: string }
+    {
+        idx: int
+        message: string
+    }
 
 and [<Struct>] Range = 
-    { startIdx: int
-      endIdx: int }
+    {
+        startIdx: int
+        endIdx: int
+    }
 
 type [<Struct>] DocPos =
-    { idx: int
-      ln: int
-      col: int }
+    {
+        idx: int
+        ln: int
+        col: int
+    }
 
 let inline mkParser ([<InlineIfLambda>] parser: Parser<_>) = parser
 let inline getParser ([<InlineIfLambda>] parser: Parser<_>) = parser

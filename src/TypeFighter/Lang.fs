@@ -469,7 +469,8 @@ module Typ =
                         |> Set.map (fun f -> { f with typ = renameMono f.typ })
                     positionals =
                         r.positionals
-                        |> List.map renameMono }
+                        |> List.map renameMono
+                }
             let canonicalVars = renaming |> Map.toSeq |> Seq.map snd |> Set.ofSeq
             Poly { vars = canonicalVars; constraints = Map.empty; monoTyp = renameMono typ }
 
@@ -734,10 +735,12 @@ module StepRecord =
             Expr.Let {| ident = l.ident; value = go l.value; body = l.body; tvar = l.tvar |}
         | Expr.Let l ->
             Expr.Let
-                {| ident = l.ident
-                   value = go l.value
-                   body  = go l.body
-                   tvar  = l.tvar |}
+                {|
+                    ident = l.ident
+                    value = go l.value
+                    body  = go l.body
+                    tvar  = l.tvar
+                |}
         | Expr.Do d ->
             Expr.Do {| action = go d.action; body = go d.body; tvar = d.tvar |}
         | Expr.PropAcc p ->
@@ -759,9 +762,11 @@ module StepRecord =
                     | _ -> go arm.body
                 { pattern = arm.pattern; body = body }
             Expr.Match
-                {| scrutinee = go m.scrutinee
-                   arms      = m.arms |> List.map mapArm
-                   tvar      = m.tvar |}
+                {|
+                    scrutinee = go m.scrutinee
+                    arms      = m.arms |> List.map mapArm
+                    tvar      = m.tvar
+                |}
 
     // Apply a curried lambda chain to its argument list. Stops when either
     // runs out, returning whatever's left of the body (handy for partial app
@@ -846,9 +851,11 @@ module StepRecord =
                         { pattern = MatchPattern.Var { identName = n; tvar = v.tvar }; body = go renamed }
                     | _ -> { pattern = arm.pattern; body = go arm.body }
                 Expr.Match
-                    {| scrutinee = go m.scrutinee
-                       arms      = m.arms |> List.map mapArm
-                       tvar      = m.tvar |}
+                    {|
+                        scrutinee = go m.scrutinee
+                        arms      = m.arms |> List.map mapArm
+                        tvar      = m.tvar
+                    |}
         go e
 
     // ─── Shared stream-binding classification ─────────────────────────
@@ -1050,8 +1057,10 @@ module TypeSystem =
                         match Map.tryFind origVar renaming with
                         | Some freshVar ->
                             do constraints.Append
-                                { triviaSource = expr
-                                  kind = CIsOneOf {| tvar = freshVar; allowed = allowed |} }
+                                {
+                                    triviaSource = expr
+                                    kind = CIsOneOf {| tvar = freshVar; allowed = allowed |}
+                                }
                         | None -> ()
                     substed
 
@@ -1189,10 +1198,12 @@ module TypeSystem =
                 generateConstraints env kinds x.source
 
                 do constraints.Append
-                    { triviaSource = expr
-                      kind = CHasField {| row = TVar x.source.TVar
-                                          fname = x.ident.identName
-                                          ftyp = TVar x.ident.tvar |} }
+                    {
+                        triviaSource = expr
+                        kind = CHasField {| row = TVar x.source.TVar
+                                            fname = x.ident.identName
+                                            ftyp = TVar x.ident.tvar |}
+                    }
 
                 appendConstraint x.tvar (TVar x.ident.tvar)
 
@@ -1225,8 +1236,10 @@ module TypeSystem =
                 appendConstraint
                     x.tvar
                     (RecordTyp
-                        { fields = set [ for n, t in namedFields -> { fname = n; typ = t } ]
-                          positionals = positionals })
+                        {
+                            fields = set [ for n, t in namedFields -> { fname = n; typ = t } ]
+                            positionals = positionals
+                        })
 
             | Expr.Match x ->
                 (*
@@ -1246,10 +1259,12 @@ module TypeSystem =
                         match a.pattern with
                         | MatchPattern.Literal l ->
                             do constraints.Append
-                                { triviaSource = expr
-                                  kind = CHasMember {|
-                                      row = scrutineeTyp
-                                      memberTyp = LiteralTyp l.value |} }
+                                {
+                                    triviaSource = expr
+                                    kind = CHasMember {|
+                                        row = scrutineeTyp
+                                        memberTyp = LiteralTyp l.value |}
+                                }
                             appendConstraint l.tvar (LiteralTyp l.value)
                             env, kinds
                         | MatchPattern.Var ident ->
@@ -1457,8 +1472,10 @@ module TypeSystem =
                             match existing with
                             | Some f when f.typ <> req.ftyp ->
                                 nextConstraints.Append
-                                    { triviaSource = c.triviaSource
-                                      kind = CEq (req.ftyp, f.typ) }
+                                    {
+                                        triviaSource = c.triviaSource
+                                        kind = CEq (req.ftyp, f.typ)
+                                    }
                             | _ -> ()
                             let updated = Set.add { fname = req.fname; typ = req.ftyp } current
                             do pendingFields.Replace(rowN, updated)
@@ -1474,8 +1491,10 @@ module TypeSystem =
                             match found with
                             | Some f ->
                                 nextConstraints.Append
-                                    { triviaSource = c.triviaSource
-                                      kind = CEq (req.ftyp, f.typ) }
+                                    {
+                                        triviaSource = c.triviaSource
+                                        kind = CEq (req.ftyp, f.typ)
+                                    }
                             | None ->
                                 raise (UnificationError(
                                     c.triviaSource, req.row, req.ftyp,
@@ -1571,8 +1590,10 @@ module TypeSystem =
                                     match fs with
                                     | [f1; f2] ->
                                         nextConstraints.Append
-                                            { triviaSource = c.triviaSource
-                                              kind = CEq (f1.typ, f2.typ) }
+                                            {
+                                                triviaSource = c.triviaSource
+                                                kind = CEq (f1.typ, f2.typ)
+                                            }
                                     | _ -> ()
                                 let merged = set [ yield! leftPending; yield! rightPending ]
                                 do pendingFields.Remove(leftN)
@@ -1606,8 +1627,10 @@ module TypeSystem =
                             | _ ->
                                 for m in leftPendingMembers do
                                     do nextConstraints.Append
-                                        { triviaSource = c.triviaSource
-                                          kind = CHasMember {| row = right; memberTyp = m |} }
+                                        {
+                                            triviaSource = c.triviaSource
+                                            kind = CHasMember {| row = right; memberTyp = m |}
+                                        }
                                 do pendingMembers.Remove(leftN)
 
                         // Interact pending membership constraints with the resolved right.
@@ -1647,8 +1670,10 @@ module TypeSystem =
                         // Rewrite remaining constraints with the substitution.
                         for c' in constraints do
                             do nextConstraints.Append
-                                { triviaSource = c'.triviaSource
-                                  kind = applySubstToKind left right c'.kind }
+                                {
+                                    triviaSource = c'.triviaSource
+                                    kind = applySubstToKind left right c'.kind
+                                }
 
                         for r in pendingFields.Values do
                             let newFields =

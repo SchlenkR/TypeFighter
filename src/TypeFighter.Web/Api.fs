@@ -21,38 +21,48 @@ do ShowTyp.AddPrinter (fun typ ->
 
 
 type PreludeEntry =
-    { name: string
-      typ: string
-      fields: string array }
+    {
+        name: string
+        typ: string
+        fields: string array
+    }
 
 type HoverInfo =
-    { startIdx: int
-      endIdx: int
-      name: string
-      typ: string }
+    {
+        startIdx: int
+        endIdx: int
+        name: string
+        typ: string
+    }
 
 type CompletionEntry =
-    { name: string
-      typ: string
-      kind: string }
+    {
+        name: string
+        typ: string
+        kind: string
+    }
 
 type ErrorRange =
     { startIdx: int; endIdx: int }
 
 type CompileInfo =
-    { error: string
-      errorRange: ErrorRange option
-      hovers: HoverInfo array
-      completions: CompletionEntry array
-      // The whole program's inferred result type, when type-checking
-      // succeeds — empty string on parse / type errors.
-      resultType: string }
+    {
+        error: string
+        errorRange: ErrorRange option
+        hovers: HoverInfo array
+        completions: CompletionEntry array
+        // The whole program's inferred result type, when type-checking
+        // succeeds — empty string on parse / type errors.
+        resultType: string
+    }
 
 type EvalInfo =
-    { csharp: string
-      result: string
-      output: string
-      error: string }
+    {
+        csharp: string
+        result: string
+        output: string
+        error: string
+    }
 
 
 // ─── Stdlib (TypeFighter source, prepended invisibly to user input) ──
@@ -132,10 +142,12 @@ let private mkPreludeIndex (prelude: (string * Typ) list) : Desugar.PreludeIndex
             let positions = walk (monoOf typ) 0 Set.empty
             if positions.IsEmpty then None else Some (name, positions))
         |> Map.ofList
-    { kinds = kinds
-      callables = callables
-      streamParams = streamParams
-      namespaceMembers = Web.Builtins.namespaceMembers }
+    {
+        kinds = kinds
+        callables = callables
+        streamParams = streamParams
+        namespaceMembers = Web.Builtins.namespaceMembers
+    }
 
 // Apply the desugar pass (UFCS + stream-argument hoisting) and stdlib
 // pruning to a parsed augmented chain. Returns the rewritten expr, the
@@ -214,16 +226,18 @@ let private spanName (sk: Syntax.SpanKind) =
 
 
 type private AnalysisResult =
-    { expr: Expr<VarNum> option
-      rootType: MonoTyp option
-      // VarNum -> resolved monotyp; lets the emitter pick typed C# code paths
-      // (e.g. direct `TfBuiltins.op_add(double, double)` instead of curried
-      // Func<object,object>).
-      tvarToMono: VarNum -> MonoTyp option
-      error: string
-      errorRange: ErrorRange option
-      hovers: HoverInfo array
-      completions: CompletionEntry array }
+    {
+        expr: Expr<VarNum> option
+        rootType: MonoTyp option
+        // VarNum -> resolved monotyp; lets the emitter pick typed C# code paths
+        // (e.g. direct `TfBuiltins.op_add(double, double)` instead of curried
+        // Func<object,object>).
+        tvarToMono: VarNum -> MonoTyp option
+        error: string
+        errorRange: ErrorRange option
+        hovers: HoverInfo array
+        completions: CompletionEntry array
+    }
 
 let private analyze (extraPrelude: (string * Typ) list) (source: string) : AnalysisResult =
     let prelude = fullPrelude extraPrelude
@@ -244,13 +258,15 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
         // Parse error in the stdlib would be a compiler bug — surface it.
         let userIdx = toUserIdx err.idx
         let endIdx = min (userIdx + 1) source.Length
-        { expr = None
-          rootType = None
-          tvarToMono = fun _ -> None
-          error = err.message
-          errorRange = Some { startIdx = userIdx; endIdx = endIdx }
-          hovers = [||]
-          completions = preludeCompletions }
+        {
+            expr = None
+            rootType = None
+            tvarToMono = fun _ -> None
+            error = err.message
+            errorRange = Some { startIdx = userIdx; endIdx = endIdx }
+            hovers = [||]
+            completions = preludeCompletions
+        }
     | Ok (expr, spans, resolveRange) ->
         // Desugar (UFCS + stream-argument hoisting) and prune unused stdlib
         // bindings; solver AND emit both consume the rewritten chain.
@@ -263,13 +279,15 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
             with ex -> Error ex.Message
         match solveResult with
         | Error err ->
-            { expr = None
-              rootType = None
-              tvarToMono = fun _ -> None
-              error = sprintf "Type error: %s" err
-              errorRange = None
-              hovers = [||]
-              completions = preludeCompletions }
+            {
+                expr = None
+                rootType = None
+                tvarToMono = fun _ -> None
+                error = sprintf "Type error: %s" err
+                errorRange = None
+                hovers = [||]
+                completions = preludeCompletions
+            }
         | Ok solution ->
 
         let tvarToTyp : VarNum -> string option =
@@ -355,10 +373,12 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
                         | Syntax.VarRef n ->
                             defaultArg (Map.tryFind n preludeMap) ""
                         | _ -> defaultArg (typByRange s) ""
-                { startIdx = toUserIdx s.range.startIdx
-                  endIdx = toUserIdx s.range.endIdx
-                  name = name
-                  typ = typ })
+                {
+                    startIdx = toUserIdx s.range.startIdx
+                    endIdx = toUserIdx s.range.endIdx
+                    name = name
+                    typ = typ
+                })
             |> Array.ofList
 
         let userBindings =
@@ -403,21 +423,25 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
 
         match solution.result with
         | Error err ->
-            { expr = None
-              rootType = rootType
-              tvarToMono = tvarToMono
-              error = sprintf "Type error: %s" err
-              errorRange = typeErrorRange
-              hovers = hovers
-              completions = completions }
+            {
+                expr = None
+                rootType = rootType
+                tvarToMono = tvarToMono
+                error = sprintf "Type error: %s" err
+                errorRange = typeErrorRange
+                hovers = hovers
+                completions = completions
+            }
         | Ok _ ->
-            { expr = Some solution.numberedExpr
-              rootType = rootType
-              tvarToMono = tvarToMono
-              error = ""
-              errorRange = None
-              hovers = hovers
-              completions = completions }
+            {
+                expr = Some solution.numberedExpr
+                rootType = rootType
+                tvarToMono = tvarToMono
+                error = ""
+                errorRange = None
+                hovers = hovers
+                completions = completions
+            }
 
 
 let compileInfo (extraPrelude: (string * Typ) list) (source: string) : CompileInfo =
@@ -426,11 +450,13 @@ let compileInfo (extraPrelude: (string * Typ) list) (source: string) : CompileIn
         r.rootType
         |> Option.map (fun t -> string t)
         |> Option.defaultValue ""
-    { error = r.error
-      errorRange = r.errorRange
-      hovers = r.hovers
-      completions = r.completions
-      resultType = resultType }
+    {
+        error = r.error
+        errorRange = r.errorRange
+        hovers = r.hovers
+        completions = r.completions
+        resultType = resultType
+    }
 
 
 // Pulls the receiver chain (`<expr>` left of the last `.`) and the
@@ -545,10 +571,12 @@ let evalSource
         { csharp = ""; result = ""; output = ""; error = r.error }
     | Some expr, Some rootType ->
         let evald = Eval.evalExpr extraBindings source rootType r.tvarToMono expr
-        { csharp = evald.csharp
-          result = evald.result
-          output = evald.output
-          error = evald.error }
+        {
+            csharp = evald.csharp
+            result = evald.result
+            output = evald.output
+            error = evald.error
+        }
 
 
 /// Compile `source` ONCE to a stateful sampler for VirtualCurves. The host

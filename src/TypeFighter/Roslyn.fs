@@ -41,8 +41,10 @@ let baseReferences () : MetadataReference list =
     | None ->
         let coreAsm = typeof<obj>.Assembly
         let trustedDir = Path.GetDirectoryName(coreAsm.Location)
-        [ "System.Runtime.dll"; "System.Private.CoreLib.dll"
-          "netstandard.dll"; "System.Linq.dll" ]
+        [
+            "System.Runtime.dll"; "System.Private.CoreLib.dll"
+            "netstandard.dll"; "System.Linq.dll"
+        ]
         |> List.choose (fun n ->
             let p = Path.Combine(trustedDir, n)
             if File.Exists p then Some (MetadataReference.CreateFromFile p :> MetadataReference)

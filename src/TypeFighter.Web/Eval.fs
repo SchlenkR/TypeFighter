@@ -10,21 +10,25 @@ open System.Reflection
 open PureState.TypeFighter
 
 type EvalResult =
-    { csharp: string
-      result: string
-      output: string
-      error: string }
+    {
+        csharp: string
+        result: string
+        output: string
+        error: string
+    }
 
 /// One host-injected binding. The user-side ident is bound inside the
 /// compiled C# body via `csInitExpr`; the C# class's `Eval` method gets
 /// an extra parameter `csParamName: csParamType`; at invoke time the
 /// `runtimeValue` is passed in for that parameter.
 type ExtraBinding =
-    { name: string
-      csParamName: string
-      csParamType: string
-      csInitExpr: string
-      runtimeValue: obj }
+    {
+        name: string
+        csParamName: string
+        csParamType: string
+        csInitExpr: string
+        runtimeValue: obj
+    }
 
 // Typed builtins library, compiled alongside every user program. The emitter's
 // typed fast-path (`EmitCSharp`) routes fully-applied, type-resolved
@@ -195,10 +199,12 @@ let evalExpr
             with
             | :? TargetInvocationException as ex when not (isNull ex.InnerException) ->
                 raise ex.InnerException
-        { csharp = csharp
-          result = renderResult value
-          output = sw.ToString()
-          error = "" }
+        {
+            csharp = csharp
+            result = renderResult value
+            output = sw.ToString()
+            error = ""
+        }
     with
     | :? Roslyn.CompileException as ex ->
         { csharp = csharp; result = ""; output = ""; error = ex.Message }
@@ -212,9 +218,11 @@ let evalExpr
 /// calls in the underlying class instance, so each call is one tick at a real
 /// sample time. `Step` is null when `error` is non-empty.
 type CompiledSampler =
-    { csharp: string
-      step: Func<DateTimeOffset, IDictionary<string, obj>, Nullable<double>>
-      error: string }
+    {
+        csharp: string
+        step: Func<DateTimeOffset, IDictionary<string, obj>, Nullable<double>>
+        error: string
+    }
 
 /// Compile a step-record TypeFighter program ONCE to a reusable sampler.
 /// The root must be a stream (step-record); otherwise returns an error.

@@ -64,8 +64,10 @@ type private Final =
     | FPlain of Expr<VarNum>
 
 type private Resolved =
-    { spliced: ChainEntry list
-      final: Final }
+    {
+        spliced: ChainEntry list
+        final: Final
+    }
 
 // One entry of the fully flattened state machine, in execution order.
 type private FlatStep =

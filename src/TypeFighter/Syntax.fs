@@ -119,8 +119,10 @@ let private quotedIdentifier =
         let! body = pstringUntil (pstr "`")
         let! q2 = pstr "`"
         return
-            { range = Range.add q1.range q2.range
-              result = body.result }
+            {
+                range = Range.add q1.range q2.range
+                result = body.result
+            }
     } |> tok
 
 let private plainIdentifier =
@@ -129,15 +131,19 @@ let private plainIdentifier =
             let! h = identStart
             let! t = many identCont |> pconcat
             return
-                { range = Range.add h.range t.range
-                  result = h.result + t.result }
+                {
+                    range = Range.add h.range t.range
+                    result = h.result + t.result
+                }
         }
     parse {
         let! x = raw
         if reservedWords.Contains x.result then
             return
-                { idx = x.range.startIdx
-                  message = $"Reserved word '{x.result}' used as identifier." }
+                {
+                    idx = x.range.startIdx
+                    message = $"Reserved word '{x.result}' used as identifier."
+                }
         else
             return x
     } |> tok
@@ -158,8 +164,10 @@ let private floatLit =
         let! fracPart = many1Str digit
         let r = Range.merge [ intPart.range; dot.range; fracPart.range ]
         return
-            { range = r
-              result = withRange r (X.Lit (float (intPart.result + "." + fracPart.result))) }
+            {
+                range = r
+                result = withRange r (X.Lit (float (intPart.result + "." + fracPart.result)))
+            }
     }
 
 let private intLit =
@@ -236,8 +244,10 @@ let private recordItem =
             let! _     = sym ":"
             let! value = expr
             return
-                { range = Range.add name.range value.range
-                  result = X.Property name.result value.result }
+                {
+                    range = Range.add name.range value.range
+                    result = X.Property name.result value.result
+                }
         }
     let asPositional =
         expr |> map X.Positional
@@ -252,8 +262,10 @@ let private recordLitItem =
             let! _     = sym ":"
             let! value = expr
             return
-                { range = Range.add name.range value.range
-                  result = X.Property name.result value.result }
+                {
+                    range = Range.add name.range value.range
+                    result = X.Property name.result value.result
+                }
         }
     let asExprOrShorthand =
         expr
@@ -416,11 +428,13 @@ let private indexTail : Parser<CallTail> =
         let! closeB = sym "]"
         let r = Range.merge [ openB.range; idx.range; closeB.range ]
         return
-            { range = r
-              result = fun src ->
-                let atVar = withRange r (X.Var "at")
-                let atSrc = withRange r (X.App atVar src)
-                withRange r (X.App atSrc idx.result) }
+            {
+                range = r
+                result = fun src ->
+                  let atVar = withRange r (X.Var "at")
+                  let atSrc = withRange r (X.App atVar src)
+                  withRange r (X.App atSrc idx.result)
+            }
     }
 
 let private callChain =
@@ -489,19 +503,27 @@ let private opTable : Op<Expr<unit>> list list =
         // loosest
         [ Infix ("||", Left, mkBin "op_or") ]
         [ Infix ("&&", Left, mkBin "op_and") ]
-        [ Infix ("==", Left, mkBin "op_eq")
-          Infix ("!=", Left, mkBin "op_neq") ]
-        [ Infix ("<=", Left, mkBin "op_le")
-          Infix (">=", Left, mkBin "op_ge")
-          Infix ("<",  Left, mkBin "op_lt")
-          Infix (">",  Left, mkBin "op_gt") ]
-        [ Infix ("+", Left, mkBin "op_add")
-          Infix ("-", Left, mkBin "op_sub")
-          Prefix ("-", mkUnary "op_neg") ]
+        [
+            Infix ("==", Left, mkBin "op_eq")
+            Infix ("!=", Left, mkBin "op_neq")
+        ]
+        [
+            Infix ("<=", Left, mkBin "op_le")
+            Infix (">=", Left, mkBin "op_ge")
+            Infix ("<",  Left, mkBin "op_lt")
+            Infix (">",  Left, mkBin "op_gt")
+        ]
+        [
+            Infix ("+", Left, mkBin "op_add")
+            Infix ("-", Left, mkBin "op_sub")
+            Prefix ("-", mkUnary "op_neg")
+        ]
         // tightest
-        [ Infix ("*", Left, mkBin "op_mul")
-          Infix ("/", Left, mkBin "op_div")
-          Prefix ("!", mkUnary "op_not") ]
+        [
+            Infix ("*", Left, mkBin "op_mul")
+            Infix ("/", Left, mkBin "op_div")
+            Prefix ("!", mkUnary "op_not")
+        ]
     ]
 
 let private opExpr : Parser<Expr<unit>> =
@@ -563,8 +585,10 @@ let private letStmt =
             let! value = expr
             recordSpan name.range (BindingDef name.result)
             return
-                { range = Range.add kw.range value.range
-                  result = StmtLet(name.result, value.result) }
+                {
+                    range = Range.add kw.range value.range
+                    result = StmtLet(name.result, value.result)
+                }
         }
     let bare =
         parse {
@@ -573,8 +597,10 @@ let private letStmt =
             let! value = expr
             recordSpan name.range (BindingDef name.result)
             return
-                { range = Range.add name.range value.range
-                  result = StmtLet(name.result, value.result) }
+                {
+                    range = Range.add name.range value.range
+                    result = StmtLet(name.result, value.result)
+                }
         }
     withKw <|> bare
 
@@ -643,8 +669,10 @@ let private typeIdentifier =
             let! h = identStart
             let! t = many identCont |> pconcat
             return
-                { range = Range.add h.range t.range
-                  result = h.result + t.result }
+                {
+                    range = Range.add h.range t.range
+                    result = h.result + t.result
+                }
         }
     raw |> tok
 
@@ -654,8 +682,10 @@ let private floatLitTyp =
         let! dot      = pstr "."
         let! fracPart = many1Str digit
         return
-            { range = Range.merge [ intPart.range; dot.range; fracPart.range ]
-              result = LiteralTyp (Number (float (intPart.result + "." + fracPart.result))) }
+            {
+                range = Range.merge [ intPart.range; dot.range; fracPart.range ]
+                result = LiteralTyp (Number (float (intPart.result + "." + fracPart.result)))
+            }
     }
 
 let private intLitTyp =
@@ -672,8 +702,10 @@ let private stringLitTyp =
         let! body  = pstringUntil (pstr "\"")
         let! closeQ = pstr "\""
         return
-            { range = Range.merge [ openQ.range; body.range; closeQ.range ]
-              result = LiteralTyp (String body.result) }
+            {
+                range = Range.merge [ openQ.range; body.range; closeQ.range ]
+                result = LiteralTyp (String body.result)
+            }
     } |> tok
 
 let private boolLitTyp =
@@ -721,8 +753,10 @@ let private appliedOrIdentTyp =
                 let! xs     = commaList typExpr
                 let! closeA = sym ">"
                 return
-                    { range = Range.merge [ openA.range; xs.range; closeA.range ]
-                      result = xs.result }
+                    {
+                        range = Range.merge [ openA.range; xs.range; closeA.range ]
+                        result = xs.result
+                    }
              })
             <|> mkParser (fun inp -> POk.create inp.idx inp.idx [])
         let typ =
@@ -735,11 +769,13 @@ let private appliedOrIdentTyp =
                 // `Array<T>` is the idiomatic built-in; user types are also saturated.
                 TDef.SaturatedWith name.result args
         return
-            { range =
-                match args.result with
-                | [] -> name.range
-                | _  -> Range.add name.range args.range
-              result = typ }
+            {
+                range =
+                  match args.result with
+                  | [] -> name.range
+                  | _  -> Range.add name.range args.range
+                result = typ
+            }
     }
 
 // A record-type item inside `{ … }`: `name: T` or a bare `T`.
@@ -773,8 +809,10 @@ let private parenTypExpr =
         let! t     = typExpr
         let! closeP = sym ")"
         return
-            { range = Range.merge [ openP.range; t.range; closeP.range ]
-              result = t.result }
+            {
+                range = Range.merge [ openP.range; t.range; closeP.range ]
+                result = t.result
+            }
     }
 
 // `{ item1 [& item2]* }` — record-set type. Items `&`-separated.
@@ -786,8 +824,10 @@ let private recordTypBraces =
                 let! _     = sym ":"
                 let! value = unionOverPrim
                 return
-                    { range = Range.add name.range value.range
-                      result = NamedItem (name.result, value.result) }
+                    {
+                        range = Range.add name.range value.range
+                        result = NamedItem (name.result, value.result)
+                    }
             }
         let asPositional =
             unionOverPrim |> map PositionalItem
@@ -820,12 +860,16 @@ let private recordTypBraces =
         let! closeB = sym "}"
         if not (List.isEmpty duplicates) then
             return
-                { idx = openB.range.startIdx
-                  message = sprintf "Duplicate named fields in record type: %A" duplicates }
+                {
+                    idx = openB.range.startIdx
+                    message = sprintf "Duplicate named fields in record type: %A" duplicates
+                }
         else
             return
-                { range = Range.merge [ openB.range; items.range; closeB.range ]
-                  result = buildRecord items.result }
+                {
+                    range = Range.merge [ openB.range; items.range; closeB.range ]
+                    result = buildRecord items.result
+                }
     }
 
 // `boolLitTyp` precedes `appliedOrIdentTyp` so `true` / `false` parse
@@ -865,11 +909,13 @@ let private altTyp : Parser<MonoTyp> =
             match nonRecord with
             | Some other ->
                 return
-                    { idx = head.range.startIdx
-                      message =
-                          sprintf
-                              "Type intersection `&` outside `{ … }` requires record operands; got %A. Use `{ A & B }` to build a record-set."
-                              other }
+                    {
+                        idx = head.range.startIdx
+                        message =
+                            sprintf
+                                "Type intersection `&` outside `{ … }` requires record operands; got %A. Use `{ A & B }` to build a record-set."
+                                other
+                    }
             | None ->
                 let recordDefs =
                     [ for t in all do
@@ -888,23 +934,29 @@ let private altTyp : Parser<MonoTyp> =
                 match conflict with
                 | Some (name, fs) ->
                     return
-                        { idx = head.range.startIdx
-                          message =
-                              sprintf
-                                  "Conflicting types for field '%s' in record intersection: %A"
-                                  name
-                                  (fs |> List.map (fun f -> f.typ)) }
+                        {
+                            idx = head.range.startIdx
+                            message =
+                                sprintf
+                                    "Conflicting types for field '%s' in record intersection: %A"
+                                    name
+                                    (fs |> List.map (fun f -> f.typ))
+                        }
                 | None ->
                     let mergedFields =
                         grouped |> List.map (fun (_, fs) -> List.head fs) |> Set.ofList
                     let mergedPositionals =
                         [ for r in recordDefs do yield! r.positionals ]
                     let merged =
-                        { fields = mergedFields
-                          positionals = mergedPositionals }
+                        {
+                            fields = mergedFields
+                            positionals = mergedPositionals
+                        }
                     return
-                        { range = Range.add head.range tail.range
-                          result = RecordTyp merged }
+                        {
+                            range = Range.add head.range tail.range
+                            result = RecordTyp merged
+                        }
     }
 
 // typExpr: `A | B | C`. Union of alternatives.

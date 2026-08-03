@@ -41,35 +41,41 @@ open PureState.TypeFighter
 open PureState.TypeFighter.StepRecord
 
 type PreludeIndex =
-    { kinds: StreamKinds
-      // names that are callable (prelude fns); user fn-bindings are
-      // discovered while walking
-      callables: Set<string>
-      // prelude fns with declared step-record params: 0-based positions
-      // that must NOT be hoisted
-      streamParams: Map<string, Set<int>>
-      // dotted namespaces: ns -> member -> flat prelude name
-      namespaceMembers: Map<string, Map<string, string>> }
+    {
+        kinds: StreamKinds
+        // names that are callable (prelude fns); user fn-bindings are
+        // discovered while walking
+        callables: Set<string>
+        // prelude fns with declared step-record params: 0-based positions
+        // that must NOT be hoisted
+        streamParams: Map<string, Set<int>>
+        // dotted namespaces: ns -> member -> flat prelude name
+        namespaceMembers: Map<string, Map<string, string>>
+    }
 
 type Result =
-    { expr: Expr<unit>
-      // newNode -> oldNode, reference-identity keyed. Follow transitively.
-      remap: System.Collections.Generic.Dictionary<obj, obj> }
+    {
+        expr: Expr<unit>
+        // newNode -> oldNode, reference-identity keyed. Follow transitively.
+        remap: System.Collections.Generic.Dictionary<obj, obj>
+    }
 
 // Per-scope classification carried down the walk.
 type private Scope =
-    { kinds: StreamKinds
-      callables: Set<string>
-      // declared step-record parameter positions of prelude fns; entries
-      // drop out when a user binding shadows the name
-      streamParams: Map<string, Set<int>>
-      // names bound by stream-lets (= lifted per-tick values)
-      lifted: Set<string>
-      // dotted namespaces in scope; entries drop out when a user
-      // binding shadows the namespace name
-      namespaces: Map<string, Map<string, string>>
-      // inside a step-shaped record literal hoisting is disabled
-      noHoist: bool }
+    {
+        kinds: StreamKinds
+        callables: Set<string>
+        // declared step-record parameter positions of prelude fns; entries
+        // drop out when a user binding shadows the name
+        streamParams: Map<string, Set<int>>
+        // names bound by stream-lets (= lifted per-tick values)
+        lifted: Set<string>
+        // dotted namespaces in scope; entries drop out when a user
+        // binding shadows the namespace name
+        namespaces: Map<string, Map<string, string>>
+        // inside a step-shaped record literal hoisting is disabled
+        noHoist: bool
+    }
 
 let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
     let remap = System.Collections.Generic.Dictionary<obj, obj>(HashIdentity.Reference)
@@ -89,12 +95,14 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
         n
 
     let scope0 =
-        { kinds = preludeIndex.kinds
-          callables = preludeIndex.callables
-          streamParams = preludeIndex.streamParams
-          lifted = Set.empty
-          namespaces = preludeIndex.namespaceMembers
-          noHoist = false }
+        {
+            kinds = preludeIndex.kinds
+            callables = preludeIndex.callables
+            streamParams = preludeIndex.streamParams
+            lifted = Set.empty
+            namespaces = preludeIndex.namespaceMembers
+            noHoist = false
+        }
 
     // Is F a callable binding name in scope?
     let isCallable (scope: Scope) (name: string) =
@@ -129,22 +137,32 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
         let unitVal () = Expr.Var {| ident = BuiltinValues.unitValueIdent; tvar = () |}
         let resultRecord =
             Expr.MkRecord
-                {| items =
-                    [ RecordItem.Property {| fname = BuiltinTypes.StepFields.value; value = e |}
-                      RecordItem.Property {| fname = BuiltinTypes.StepFields.nextState; value = unitVal () |} ]
-                   tvar = () |}
+                {|
+                    items =
+                        [
+                            RecordItem.Property {| fname = BuiltinTypes.StepFields.value; value = e |}
+                            RecordItem.Property {| fname = BuiltinTypes.StepFields.nextState; value = unitVal () |}
+                        ]
+                    tvar = ()
+                |}
         let stepFn =
             Expr.Fun {| ident = { identName = freshName (); tvar = () }; body = resultRecord; tvar = () |}
         let machineRecord =
             Expr.MkRecord
-                {| items =
-                    [ RecordItem.Property {| fname = BuiltinTypes.StepFields.init; value = unitVal () |}
-                      RecordItem.Property {| fname = BuiltinTypes.StepFields.step; value = stepFn |} ]
-                   tvar = () |}
+                {|
+                    items =
+                        [
+                            RecordItem.Property {| fname = BuiltinTypes.StepFields.init; value = unitVal () |}
+                            RecordItem.Property {| fname = BuiltinTypes.StepFields.step; value = stepFn |}
+                        ]
+                    tvar = ()
+                |}
         let record =
             Expr.MkRecord
-                {| items = [ RecordItem.Property {| fname = BuiltinTypes.StepFields.machine; value = machineRecord |} ]
-                   tvar = () |}
+                {|
+                    items = [ RecordItem.Property {| fname = BuiltinTypes.StepFields.machine; value = machineRecord |} ]
+                    tvar = ()
+                |}
         remap.[box record] <- box e
         record
 
@@ -201,7 +219,8 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
                         if isStreamExpr hoistScope.kinds value'
                         then hoistScope.lifted |> Set.add l.ident.identName
                         else hoistScope.lifted |> Set.remove l.ident.identName
-                    namespaces = hoistScope.namespaces |> Map.remove l.ident.identName }
+                    namespaces = hoistScope.namespaces |> Map.remove l.ident.identName
+                }
             let body' = rewriteChain bodyScope l.body
             let rebuilt =
                 if obj.ReferenceEquals(value', l.value) && obj.ReferenceEquals(body', l.body) && hoists.IsEmpty
@@ -249,7 +268,8 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
                     callables = scope.callables |> Set.remove f.ident.identName
                     streamParams = scope.streamParams |> Map.remove f.ident.identName
                     lifted = scope.lifted |> Set.remove f.ident.identName
-                    namespaces = scope.namespaces |> Map.remove f.ident.identName }
+                    namespaces = scope.namespaces |> Map.remove f.ident.identName
+                }
             let body' = rewriteChain bodyScope f.body
             if obj.ReferenceEquals(body', f.body) then e, []
             else
@@ -408,7 +428,8 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
                                 kinds = scope.kinds |> Map.add v.identName BindingKind.Plain
                                 streamParams = scope.streamParams |> Map.remove v.identName
                                 lifted = scope.lifted |> Set.remove v.identName
-                                namespaces = scope.namespaces |> Map.remove v.identName }
+                                namespaces = scope.namespaces |> Map.remove v.identName
+                            }
                         | _ -> scope
                     // Arm bodies are chain contexts: hoists stay inside the
                     // arm (only the taken arm evaluates per tick).

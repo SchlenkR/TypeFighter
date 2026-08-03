@@ -85,8 +85,10 @@ let ``surface conflict: '<=' is preferred over '<' on the same level`` () =
     let p : Parser<string> =
         let toStr = number |> map string
         buildExprParser opSurf toStr [
-            [ Infix("<=", Left, fun a b -> bin "<=" (int a) (int b))
-              Infix("<",  Left, fun a b -> bin "<" (int a) (int b)) ]
+            [
+                Infix("<=", Left, fun a b -> bin "<=" (int a) (int b))
+                Infix("<",  Left, fun a b -> bin "<" (int a) (int b))
+            ]
         ]
     runOk p "1<=2" |> should equal "(<= 1 2)"
     runOk p "1<2"  |> should equal "(< 1 2)"
@@ -97,8 +99,10 @@ let ``surface alias: two surfaces map to the same canonical name via combine`` (
     let toStr = number |> map string
     let p =
         buildExprParser opSurf toStr [
-            [ Infix("<>", Left, fun a b -> bin "<>" (int a) (int b))
-              Infix("!=", Left, fun a b -> bin "<>" (int a) (int b)) ]
+            [
+                Infix("<>", Left, fun a b -> bin "<>" (int a) (int b))
+                Infix("!=", Left, fun a b -> bin "<>" (int a) (int b))
+            ]
         ]
     runOk p "1<>2" |> should equal "(<> 1 2)"
     runOk p "1!=2" |> should equal "(<> 1 2)"

@@ -425,30 +425,32 @@ let private testNamespaces : Map<string, Map<string, string>> =
 // Mirror of app-demo's index construction (Api.mkPreludeIndex).
 let private preludeIndexFor (prelude: (string * Typ) list) : Desugar.PreludeIndex =
     let monoOf t = match t with Mono m -> m | Poly p -> p.monoTyp
-    { kinds =
-        prelude
-        |> List.choose (fun (n, t) ->
-            match StepRecord.bindingKindOfTyp t with
-            | StepRecord.BindingKind.Plain -> None
-            | kind -> Some (n, kind))
-        |> Map.ofList
-      callables =
-        prelude
-        |> List.choose (fun (n, t) -> match monoOf t with FunTyp _ -> Some n | _ -> None)
-        |> Set.ofList
-      streamParams =
-        prelude
-        |> List.choose (fun (n, t) ->
-            let rec walk t i acc =
-                match t with
-                | FunTyp (p, ret) ->
-                    let acc = if BuiltinTypes.isStepRecord p then Set.add i acc else acc
-                    walk ret (i + 1) acc
-                | _ -> acc
-            let positions = walk (monoOf t) 0 Set.empty
-            if positions.IsEmpty then None else Some (n, positions))
-        |> Map.ofList
-      namespaceMembers = testNamespaces }
+    {
+        kinds =
+            prelude
+            |> List.choose (fun (n, t) ->
+                match StepRecord.bindingKindOfTyp t with
+                | StepRecord.BindingKind.Plain -> None
+                | kind -> Some (n, kind))
+            |> Map.ofList
+        callables =
+            prelude
+            |> List.choose (fun (n, t) -> match monoOf t with FunTyp _ -> Some n | _ -> None)
+            |> Set.ofList
+        streamParams =
+            prelude
+            |> List.choose (fun (n, t) ->
+                let rec walk t i acc =
+                    match t with
+                    | FunTyp (p, ret) ->
+                        let acc = if BuiltinTypes.isStepRecord p then Set.add i acc else acc
+                        walk ret (i + 1) acc
+                    | _ -> acc
+                let positions = walk (monoOf t) 0 Set.empty
+                if positions.IsEmpty then None else Some (n, positions))
+            |> Map.ofList
+        namespaceMembers = testNamespaces
+    }
 
 // Full production pipeline: parse -> desugar -> solve.
 let private desugaredSolve (source: string) =
