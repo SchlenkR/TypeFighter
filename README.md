@@ -165,9 +165,11 @@ band = math.rollingMax(smooth, 10) - math.rollingMin(smooth, 10)
 band
 ```
 
+The step protocol is where the guarantees are thinnest today: two shapes around *user-defined* stream functions type-check but still fail at runtime - a stream produced by your own function used in argument position, and a plain value passed to your own stream-taking function. The docs flag both at the step-protocol section; the prelude blocks are unaffected.
+
 ## The playground
 
-The playground shows the whole pipeline live: source, inferred types, the emitted C#, and the result. The docs page walks through the language top to bottom - every concept explained, every example one click away from running. And because the compiler itself runs in the browser (WebAssembly), the site is fully static.
+The playground shows the whole pipeline live: source, inferred types, the emitted C#, and the result. The docs page walks through the language feature by feature, every example one click away from running. And because the compiler itself runs in the browser (WebAssembly), the site is fully static.
 
 [![Playground](assets/screenshot-playground.png)](https://schlenkr.github.io/TypeFighter/)
 

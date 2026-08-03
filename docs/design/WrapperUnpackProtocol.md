@@ -90,8 +90,14 @@ feels, then decide whether to invest in effects.
 
 ## Open questions for later
 
-- What exactly is the magic field name? (`_unpackOnLet`, `__bind__`,
-  `computeUnit`?) Not a trivial call — it's a reserved identifier.
+- ~~What exactly is the magic field name?~~ **Largely settled by
+  [ADR-010](DesignDecisions.md):** the step protocol now hangs off a
+  single reserved field, `__machine`, whose payload is an ordinary
+  record. That establishes a reserved *namespace* rather than a list of
+  reserved names, so this protocol should follow the same shape — a
+  sibling field next to `__machine` (`__unpackOnLet`, or a field inside
+  a shared marker), not a new top-level reservation. What remains open
+  is only the exact spelling.
 - Does the wrapper also declare its `Bind` implementation via the same
   record, or is `Bind` resolved separately (by row / by type class / by
   marker)?

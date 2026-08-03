@@ -12,7 +12,7 @@ do ShowTyp.AddPrinter (fun typ ->
     | _ -> None)
 
 // Step-records read as `Stream<V>` in hovers/signatures instead of the raw
-// `{ __init: ... & __step: ... }` shape -- that is what they MEAN to users.
+// `{ __machine: ... }` shape -- that is what they MEAN to users.
 do ShowTyp.AddPrinter (fun typ ->
     if BuiltinTypes.isStepRecord typ then
         match BuiltinTypes.stepRecordV typ with
@@ -58,7 +58,7 @@ type EvalInfo =
 
 // ─── Stdlib (TypeFighter source, prepended invisibly to user input) ──
 // Stream-ops live here as ordinary library functions, NOT as solver
-// builtins. They produce a structural record `{ __init, __step }` that
+// builtins. They produce a structural record `{ __machine: .. }` that
 // the emit recognises as a state-machine step. Anything that returns
 // the same record shape is compiled the same way — useMemo and getCtx
 // have no special status beyond what's defined here.
@@ -66,7 +66,7 @@ type EvalInfo =
 // Position offset: stdlib occupies characters 0..stdlibLen-1 in the
 // augmented source. User-visible positions are shifted by stdlibLen.
 // Errors/hovers are translated back before reaching the frontend.
-// `val: a` (instead of `val: s`) ties the `__step`'s value type to the
+// `val: a` (instead of `val: s`) ties the `step`'s value type to the
 // initial-value type, so `useMemo(42)` correctly resolves V to Number
 // rather than leaving it as a free variable. Semantically identical for
 // useMemo (state never changes, so `s` and the captured `a` are equal).
@@ -81,9 +81,9 @@ type EvalInfo =
 // stdlib carries explicit `;` (no preprocessing) so position offsets to
 // user source are stable; user source is line-based and gets newlines
 // translated to `;` by `preprocessNewlines` below.
-let private stdlibSource = """useMemo = a => { __init: a, __step: s => { val: s, nextState: s } };
-count = { __init: 0, __step: s => { val: s, nextState: s + 1 } };
-now = { __init: 0, __step: s => { val: __nowSeconds(UnitValue), nextState: 0 } };
+let private stdlibSource = """useMemo = a => { __machine: { init: a, step: s => { val: s, nextState: s } } };
+count = { __machine: { init: 0, step: s => { val: s, nextState: s + 1 } } };
+now = { __machine: { init: 0, step: s => { val: __nowSeconds(UnitValue), nextState: 0 } } };
 """
 
 let private stdlibLen = stdlibSource.Length

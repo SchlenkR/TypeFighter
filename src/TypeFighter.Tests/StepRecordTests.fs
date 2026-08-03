@@ -34,8 +34,8 @@ let private prelude : (string * Typ) list =
 // Stream-ops as plain library functions producing the structural step-record
 // the emit recognises. Same body as the app-demo stdlib.
 let private testStdlib =
-    "let useMemo = a => { __init: a, __step: s => { val: a, nextState: a } };\n"
-    + "let count = { __init: 0, __step: s => { val: s, nextState: s + 1 } };\n"
+    "let useMemo = a => { __machine: { init: a, step: s => { val: a, nextState: a } } };\n"
+    + "let count = { __machine: { init: 0, step: s => { val: s, nextState: s + 1 } } };\n"
 
 let private rootTyp (source: string) : MonoTyp =
     match Syntax.parse (testStdlib + source) with
@@ -293,19 +293,19 @@ let ``stream-fn: pure binary function over two lifted values`` () =
 // User-defined stream-producing functions
 // ============================================================================
 // Detection is structural and shape-based: any binding whose value walks
-// down to a record-literal carrying `__init` and `__step` fields is treated
+// down to a record-literal carrying the `__machine` marker is treated
 // like a prelude stream-op. No special status for `useMemo`/`getCtx`.
 
 // ============================================================================
-// Custom step-records — purely structural, no magic names
+// Custom step-records — purely structural, one reserved field
 // ============================================================================
-// The compiler recognises any record with `__init` and `__step` fields as
-// a state-machine step. Defining a stream from scratch (without useMemo or
-// getCtx) compiles to the same flat state-machine.
+// The compiler recognises any record carrying `__machine` as a state-machine
+// step. Defining a stream from scratch (without useMemo or getCtx) compiles
+// to the same flat state-machine.
 
 [<Test>]
 let ``custom step record: typechecks as step-record`` () =
-    let t = rootTyp "let myMemo = v => { __init: v, __step: s => { val: v, nextState: v } }; myMemo(42)"
+    let t = rootTyp "let myMemo = v => { __machine: { init: v, step: s => { val: v, nextState: v } } }; myMemo(42)"
     isStepRecord t |> should equal true
     match BuiltinTypes.stepRecordVS t with
     | Some (v, _) -> v |> should equal number
@@ -314,7 +314,7 @@ let ``custom step record: typechecks as step-record`` () =
 [<Test>]
 let ``custom step record: emit produces state-machine without naming useMemo`` () =
     let expr, rootType, tvarToMono =
-        numberedExprFor "let myMemo = v => { __init: v, __step: s => { val: v, nextState: v } }; myMemo(42)"
+        numberedExprFor "let myMemo = v => { __machine: { init: v, step: s => { val: v, nextState: v } } }; myMemo(42)"
     match EmitStreamMachine.tryEmit "TfTest" [] [] rootType tvarToMono expr with
     | None -> Assert.Fail "tryEmit returned None"
     | Some cs ->
@@ -383,7 +383,7 @@ let ``cond: works inside a stream block`` () =
 
 [<Test>]
 let ``limitation: nested useMemo fails with the new step-record useMemo`` () =
-    // With `useMemo = a => { __init: a, __step: ... { val: a, nextState: a } }`
+    // With `useMemo = a => { __machine: { init: a, step: ... { val: a, ... } } }`
     // the inner type is forced to V = T. Calling useMemo on a step-record
     // would require unifying Number (the val type expected by the outer)
     // with the inner step-record — type error. Documents the boundary.
@@ -400,7 +400,7 @@ let ``limitation: nested useMemo fails with the new step-record useMemo`` () =
 // scoped shadowing, opaque (imported) streams
 // ============================================================================
 
-// Prelude with one imported stream block, mirroring app-demo's LocSta
+// Prelude with one imported stream block, mirroring app-demo's DSP
 // imports: declared purely by type (stream param, stream return). The
 // block exists bare (`emaT`, legacy tests), as a namespaced flat
 // (`__tmath_emaT`) and via the `tmath` namespace record.
@@ -579,7 +579,7 @@ let ``alias: re-binding a lifted value stays a plain let`` () =
 
 [<Test>]
 let ``emit: beta-reduction freshens binders so user idents are not captured`` () =
-    // `s` collides with useMemo's `__step: s => ...` binder; without
+    // `s` collides with useMemo's `step: s => ...` binder; without
     // alpha-renaming the user `s` was rewritten to the state slot.
     let cs = desugaredEmit "let s = 5; let m = useMemo(s + 1); m"
     Assert.That(cs, Does.Contain "@s")
@@ -588,7 +588,8 @@ let ``emit: beta-reduction freshens binders so user idents are not captured`` ()
 let ``emit: opaque (imported) stream is driven via the runtime step protocol`` () =
     let cs = desugaredEmit "let e = emaT(count, 0.5); e"
     Assert.That(cs, Does.Contain "__rec_")
-    Assert.That(cs, Does.Contain "[\"__init\"]")
+    Assert.That(cs, Does.Contain "[\"__machine\"]")
+    Assert.That(cs, Does.Contain "[\"init\"]")
     Assert.That(cs, Does.Contain "[\"nextState\"]")
 
 [<Test>]

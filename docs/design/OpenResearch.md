@@ -35,6 +35,107 @@
     "omitting an optional" distinguishable from "under-applying a
     required arg"?
 
+- [ ] **Stream blocks become an opt-in library, not part of the language** *(added 2026-08-03)*
+
+  The step *protocol* stays in the language (ADR-010) — that is the
+  mechanism, and the core is the right place for it. What does **not**
+  belong there is the ~51 concrete blocks built on top of it:
+  `math.ema`, `gen.counter`, `logic.hold`, `dsp.peakHold` and friends.
+  A host that only evaluates formulas or rules should be able to embed
+  TypeFighter without any of them existing — no signatures in the
+  prelude, no completion entries, no DSP dependency.
+
+  Where it sits today:
+  - The core (`src/TypeFighter/`) knows nothing about the blocks —
+    correct already.
+  - `libs/DSP` holds the actual stream engine — separate already.
+  - `TypeFighter.Web/Builtins.fs` mixes two unrelated things in one
+    file: the *language* builtins (`log`, `concat`, `ToString`, `op_*`,
+    `head`, `at`, `cond`, …) and `importedBlocks`, the block table.
+    `prelude` and `csImports` concatenate both, so every host gets the
+    blocks whether it wants them or not.
+  - `TypeFighter.Web/DspAdapter.fs` (304 lines) is pure block
+    runtime.
+  - `Api.mkOracle` hard-wires `Web.Builtins.namespaceMembers`.
+
+  The injection path already exists and is the obvious lever: every
+  entry point takes `extraPrelude`, and `Eval` takes `ExtraBinding`
+  values — the mechanism a host already uses to inject its value records. So the work
+  is packaging, not redesign: split the block table plus the adapter
+  into their own project (referencing DSP), have it expose one
+  bundle of {prelude signatures, runtime closures, namespace members},
+  and let a host pass that in instead of `Api` reaching for it.
+
+  Open points: `namespaceMembers` needs a route through the oracle
+  rather than a direct reference; runtime closures (`csImports`) need
+  the same treatment as the type signatures; and it is worth deciding
+  whether the namespace-record prelude entries are a general
+  "namespace pack" feature or stay specific to blocks.
+
+- [ ] **Type aliases, so protocol markers stay out of signatures** *(added 2026-08-03)*
+
+  After ADR-010 the marker is invisible in normal source, but it is still
+  visible in *types*: the raw shape is `{ __machine: { init: S; step: ... } }`.
+  Today only the web host hides it, via a `ShowTyp` printer that renders
+  step-records as `Stream<V>` — a display-level patch in `Api.fs`, not a
+  language feature, so any other host sees the raw record.
+
+  A real type alias (`Step<V, S>` naming the structural record) would fix
+  this properly: aliases are pure surface, so structural unification is
+  untouched, but hovers, prelude signatures and error messages could all
+  read `Stream<Number>`. The type system has no alias concept at all
+  today, so this is new machinery in an untouched area — worth it only if
+  aliases earn their keep beyond this one case. Interacts with the item
+  above: once the blocks ship as a library, their signatures are exactly
+  where the raw shape would otherwise leak into a host's face.
+
+- [ ] **Block library: consistency defects found by running all 51** *(added 2026-08-03)*
+
+  Every block was executed through Roslyn, not just read: all 51 compile and
+  produce values, and the arithmetic checks out (`movingAverage`,
+  `cumulativeProduct`, `rollingMin/Max`, `diff`, `clamp`, `rescale`,
+  `delayByN`, `bitCrush`, `hardClip` all verified by hand). The defects are
+  in consistency, not correctness:
+
+  - **`dsp.adsr` takes no sample rate**, unlike every other time-based DSP
+    block (`envFollow(src, sr, atk, rel)`, `lowPass1(src, cutoff, sr)`).
+    Its times are therefore in ticks, not seconds — measured, `a = 0.1`
+    reaches full level in a single tick. Silent wrong results for anyone
+    who reads them as seconds.
+  - **`logic.latch(trigger, src, def)` puts the trigger first**, breaking
+    the documented rule "the source is always the FIRST argument" that
+    method-call syntax relies on. The only violation among the 51.
+  - **Three oscillators, three phase conventions**: measured at identical
+    parameters, `sineOsc` starts at 0, `sawOsc` at -1, `triangleOsc` at +1
+    descending. Surprising as soon as they are mixed.
+  - **`gen.fibonacci` yields `[1, 2, 3, 5, 8, …]`** — the leading 1 is
+    missing; the sequence starts at the third term.
+  - **`math.ema` and `dsp.lowPass1` are the same filter** (both 1-pole
+    low-pass) in two namespaces, with different parametrisation and
+    different capability: `lowPass1`'s cutoff is a modulatable stream,
+    `ema`'s alpha is a fixed number.
+  - **Tri-state blocks are misnamed and mis-typed**: `logic.threshold`
+    sounds like a comparison but is an edge detector (measured
+    `[0,0,0,1,0,0,…]`) returning `Stream<Number>`, as do `edge` and
+    `crossover` (-1/0/1) — sitting in the same namespace as `changed`,
+    `toggle`, `debounce`, which return real Bool streams.
+  - **`rollingStdDev` uses the population formula** (÷n, verified:
+    `sqrt(2/3)`), which is nowhere documented.
+  - **`countSince` returns 1 before anything has ever triggered.**
+
+  Two structural points: the four exposed namespaces (`math`, `gen`,
+  `logic`, `dsp`) do not match the library's own eleven-folder taxonomy —
+  `logic` merges five library areas, and `gen.sineOsc` comes from
+  `Dsp/Oscillators` while everything else under `Dsp/` maps to `dsp`. And
+  **seven blocks exist in the library but are never exported**: the whole
+  `TimeSeries` area (LookBack, LookAhead, WindowAggregate,
+  StreamInterpolate, the Aggregate resamplers), plus `Counting/TimeSince`
+  and `Windowing/Segment` — presumably because they work on `DataPoint<'v>`
+  rather than `float`, but nothing records that.
+
+  Fixing the first three is a breaking change to block signatures and
+  behaviour, so it needs a decision, not a patch.
+
 ## Resolved
 
 *(Migrated to [DesignDecisions.md](DesignDecisions.md) as ADRs when decided.)*

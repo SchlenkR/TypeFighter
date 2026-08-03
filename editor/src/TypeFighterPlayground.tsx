@@ -144,7 +144,9 @@ export default function TypeFighterPlayground({ categories = defaultCategories, 
   return (
     <div className="tfp">
       <header className="tfp__header">
-        <span className="tfp__title">TypeFighter Playground</span>
+        <span className="tfp__title">
+          {view === "overview" ? "TypeFighter Documentation" : "TypeFighter Playground"}
+        </span>
         <button
           className="tfp__view-btn"
           onClick={() => setView(view === "overview" ? "editor" : "overview")}

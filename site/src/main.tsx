@@ -70,7 +70,7 @@ function Landing({ onPick }: { onPick: (page: "docs" | "playground") => void }) 
       <div style={{ display: "flex", gap: 18, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
         <Tile
           title="Documentation"
-          text="A guided tour of the language: every concept explained, every example one click away from running."
+          text="A guided tour through the language features, every example one click away from running."
           onClick={() => onPick("docs")}
         />
         <Tile

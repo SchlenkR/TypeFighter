@@ -564,46 +564,64 @@ module BuiltinTypes =
 
     let array elemTyp = TDef.SaturatedWith Names.array [ elemTyp ]
 
-    // The four magic field names that make a record a state-machine step.
-    // Kept here as the single source of truth so the type-side helpers below,
-    // the solver's step-let detection and the emit pass all agree.
+    // `__machine` is the ONE reserved field name in the language: carrying it
+    // is what makes a record a state-machine step. The names inside it are
+    // ordinary fields, interpreted only in this position, so they can never
+    // collide with user code. Single source of truth for the type-side
+    // helpers below, the solver's step-let detection and the emit pass.
     module StepFields =
-        let [<Literal>] init = "__init"
-        let [<Literal>] step = "__step"
+        let [<Literal>] machine = "__machine"
+        let [<Literal>] init = "init"
+        let [<Literal>] step = "step"
         let [<Literal>] value = "val"
         let [<Literal>] nextState = "nextState"
 
     // Step-record shape: a value of this type is a state-machine step.
-    // The emit pass recognises records with these two fields structurally
-    // and compiles each let-binding into a flat C# state slot: no nominal
-    // "Stream" type, no implicit context, just records.
+    // The emit pass recognises the marker structurally and compiles each
+    // let-binding into a flat C# state slot: no nominal "Stream" type,
+    // no implicit context, just records.
     //
-    //   { __init: S; __step: S -> { val: V, nextState: S } }
+    //   { __machine: { init: S; step: S -> { val: V, nextState: S } } }
     let stepResult v s =
         TDef.RecordWith [
             StepFields.value, v
             StepFields.nextState, s
         ]
-    let stepRecord v s =
+    let stepMachine v s =
         TDef.RecordWith [
             StepFields.init, s
             StepFields.step, FunTyp (s, stepResult v s)
         ]
+    let stepRecord v s =
+        TDef.RecordWith [
+            StepFields.machine, stepMachine v s
+        ]
 
-    // Structural test: is this MonoTyp a step-record?
-    let isStepRecord (typ: MonoTyp) =
-        match typ with
-        | RecordTyp r ->
-            let fnames = r.fields |> Seq.map (fun f -> f.fname) |> Set.ofSeq
-            Set.contains StepFields.init fnames && Set.contains StepFields.step fnames
-        | _ -> false
-
-    // Extract the V (val) component from a step-record's `__step` return
-    // type: used by the emit to type the result list.
-    let stepRecordV (typ: MonoTyp) : MonoTyp option =
+    // Fields of the inner machine record, if the marker is present.
+    let private machineFieldsOf (typ: MonoTyp) =
         match typ with
         | RecordTyp r ->
             r.fields
+            |> Seq.tryFind (fun f -> f.fname = StepFields.machine)
+            |> Option.bind (fun f ->
+                match f.typ with
+                | RecordTyp m -> Some m.fields
+                | _ -> None)
+        | _ -> None
+
+    // Structural test: is this MonoTyp a step-record? Carrying the marker is
+    // the whole criterion -- its payload may still be an unsolved tvar.
+    let isStepRecord (typ: MonoTyp) =
+        match typ with
+        | RecordTyp r -> r.fields |> Seq.exists (fun f -> f.fname = StepFields.machine)
+        | _ -> false
+
+    // Extract the V (val) component from a step-record's `step` return
+    // type: used by the emit to type the result list.
+    let stepRecordV (typ: MonoTyp) : MonoTyp option =
+        machineFieldsOf typ
+        |> Option.bind (fun fields ->
+            fields
             |> Seq.tryFind (fun f -> f.fname = StepFields.step)
             |> Option.bind (fun f ->
                 match f.typ with
@@ -611,16 +629,15 @@ module BuiltinTypes =
                     resR.fields
                     |> Seq.tryFind (fun rf -> rf.fname = StepFields.value)
                     |> Option.map (fun rf -> rf.typ)
-                | _ -> None)
-        | _ -> None
+                | _ -> None))
 
     // Extract V and S from a step-record. Returns None if the shape doesn't
     // match: useful for tests and diagnostics.
     let stepRecordVS (typ: MonoTyp) : (MonoTyp * MonoTyp) option =
-        match typ with
-        | RecordTyp r ->
-            let init = r.fields |> Seq.tryFind (fun f -> f.fname = StepFields.init)
-            let step = r.fields |> Seq.tryFind (fun f -> f.fname = StepFields.step)
+        machineFieldsOf typ
+        |> Option.bind (fun fields ->
+            let init = fields |> Seq.tryFind (fun f -> f.fname = StepFields.init)
+            let step = fields |> Seq.tryFind (fun f -> f.fname = StepFields.step)
             match init, step with
             | Some i, Some s ->
                 match s.typ with
@@ -629,8 +646,7 @@ module BuiltinTypes =
                     |> Seq.tryFind (fun rf -> rf.fname = StepFields.value)
                     |> Option.map (fun rf -> rf.typ, i.typ)
                 | _ -> None
-            | _ -> None
-        | _ -> None
+            | _ -> None)
 
     ShowTyp.AddPrinter(fun typ ->
         match typ with
@@ -653,14 +669,12 @@ module StepRecord =
             | _ -> None)
         |> Set.ofList
 
-    // Does a record literal carry the `{ __init, __step }` step shape?
+    // Does a record literal carry the `__machine` marker?
     let hasStepShape (items: RecordItem<'a> list) : bool =
-        let names = propFieldNames items
-        Set.contains BuiltinTypes.StepFields.init names
-        && Set.contains BuiltinTypes.StepFields.step names
+        Set.contains BuiltinTypes.StepFields.machine (propFieldNames items)
 
     // Does a record literal carry the `{ val, nextState }` result shape a
-    // `__step` body terminates in?
+    // `step` body terminates in?
     let hasResultShape (items: RecordItem<'a> list) : bool =
         let names = propFieldNames items
         Set.contains BuiltinTypes.StepFields.value names
@@ -673,6 +687,18 @@ module StepRecord =
             match item with
             | RecordItem.Property f when f.fname = name -> Some f.value
             | _ -> None)
+
+    // Items of the inner `{ init, step }` literal behind the marker.
+    let machineItemsOf (items: RecordItem<'a> list) : RecordItem<'a> list option =
+        fieldOf BuiltinTypes.StepFields.machine items
+        |> Option.bind (fun e ->
+            match e with
+            | Expr.MkRecord r -> Some r.items
+            | _ -> None)
+
+    // Value expression of a field inside the marker, e.g. `init` or `step`.
+    let machineFieldOf (name: string) (items: RecordItem<'a> list) : Expr<'a> option =
+        machineItemsOf items |> Option.bind (fieldOf name)
 
     // Decompose a curried application into (head, args) in left-to-right order:
     // `App(App(f, a), b)` -> `(f, [a; b])`.
@@ -777,7 +803,7 @@ module StepRecord =
     // Alpha-rename every Fun / Let / Match-Var binder in `e` to a fresh name.
     // The emit beta-reduces stream-fn bodies with RAW user argument
     // expressions; without freshening, a user identifier colliding with an
-    // inner binder (e.g. user `s` vs `__step: s => ...`) would be captured.
+    // inner binder (e.g. user `s` vs `step: s => ...`) would be captured.
     let freshenBinders (fresh: unit -> string) (e: Expr<'a>) : Expr<'a> =
         let rec go e =
             match e with
@@ -832,7 +858,7 @@ module StepRecord =
     // reclassifies it for the rest of the chain.
     //
     //   StreamValue : the name holds a step-record itself (count, now,
-    //                 custom `{ __init, __step }` literals)
+    //                 custom `{ __machine: ... }` literals)
     //   StreamFn n  : curried fn of arity n ultimately producing a step-record
     //   Plain       : everything else -- INCLUDING stream-let bindings,
     //                 whose name is lifted to the per-tick value V.
@@ -859,7 +885,7 @@ module StepRecord =
     // Is `e` a stream-typed expression under `kinds`: a Var naming a
     // StreamValue, or a saturated call of a StreamFn? This is exactly the
     // let-lift trigger -- and the hoist trigger in the desugar pass. A
-    // step-record LITERAL is deliberately not one: `count = { __init, .. }`
+    // step-record LITERAL is deliberately not one: `count = { __machine: .. }`
     // DEFINES a StreamValue, it doesn't get lifted.
     let isStreamExpr (kinds: StreamKinds) (e: Expr<'a>) : bool =
         match e with

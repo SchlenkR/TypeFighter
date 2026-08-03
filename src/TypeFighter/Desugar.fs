@@ -124,7 +124,7 @@ let run (oracle: Oracle) (expr: Expr<unit>) : Result =
     // The dual of hoisting: a plain VALUE expression used where the callee
     // declares a step-record parameter becomes a constant-state stream that
     // re-evaluates the expression per tick (monadic return/pure):
-    //   { __init: UnitValue, __step: <s> => { val: <expr>, nextState: UnitValue } }
+    //   { __machine: { init: UnitValue, step: <s> => { val: <expr>, nextState: UnitValue } } }
     let wrapAsStream (e: Expr<unit>) : Expr<unit> =
         let unitVal () = Expr.Var {| ident = BuiltinValues.unitValueIdent; tvar = () |}
         let resultRecord =
@@ -135,11 +135,15 @@ let run (oracle: Oracle) (expr: Expr<unit>) : Result =
                    tvar = () |}
         let stepFn =
             Expr.Fun {| ident = { identName = freshName (); tvar = () }; body = resultRecord; tvar = () |}
-        let record =
+        let machineRecord =
             Expr.MkRecord
                 {| items =
                     [ RecordItem.Property {| fname = BuiltinTypes.StepFields.init; value = unitVal () |}
                       RecordItem.Property {| fname = BuiltinTypes.StepFields.step; value = stepFn |} ]
+                   tvar = () |}
+        let record =
+            Expr.MkRecord
+                {| items = [ RecordItem.Property {| fname = BuiltinTypes.StepFields.machine; value = machineRecord |} ]
                    tvar = () |}
         remap.[box record] <- box e
         record
@@ -352,7 +356,7 @@ let run (oracle: Oracle) (expr: Expr<unit>) : Result =
 
         | Expr.MkRecord r ->
             // Inside a step-shaped literal, hoisting would break the
-            // `{ __init, __step }` shape the solver and emit rely on.
+            // `{ __machine: .. }` shape the solver and emit rely on.
             let itemScope =
                 if hasStepShape r.items then { scope with noHoist = true } else scope
             let rewritten =

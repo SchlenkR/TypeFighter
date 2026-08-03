@@ -1,6 +1,6 @@
 // Compile-time desugaring of step-record-typed TypeFighter blocks to a flat
 // C# state-machine. Steps are recognised STRUCTURALLY: any `let x = expr`
-// whose value beta-reduces to a record literal `{ __init, __step }` becomes
+// whose value beta-reduces to a record literal `{ __machine: .. }` becomes
 // one state slot. There's no magic for `useMemo`/`count` — they're plain
 // library definitions in the stdlib that happen to construct such records.
 //
@@ -10,9 +10,9 @@
 //      until a record literal surfaces. A beta-reduced body may itself be
 //      a let-chain (a stream block, e.g. built by the desugar pass inside
 //      a fn body); its inner lets are SPLICED into the outer step list.
-//   2. Use `__init`'s value-expression to seed the slot, guarded inside
+//   2. Use `init`'s value-expression to seed the slot, guarded inside
 //      the tick body (so inits may reference earlier per-tick values).
-//   3. Inline the `__step` lambda's body into the tick body, substituting
+//   3. Inline the `step` lambda's body into the tick body, substituting
 //      its state param with the slot variable.
 //   4. The body terminates in a record literal `{ val, nextState }` —
 //      destructure inline so no per-tick record allocation happens.
@@ -76,7 +76,7 @@ type private FlatStep =
     // imported .NET stream block from the prelude): the rhs evaluates to a
     // step-record VALUE. The slot holds its state; the record itself is
     // rebuilt per tick (cheap closures, so per-tick context like host values stays
-    // fresh) while `__init` seeds the slot once.
+    // fresh) while `init` seeds the slot once.
     | FOpaque of slotIdx: int * bindName: string option * rhs: Expr<VarNum> * valType: string
     // A plain per-tick binding (aliases, pure values, fn closures).
     | FAlias of name: string * rhs: Expr<VarNum>
@@ -175,7 +175,7 @@ let private emitCore
     // Flatten the whole program into execution-ordered FlatSteps, assigning
     // slot indices positionally (immune to shadowed binding names).
     let mutable slotCount = 0
-    // (idx, Some initExpr) = step-record slot typed off its __init;
+    // (idx, Some initExpr) = step-record slot typed off its `init`;
     // (idx, None) = opaque object slot for an imported block.
     let slotInits = ResizeArray<int * Expr<VarNum> option>()
     let newSlot (initExpr: Expr<VarNum> option) =
@@ -211,7 +211,7 @@ let private emitCore
             let spliced = resolved.spliced |> List.collect flattenEntry
             match resolved.final with
             | FRecord items ->
-                let idx = newSlot (fieldOf SF.init items)
+                let idx = newSlot (machineFieldOf SF.init items)
                 spliced @ [ FSlot (idx, Some name, items) ]
             | FPlain (OpaqueStream valType & e) ->
                 let idx = newSlot None
@@ -228,7 +228,7 @@ let private emitCore
     let finalStep =
         match finalResolved.final with
         | FRecord items ->
-            let idx = newSlot (fieldOf SF.init items)
+            let idx = newSlot (machineFieldOf SF.init items)
             Some (idx, FSlot (idx, None, items))
         | FPlain (OpaqueStream valType & e) ->
             let idx = newSlot None
@@ -241,7 +241,7 @@ let private emitCore
         |> Option.bind EmitCSharp.csTypeOfMono
         |> Option.defaultValue "object"
 
-    // Slot C# types, derived from each __init expression's resolved type;
+    // Slot C# types, derived from each `init` expression's resolved type;
     // imported blocks hold their opaque runtime object.
     let slotTypes =
         [ for idx, initExpr in slotInits ->
@@ -284,7 +284,8 @@ let private emitCore
             // per-tick context stay fresh; state lives in the slot.
             let dictT = "System.Collections.Generic.IDictionary<string, object>"
             let rhsCs = emitText rhs
-            sb.AppendLine (sprintf "            var __rec_%d = (%s)((object)(%s));" idx dictT rhsCs) |> ignore
+            sb.AppendLine (sprintf "            var __outer_%d = (%s)((object)(%s));" idx dictT rhsCs) |> ignore
+            sb.AppendLine (sprintf "            var __rec_%d = (%s)__outer_%d[\"%s\"];" idx dictT idx SF.machine) |> ignore
             sb.AppendLine
                 (sprintf "            if (!_s%d_init) { _s%d = __rec_%d[\"%s\"]; _s%d_init = true; }"
                     idx idx idx SF.init idx)
@@ -304,7 +305,7 @@ let private emitCore
             // Step's `val` type — derived from the val-field's resolved
             // tvar so we can declare a typed local for it.
             let valType =
-                match fieldOf SF.step items with
+                match machineFieldOf SF.step items with
                 | Some (Expr.Fun outer) ->
                     match outer.body with
                     | Expr.MkRecord resR when hasResultShape resR.items ->
@@ -317,7 +318,7 @@ let private emitCore
                     | _ -> "object"
                 | _ -> "object"
 
-            match fieldOf SF.init items with
+            match machineFieldOf SF.init items with
             | Some initExpr ->
                 let initCs = emitText initExpr
                 sb.AppendLine
@@ -326,7 +327,7 @@ let private emitCore
                 |> ignore
             | None -> ()
 
-            match fieldOf SF.step items with
+            match machineFieldOf SF.step items with
             | Some (Expr.Fun outer) ->
                 let sParam = outer.ident.identName
                 let slotVar = sprintf "_s%d" idx

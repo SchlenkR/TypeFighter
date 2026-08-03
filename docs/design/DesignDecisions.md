@@ -223,6 +223,45 @@ parens `()` remain the unit value as a special case.
 
 ---
 
+## ADR-010 — One reserved field (`__machine`) carries the step protocol
+
+**Status:** Done
+**Date:** 2026-08-03
+**Context:** The step protocol was anchored in four field names read
+directly off a record: `__init`, `__step`, `val` and `nextState`. Two
+of them carried no prefix at all, and the docs claimed "no magic names"
+right next to a literal that required two of them — a claim the
+compiler's own comment ("the four magic field names") contradicted.
+An anchor is unavoidable: prelude blocks (the ~51 imported DSP
+signatures) are `External` bindings that never construct anything, so
+their step nature must be readable off the *type*. A constructor
+function can only describe what a program builds, not what arrives from
+outside — which rules out replacing the anchor with `mkStep(...)`.
+The size of the reserved surface, however, is a free choice.
+**Decision:** A record is a step machine iff it carries the field
+`__machine`. Its payload is `{ init: S; step: S -> { val: V, nextState: S } }`.
+`__machine` is the only reserved field name in the language; the four
+inner names are ordinary fields, interpreted as protocol fields only in
+this position, and can never collide with user records.
+**Consequences:**
+- `isStepRecord` tests for the marker alone, not its payload, so a
+  partially-solved inner type cannot break detection.
+- Detection stays fully structural — no nominal type, no registration,
+  so the "just records" property of the protocol is preserved.
+- The marker establishes a reserved *namespace* rather than a growing
+  list of reserved names: a future `__unpackOnLet` (see
+  [WrapperUnpackProtocol.md](WrapperUnpackProtocol.md)) becomes a
+  sibling field instead of a second top-level reservation.
+- The *protocol* stays in the language; only the marker's spelling is a
+  core concern. Concrete step blocks (`math.*`, `gen.*`, …) are library
+  territory — see the packaging item in Open Research.
+- Hand-writing a machine costs one extra brace level. Acceptable: the
+  normal path is `useMemo` and the prelude blocks.
+**Related:** [WrapperUnpackProtocol.md](WrapperUnpackProtocol.md),
+[ImplicitBinds.md](ImplicitBinds.md)
+
+---
+
 ## How to add an entry
 
 - Copy an existing block; fill in the fields.

@@ -23,10 +23,10 @@
         "source": "// `if c then a else b` is sugar for `cond(c, a, b)` — same\n// inline-ternary emit, no Func chain.\n\nx = 7\nif x > 4 then \"big\" else \"small\""
       }
     ],
-    "description": "Programs are plain expressions: one binding per line, the last line is the result. Everything is inferred, without any type annotations.",
+    "description": "Programs are plain expressions, fully inferred without a single type annotation.",
     "intro": [
       {
-        "text": "Reading a program: every line binds a name (name = expression), and the last line IS the program's result. There are no keywords, no statements and no return: a program is one big expression, evaluated once."
+        "text": "Reading a program: every line binds a name (name = expression), and the last line is the program's result. There are no keywords, no statements and no return - a program is one big expression, evaluated once."
       }
     ]
   },
@@ -54,7 +54,7 @@
         "source": "// Field order in a literal doesn't matter for the type — records\n// are bags of fields, not sequences.\n\nmkUser = n => a => { name: n, age: a }\nu = mkUser(\"Ada\")(42)\nlog(u.name)"
       }
     ],
-    "description": "Records are structural. The type IS the set of fields, order never matters, and shapes emerge from use: two records with the same fields have the same type.",
+    "description": "Records are structural: shapes emerge from use, never from a declaration, and field order never matters.",
     "intro": [
       {
         "text": "You never declare a shape. Using it creates it. The type of { name: \"Ada\", age: 22 } IS the set of its fields; two records with the same fields have the same type, whatever they are called."
@@ -196,7 +196,7 @@
   },
   {
     "name": "Step protocol (monadic)",
-    "description": "A record shaped { __init; __step } is a step machine. It is a structural, monadic protocol: binding a step value with = is BIND (the solver lifts the name to the per-step VALUE), plain values are RETURN. Streams are just ONE interpretation of this protocol; the same mechanics could drive others, async for example. The emit compiles the whole block into a flat C# state machine.",
+    "description": "A record carrying the reserved field __machine is a step machine. Binding one with = is a monadic bind: the name becomes the per-step value. Streams are one interpretation of the protocol; the emit compiles a whole block into a single flat C# state machine.",
     "examples": [
       {
         "title": "useMemo: lazy constant",
@@ -216,7 +216,7 @@
       },
       {
         "title": "custom step record (no useMemo)",
-        "source": "// You can write your own state-machine step from scratch — any\n// record with `__init: <S>` and `__step: <S> -> { val, nextState }`\n// is recognised. The emit inlines `__step`'s body into the tick loop.\n// No magic names, no implicit context.\n//\n// `myMemo` here is identical to `useMemo` but defined inline.\n//\n// Run: 10 ticks -> [42, 42, 42, ...]\n\nmyMemo = v => { __init: v, __step: s => { val: v, nextState: v } }\nmyMemo(42)"
+        "source": "// A step machine from scratch. `__machine` is the one reserved field\n// name in the language: inside it, `init` is the starting state and\n// `step` maps a state to a value plus the next state. The emit inlines\n// that body into the tick loop.\n//\n// `myMemo` here is identical to `useMemo` but defined inline.\n//\n// Run: 10 ticks -> [42, 42, 42, ...]\n\nmyMemo = v => { __machine: { init: v, step: s => { val: v, nextState: v } } }\nmyMemo(42)"
       },
       {
         "title": "branching: cap a counter at 4",
@@ -225,18 +225,18 @@
     ],
     "intro": [
       {
-        "text": "The heart of the language. A record { __init: s0, __step: s => { val, nextState } } is a step machine: __init is the starting state, __step maps state to a value plus the next state. That is the WHOLE protocol: structural, no classes, no interfaces, no registration."
+        "text": "A record carrying the field __machine is a step machine: inside it, init is the starting state and step maps a state to a value plus the next state. That is the entire protocol - structural, nothing declared, nothing registered, no classes and no interfaces. __machine is the only reserved field name in the language; init, step, val and nextState are ordinary names, read as protocol fields only in this position, so they can never collide with your own records."
       },
       {
-        "code": "useMemo = a => { __init: a, __step: s => { val: s, nextState: s } }",
+        "code": "useMemo = a => { __machine: { init: a, step: s => { val: s, nextState: s } } }",
         "lang": "typefighter",
         "caption": "useMemo, the smallest stdlib block, complete implementation:"
       },
       {
-        "text": "Binding a step value is monadic BIND: in i = count, the name i is the per-step VALUE (a Number), not the machine. The solver lifts the binding, and the emit weaves all steps of a block into ONE flat C# state machine. Plain values act as RETURN. Time-driven streams are just one interpretation of the protocol; async or other step-by-step effects could reuse the same mechanics."
+        "text": "Binding a step value is a monadic bind: in i = count, the name i is the per-step value (a Number), not the machine itself. The solver lifts the binding, and the emit weaves every step of a block into a single flat C# state machine; plain values act as return. Time-driven streams are one interpretation of the protocol - async or other step-by-step effects could reuse the same mechanics."
       },
       {
-        "text": "Known soft spots (the pre-solve desugar decides structurally): a stream produced by your OWN function call used in argument position, and a plain value passed to your own stream-taking function, currently type-check but fail at runtime, so prefer prelude blocks for those shapes for now. Partial application of stream functions is rejected by the type checker."
+        "text": "Known soft spots (the pre-solve desugar decides structurally): a stream produced by your own function call used in argument position, and a plain value passed to your own stream-taking function, currently type-check but fail at runtime, so prefer prelude blocks for those shapes for now. Partial application of stream functions is rejected by the type checker."
       }
     ]
   },
@@ -264,7 +264,7 @@
     "examples": [
       {
         "title": "ema: exponential smoothing",
-        "source": "// `math.ema` is imported from the LocSta stream library. Its input is\n// a stream by TYPE; any plain value is fed per tick.\n// Blocks live in namespaces: math, gen, logic, dsp.\n\ne = math.ema(gen.counter(0, 1), 0.3)\ne"
+        "source": "// `math.ema` is imported from the DSP stream library. Its input is\n// a stream by TYPE; any plain value is fed per tick.\n// Blocks live in namespaces: math, gen, logic, dsp.\n\ne = math.ema(gen.counter(0, 1), 0.3)\ne"
       },
       {
         "title": "movingAverage over a stream",
@@ -307,10 +307,10 @@
         "source": "// The dsp.* namespace: filters, envelopes, dynamics. peakHold\n// keeps peaks and lets them decay per tick.\n\ns = gen.sineOsc(0.25, 8) * 50\ndsp.peakHold(s, 0.9)"
       }
     ],
-    "description": "Stream blocks imported from the LocSta library, organised in namespaces (math, gen, logic, dsp). The source is always the FIRST argument, and method-call syntax works on any block.",
+    "description": "Stream blocks imported from the DSP library, organised in namespaces (math, gen, logic, dsp). The source is always the FIRST argument, and method-call syntax works on any block.",
     "intro": [
       {
-        "text": "51 blocks imported from the LocSta stream library, purely BY TYPE: the language only knows their signatures, the implementations stay in the library. Namespaces (math, gen, logic, dsp) are ordinary record bindings. The source is always the FIRST argument, which is exactly why method-call syntax and chains read naturally."
+        "text": "51 blocks imported from the DSP stream library, purely BY TYPE: the language only knows their signatures, the implementations stay in the library. Namespaces (math, gen, logic, dsp) are ordinary record bindings. The source is always the FIRST argument, which is exactly why method-call syntax and chains read naturally."
       }
     ]
   },
