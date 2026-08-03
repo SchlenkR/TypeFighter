@@ -152,16 +152,21 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
     // synthetic Let and Var nodes are remapped to the original argument
     // node so squiggles for lift errors land on the argument text.
     let wrapHoists (hoists: (string * Expr<unit> * Expr<unit>) list) (body: Expr<unit>) =
-        (hoists, body)
-        ||> List.foldBack (fun (name, rhs, origArg) acc ->
+        let mutable acc = body
+
+        for name, rhs, origArg in List.rev hoists do
             let letNode =
                 Expr.Let
-                    {| ident = { identName = name; tvar = () }
-                       value = rhs
-                       body = acc
-                       tvar = () |}
+                    {|
+                        ident = { identName = name; tvar = () }
+                        value = rhs
+                        body = acc
+                        tvar = ()
+                    |}
             remap.[box letNode] <- box origArg
-            letNode)
+            acc <- letNode
+
+        acc
 
     // Statement-chain context: Let/Do spines, lambda and match-arm bodies,
     // and the program root. Hoists from contained expressions are inserted
@@ -171,11 +176,16 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
         | Expr.Let l ->
             let value', hoists = rewriteExpr scope l.value
             let hoistScope =
-                (scope, hoists)
-                ||> List.fold (fun s (n, _, _) ->
-                    { s with
-                        kinds = s.kinds |> Map.add n BindingKind.Plain
-                        lifted = s.lifted |> Set.add n })
+                let mutable s = scope
+
+                for n, _, _ in hoists do
+                    s <-
+                        { s with
+                            kinds = s.kinds |> Map.add n BindingKind.Plain
+                            lifted = s.lifted |> Set.add n
+                        }
+
+                s
             let identKind =
                 if isStreamExpr hoistScope.kinds value' then BindingKind.Plain
                 else bindingKindOfRhs hoistScope.kinds value'
@@ -203,11 +213,16 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
         | Expr.Do d ->
             let action', hoists = rewriteExpr scope d.action
             let hoistScope =
-                (scope, hoists)
-                ||> List.fold (fun s (n, _, _) ->
-                    { s with
-                        kinds = s.kinds |> Map.add n BindingKind.Plain
-                        lifted = s.lifted |> Set.add n })
+                let mutable s = scope
+
+                for n, _, _ in hoists do
+                    s <-
+                        { s with
+                            kinds = s.kinds |> Map.add n BindingKind.Plain
+                            lifted = s.lifted |> Set.add n
+                        }
+
+                s
             let body' = rewriteChain hoistScope d.body
             let rebuilt =
                 if obj.ReferenceEquals(action', d.action) && obj.ReferenceEquals(body', d.body) && hoists.IsEmpty
@@ -323,9 +338,13 @@ let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
             if unchanged && hoists.IsEmpty then e, []
             else
                 let rebuilt =
-                    (head', args')
-                    ||> List.fold (fun func arg ->
-                        Expr.App {| func = func; arg = arg; tvar = () |})
+                    let mutable func = head'
+
+                    for arg in args' do
+                        func <- Expr.App {| func = func; arg = arg; tvar = () |}
+
+                    func
+
                 mapNew rebuilt e, hoists
 
         | Expr.Let _ | Expr.Do _ ->
@@ -448,23 +467,32 @@ let pruneStdlibBindings
 
     let needed = System.Collections.Generic.HashSet<string>(usedIdents userPart)
     let kept =
-        (stdlibLets, [])
-        ||> List.foldBack (fun (name, value, tvar) kept ->
+        let mutable kept = []
+
+        for name, value, tvar in List.rev stdlibLets do
             if needed.Contains name then
                 for ident in usedIdents value do needed.Add ident |> ignore
-                (name, value, tvar) :: kept
-            else kept)
+                kept <- (name, value, tvar) :: kept
+
+        kept
+
     if kept.Length = stdlibLets.Length then expr, stdlibLets.Length
     else
         let pruned =
-            (kept, userPart)
-            ||> List.foldBack (fun (name, value, tvar) body ->
+            let mutable body = userPart
+
+            for name, value, tvar in List.rev kept do
                 let letNode =
                     Expr.Let
-                        {| ident = { identName = name; tvar = () }
-                           value = value
-                           body = body
-                           tvar = tvar |}
+                        {|
+                            ident = { identName = name; tvar = () }
+                            value = value
+                            body = body
+                            tvar = tvar
+                        |}
                 remap.[box letNode] <- box value
-                letNode)
+                body <- letNode
+
+            body
+
         pruned, kept.Length
