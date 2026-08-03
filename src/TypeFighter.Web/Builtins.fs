@@ -284,12 +284,12 @@ let all : Builtin list =
         }
     ]
 
-// ─── Imported stream blocks (vendored LocSta2 library) ────────────
+// ─── Imported stream blocks (vendored DSP library) ────────────
 // Declared purely by TYPE: a step-record-typed PARAMETER receives
 // its argument un-desugared (the desugar pass wraps plain values
 // into constant streams and re-wraps AST streams), a step-record
 // RETURN makes call sites stream-lets the lift picks up. At
-// runtime the closure builds the protocol record via `LocStaRt`;
+// runtime the closure builds the protocol record via `DspRt`;
 // the emit drives any such opaque stream generically.
 //
 // Blocks live under dotted NAMESPACES: users write `math.ema(...)`,
@@ -309,164 +309,164 @@ let importedBlocks : (string * string * Typ * string) list =
         // math: statistics, arithmetic, windowing
         "math", "ema",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object alpha) => PureState.TypeFighter.Web.LocStaRt.Ema(src, (double)alpha)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object alpha) => PureState.TypeFighter.Web.DspRt.Ema(src, (double)alpha)))"
         "math", "movingAverage",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.MovingAverage(src, (double)n)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.MovingAverage(src, (double)n)))"
         "math", "rollingStdDev",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.RollingStdDev(src, (double)n)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.RollingStdDev(src, (double)n)))"
         "math", "rollingMin",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.RollingMin(src, (double)n)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.RollingMin(src, (double)n)))"
         "math", "rollingMax",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.RollingMax(src, (double)n)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.RollingMax(src, (double)n)))"
         "math", "runningMin",
             TDef.Generalize (srNum %0 ^-> srNum %1),
-            "(Func<object, object>)((object src) => PureState.TypeFighter.Web.LocStaRt.RunningMin(src))"
+            "(Func<object, object>)((object src) => PureState.TypeFighter.Web.DspRt.RunningMin(src))"
         "math", "runningMax",
             TDef.Generalize (srNum %0 ^-> srNum %1),
-            "(Func<object, object>)((object src) => PureState.TypeFighter.Web.LocStaRt.RunningMax(src))"
+            "(Func<object, object>)((object src) => PureState.TypeFighter.Web.DspRt.RunningMax(src))"
         "math", "diff",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.LocStaRt.Diff(src, (double)seed)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.DspRt.Diff(src, (double)seed)))"
         "math", "cumulativeSum",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.LocStaRt.CumulativeSum(src, (double)seed)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.DspRt.CumulativeSum(src, (double)seed)))"
         "math", "cumulativeProduct",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.LocStaRt.CumulativeProduct(src, (double)seed)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.DspRt.CumulativeProduct(src, (double)seed)))"
         "math", "clamp",
             TDef.Generalize (srNum %0 ^-> num ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object lo) => (Func<object, object>)((object hi) => PureState.TypeFighter.Web.LocStaRt.Clamp(src, (double)lo, (double)hi))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object lo) => (Func<object, object>)((object hi) => PureState.TypeFighter.Web.DspRt.Clamp(src, (double)lo, (double)hi))))"
         "math", "rescale",
             TDef.Generalize (srNum %0 ^-> num ^-> num ^-> num ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object inLo) => (Func<object, object>)((object inHi) => (Func<object, object>)((object outLo) => (Func<object, object>)((object outHi) => PureState.TypeFighter.Web.LocStaRt.Rescale(src, (double)inLo, (double)inHi, (double)outLo, (double)outHi))))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object inLo) => (Func<object, object>)((object inHi) => (Func<object, object>)((object outLo) => (Func<object, object>)((object outHi) => PureState.TypeFighter.Web.DspRt.Rescale(src, (double)inLo, (double)inHi, (double)outLo, (double)outHi))))))"
         "math", "windowedReduce",
             TDef.Generalize (srNum %0 ^-> num ^-> (num ^-> num ^-> num) ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => (Func<object, object>)((object f) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.LocStaRt.WindowedReduce(src, (double)n, (Func<object, object>)f, (double)seed)))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => (Func<object, object>)((object f) => (Func<object, object>)((object seed) => PureState.TypeFighter.Web.DspRt.WindowedReduce(src, (double)n, (Func<object, object>)f, (double)seed)))))"
         // gen: generators and oscillators
         "gen", "counter",
             TDef.Generalize (num ^-> num ^-> srNum %0),
-            "(Func<object, object>)((object start) => (Func<object, object>)((object inc) => PureState.TypeFighter.Web.LocStaRt.Counter((double)start, (double)inc)))"
+            "(Func<object, object>)((object start) => (Func<object, object>)((object inc) => PureState.TypeFighter.Web.DspRt.Counter((double)start, (double)inc)))"
         // Plain stream VALUE (like `count`), not a function.
         "gen", "fibonacci",
             TDef.Generalize (srNum %0),
-            "PureState.TypeFighter.Web.LocStaRt.Fibonacci()"
+            "PureState.TypeFighter.Web.DspRt.Fibonacci()"
         "gen", "whiteNoise",
             TDef.Generalize (num ^-> srNum %0),
-            "(Func<object, object>)((object seed) => PureState.TypeFighter.Web.LocStaRt.WhiteNoise((double)seed))"
+            "(Func<object, object>)((object seed) => PureState.TypeFighter.Web.DspRt.WhiteNoise((double)seed))"
         "gen", "sineOsc",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object freq) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.SineOsc(freq, (double)sr)))"
+            "(Func<object, object>)((object freq) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.SineOsc(freq, (double)sr)))"
         "gen", "sawOsc",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object freq) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.SawOsc(freq, (double)sr)))"
+            "(Func<object, object>)((object freq) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.SawOsc(freq, (double)sr)))"
         "gen", "squareOsc",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> num ^-> srNum %2),
-            "(Func<object, object>)((object freq) => (Func<object, object>)((object pw) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.SquareOsc(freq, pw, (double)sr))))"
+            "(Func<object, object>)((object freq) => (Func<object, object>)((object pw) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.SquareOsc(freq, pw, (double)sr))))"
         "gen", "triangleOsc",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object freq) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.TriangleOsc(freq, (double)sr)))"
+            "(Func<object, object>)((object freq) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.TriangleOsc(freq, (double)sr)))"
         // logic: state, gating, counting, detection, delay
         "logic", "hold",
             TDef.Generalize (srNum %0 ^-> (num ^-> BuiltinTypes.boolean) ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object pred) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.LocStaRt.Hold(src, (Func<object, object>)pred, (double)def))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object pred) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.DspRt.Hold(src, (Func<object, object>)pred, (double)def))))"
         "logic", "latch",
             TDef.Generalize (srBool %0 ^-> srNum %1 ^-> num ^-> srNum %2),
-            "(Func<object, object>)((object trigger) => (Func<object, object>)((object src) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.LocStaRt.Latch(trigger, src, (double)def))))"
+            "(Func<object, object>)((object trigger) => (Func<object, object>)((object src) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.DspRt.Latch(trigger, src, (double)def))))"
         // Rising edge = 1, falling edge = -1, otherwise 0.
         "logic", "edge",
             TDef.Generalize (srBool %0 ^-> srNum %1),
-            "(Func<object, object>)((object trigger) => PureState.TypeFighter.Web.LocStaRt.Edge(trigger))"
+            "(Func<object, object>)((object trigger) => PureState.TypeFighter.Web.DspRt.Edge(trigger))"
         "logic", "changed",
             TDef.Generalize (srNum %0 ^-> srBool %1),
-            "(Func<object, object>)((object src) => PureState.TypeFighter.Web.LocStaRt.Changed(src))"
+            "(Func<object, object>)((object src) => PureState.TypeFighter.Web.DspRt.Changed(src))"
         "logic", "debounce",
             TDef.Generalize (srBool %0 ^-> num ^-> srBool %1),
-            "(Func<object, object>)((object trigger) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.Debounce(trigger, (double)n)))"
+            "(Func<object, object>)((object trigger) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.Debounce(trigger, (double)n)))"
         "logic", "toggle",
             TDef.Generalize (srBool %0 ^-> srBool %1),
-            "(Func<object, object>)((object trigger) => PureState.TypeFighter.Web.LocStaRt.Toggle(trigger))"
+            "(Func<object, object>)((object trigger) => PureState.TypeFighter.Web.DspRt.Toggle(trigger))"
         "logic", "countWhere",
             TDef.Generalize (srNum %0 ^-> (num ^-> BuiltinTypes.boolean) ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object pred) => PureState.TypeFighter.Web.LocStaRt.CountWhere(src, (Func<object, object>)pred)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object pred) => PureState.TypeFighter.Web.DspRt.CountWhere(src, (Func<object, object>)pred)))"
         "logic", "countSince",
             TDef.Generalize (srBool %0 ^-> srNum %1),
-            "(Func<object, object>)((object trigger) => PureState.TypeFighter.Web.LocStaRt.CountSince(trigger))"
+            "(Func<object, object>)((object trigger) => PureState.TypeFighter.Web.DspRt.CountSince(trigger))"
         "logic", "countIn",
             TDef.Generalize (srBool %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object trigger) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.CountIn(trigger, (double)n)))"
+            "(Func<object, object>)((object trigger) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.CountIn(trigger, (double)n)))"
         "logic", "rate",
             TDef.Generalize (srBool %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object trigger) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.Rate(trigger, (double)n)))"
+            "(Func<object, object>)((object trigger) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.Rate(trigger, (double)n)))"
         "logic", "threshold",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object level) => PureState.TypeFighter.Web.LocStaRt.Threshold(src, (double)level)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object level) => PureState.TypeFighter.Web.DspRt.Threshold(src, (double)level)))"
         // a crosses above b = 1, below = -1, otherwise 0.
         "logic", "crossover",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> srNum %2),
-            "(Func<object, object>)((object a) => (Func<object, object>)((object b) => PureState.TypeFighter.Web.LocStaRt.Crossover(a, b)))"
+            "(Func<object, object>)((object a) => (Func<object, object>)((object b) => PureState.TypeFighter.Web.DspRt.Crossover(a, b)))"
         "logic", "delayBy1",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.LocStaRt.DelayBy1(src, (double)def)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.DspRt.DelayBy1(src, (double)def)))"
         "logic", "delayByN",
             TDef.Generalize (srNum %0 ^-> num ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.LocStaRt.DelayByN(src, (double)n, (double)def))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => (Func<object, object>)((object def) => PureState.TypeFighter.Web.DspRt.DelayByN(src, (double)n, (double)def))))"
         // dsp: filters, envelopes, dynamics, modulation, analysis
         // (cutoff/center/q are modulatable input streams)
         "dsp", "lowPass1",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> num ^-> srNum %2),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.LowPass1(src, cutoff, (double)sr))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.LowPass1(src, cutoff, (double)sr))))"
         "dsp", "highPass1",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> num ^-> srNum %2),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.HighPass1(src, cutoff, (double)sr))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.HighPass1(src, cutoff, (double)sr))))"
         "dsp", "biquadLowPass",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> srNum %2 ^-> num ^-> srNum %3),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object q) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.BiquadLowPass(src, cutoff, q, (double)sr)))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object q) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.BiquadLowPass(src, cutoff, q, (double)sr)))))"
         "dsp", "biquadHighPass",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> srNum %2 ^-> num ^-> srNum %3),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object q) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.BiquadHighPass(src, cutoff, q, (double)sr)))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object cutoff) => (Func<object, object>)((object q) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.BiquadHighPass(src, cutoff, q, (double)sr)))))"
         "dsp", "biquadBandPass",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> srNum %2 ^-> num ^-> srNum %3),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object center) => (Func<object, object>)((object q) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.LocStaRt.BiquadBandPass(src, center, q, (double)sr)))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object center) => (Func<object, object>)((object q) => (Func<object, object>)((object sr) => PureState.TypeFighter.Web.DspRt.BiquadBandPass(src, center, q, (double)sr)))))"
         "dsp", "dcBlock",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object r) => PureState.TypeFighter.Web.LocStaRt.DcBlock(src, (double)r)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object r) => PureState.TypeFighter.Web.DspRt.DcBlock(src, (double)r)))"
         "dsp", "envFollow",
             TDef.Generalize (srNum %0 ^-> num ^-> num ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object sr) => (Func<object, object>)((object atk) => (Func<object, object>)((object rel) => PureState.TypeFighter.Web.LocStaRt.EnvFollow(src, (double)sr, (double)atk, (double)rel)))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object sr) => (Func<object, object>)((object atk) => (Func<object, object>)((object rel) => PureState.TypeFighter.Web.DspRt.EnvFollow(src, (double)sr, (double)atk, (double)rel)))))"
         "dsp", "adsr",
             TDef.Generalize (srBool %0 ^-> num ^-> num ^-> num ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object gate) => (Func<object, object>)((object a) => (Func<object, object>)((object d) => (Func<object, object>)((object s) => (Func<object, object>)((object r) => PureState.TypeFighter.Web.LocStaRt.Adsr(gate, (double)a, (double)d, (double)s, (double)r))))))"
+            "(Func<object, object>)((object gate) => (Func<object, object>)((object a) => (Func<object, object>)((object d) => (Func<object, object>)((object s) => (Func<object, object>)((object r) => PureState.TypeFighter.Web.DspRt.Adsr(gate, (double)a, (double)d, (double)s, (double)r))))))"
         "dsp", "softClip",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object drive) => PureState.TypeFighter.Web.LocStaRt.SoftClip(src, (double)drive)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object drive) => PureState.TypeFighter.Web.DspRt.SoftClip(src, (double)drive)))"
         "dsp", "hardClip",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object t) => PureState.TypeFighter.Web.LocStaRt.HardClip(src, (double)t)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object t) => PureState.TypeFighter.Web.DspRt.HardClip(src, (double)t)))"
         "dsp", "gate",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> num ^-> srNum %2),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object env) => (Func<object, object>)((object t) => PureState.TypeFighter.Web.LocStaRt.Gate(src, env, (double)t))))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object env) => (Func<object, object>)((object t) => PureState.TypeFighter.Web.DspRt.Gate(src, env, (double)t))))"
         "dsp", "ringMod",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> srNum %2),
-            "(Func<object, object>)((object a) => (Func<object, object>)((object b) => PureState.TypeFighter.Web.LocStaRt.RingMod(a, b)))"
+            "(Func<object, object>)((object a) => (Func<object, object>)((object b) => PureState.TypeFighter.Web.DspRt.RingMod(a, b)))"
         "dsp", "bitCrush",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object bits) => PureState.TypeFighter.Web.LocStaRt.BitCrush(src, (double)bits)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object bits) => PureState.TypeFighter.Web.DspRt.BitCrush(src, (double)bits)))"
         "dsp", "crossfade",
             TDef.Generalize (srNum %0 ^-> srNum %1 ^-> srNum %2 ^-> srNum %3),
-            "(Func<object, object>)((object a) => (Func<object, object>)((object b) => (Func<object, object>)((object mix) => PureState.TypeFighter.Web.LocStaRt.Crossfade(a, b, mix))))"
+            "(Func<object, object>)((object a) => (Func<object, object>)((object b) => (Func<object, object>)((object mix) => PureState.TypeFighter.Web.DspRt.Crossfade(a, b, mix))))"
         "dsp", "rms",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.Rms(src, (double)n)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.Rms(src, (double)n)))"
         "dsp", "zeroCrossRate",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.LocStaRt.ZeroCrossRate(src, (double)n)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object n) => PureState.TypeFighter.Web.DspRt.ZeroCrossRate(src, (double)n)))"
         "dsp", "peakHold",
             TDef.Generalize (srNum %0 ^-> num ^-> srNum %1),
-            "(Func<object, object>)((object src) => (Func<object, object>)((object decay) => PureState.TypeFighter.Web.LocStaRt.PeakHold(src, (double)decay)))"
+            "(Func<object, object>)((object src) => (Func<object, object>)((object decay) => PureState.TypeFighter.Web.DspRt.PeakHold(src, (double)decay)))"
     ]
 
 let private flatNameOf ns memberName = "__" + ns + "_" + memberName

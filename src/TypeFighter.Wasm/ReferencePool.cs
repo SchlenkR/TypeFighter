@@ -23,7 +23,7 @@ internal static class ReferencePool
         typeof(System.IO.TextWriter),
         typeof(Func<object, object>),
         typeof(Microsoft.FSharp.Core.Unit),
-        typeof(global::PureState.TypeFighter.Web.LocStaRt),
+        typeof(global::PureState.TypeFighter.Web.DspRt),
     ];
 
     // Facade assemblies carry no obvious anchor type; load them by name.
@@ -35,7 +35,7 @@ internal static class ReferencePool
         "System.Linq",
         "System.ObjectModel",
         "System.Collections",
-        "LocSta2",
+        "DSP",
     ];
 
     // Fail fast if anything the generated C# needs is missing.
@@ -49,7 +49,7 @@ internal static class ReferencePool
         "FSharp.Core",
         "PureState.TypeFighter",
         "PureState.TypeFighter.Web",
-        "LocSta2",
+        "DSP",
     ];
 
     internal static FSharpList<MetadataReference> References => references ?? Init();

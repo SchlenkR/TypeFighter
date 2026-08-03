@@ -41,7 +41,7 @@ public static partial class TypeFighterInterop
     static string Json<T>(T value) => JsonSerializer.Serialize(value, jsonOptions);
 
     // Reference pool + override + warm-up compile. The warm-up uses a stream
-    // builtin so it exercises Roslyn AND the LocStaRt runtime path once.
+    // builtin so it exercises Roslyn AND the DspRt runtime path once.
     [JSExport]
     internal static string Init()
     {

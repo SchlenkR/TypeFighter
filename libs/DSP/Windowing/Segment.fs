@@ -1,0 +1,17 @@
+module DSP.Blocks.Windowing.Segment
+
+open DSP.Core
+
+/// Accumulates values into segments delimited by a boundary flag. Input: (value, boundary).
+let segment () =
+    stream {
+        let! (value, boundary) = getCtx()
+        let! buffer = useStateWith (fun () -> ResizeArray<_>())
+        buffer.Value.Add(value)
+        if boundary then
+            let result = Seq.toList buffer.Value
+            buffer.Value.Clear()
+            return Some result
+        else
+            return None
+    }

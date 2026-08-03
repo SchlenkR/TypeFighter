@@ -123,9 +123,9 @@ let private references : Lazy<Microsoft.CodeAnalysis.MetadataReference list> =
             typeof<Dictionary<string, obj>>
             typeof<TextWriter>
             typeof<Func<obj, obj>>
-            // imported stream blocks: the generated C# calls the LocStaRt
-            // adapter (this assembly), which fronts the vendored LocSta2
-            typeof<LocStaRt>
+            // imported stream blocks: the generated C# calls the DspRt
+            // adapter (this assembly), which fronts the vendored DSP
+            typeof<DspRt>
           ])
 
 let private renderResult (v: obj) : string =

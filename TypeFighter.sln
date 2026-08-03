@@ -13,7 +13,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TypeFighter.Web", "src\Type
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{6C4D298B-81FB-2B6B-5AB6-46205EDDC72C}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LocSta2", "libs\LocSta2\LocSta2.fsproj", "{58CD9B45-90A6-4560-B479-B3B8137A5C3E}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DSP", "libs\DSP\DSP.fsproj", "{58CD9B45-90A6-4560-B479-B3B8137A5C3E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TypeFighter.Wasm", "src\TypeFighter.Wasm\TypeFighter.Wasm.csproj", "{D7AFF6C6-FF38-4A86-9A00-205E1E1550B0}"
 EndProject
