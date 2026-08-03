@@ -463,7 +463,10 @@ let compileInfo (extraPrelude: (string * Typ) list) (source: string) : CompileIn
 // statement prefix (everything up to the last `;`) out of source-up-to-
 // cursor. Returns None if the cursor isn't in `<expr>.<tail>` position.
 let private extractDotContext (sourceUpToCursor: string) : (string * string) option =
-    let lastSemi = sourceUpToCursor.LastIndexOf(';')
+    // Editor source is line-based (newline = statement end); stdlib and
+    // host-synthesised source use `;`. Both terminate a statement here.
+    let lastSemi =
+        max (sourceUpToCursor.LastIndexOf(';')) (sourceUpToCursor.LastIndexOf('\n'))
     let stmtPrefix =
         if lastSemi >= 0 then sourceUpToCursor.Substring(0, lastSemi + 1) else ""
     let stmt =
