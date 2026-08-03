@@ -20,7 +20,6 @@ module PureState.TypeFighter.EmitStreamMachine
 
 open System.Text
 open PureState.TypeFighter
-open PureState.TypeFighter.Parser01
 // Structural step-record helpers (shape tests, fieldOf, beta-reducer,
 // the shared stream classifier) live in `module StepRecord` in Lang.fs.
 open PureState.TypeFighter.StepRecord

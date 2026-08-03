@@ -3,7 +3,6 @@ module PureState.TypeFighter.Tests.StepRecordTests
 open NUnit.Framework
 open FsUnit
 open PureState.TypeFighter
-open PureState.TypeFighter.Parser01
 
 let private number = BuiltinTypes.number
 let private boolean = BuiltinTypes.boolean
@@ -423,8 +422,8 @@ let private importedPrelude : (string * Typ) list =
 let private testNamespaces : Map<string, Map<string, string>> =
     Map.ofList [ "tmath", Map.ofList [ "emaT", "__tmath_emaT" ] ]
 
-// Mirror of app-demo's oracle construction (Api.mkOracle).
-let private oracleFor (prelude: (string * Typ) list) : Desugar.Oracle =
+// Mirror of app-demo's index construction (Api.mkPreludeIndex).
+let private preludeIndexFor (prelude: (string * Typ) list) : Desugar.PreludeIndex =
     let monoOf t = match t with Mono m -> m | Poly p -> p.monoTyp
     { kinds =
         prelude
@@ -456,7 +455,7 @@ let private desugaredSolve (source: string) =
     match Syntax.parse (testStdlib + source) with
     | Error err -> failwithf "parse: %s" err.message
     | Ok expr ->
-        let d = Desugar.run (oracleFor importedPrelude) expr
+        let d = Desugar.run (preludeIndexFor importedPrelude) expr
         Solver.solve importedPrelude None d.expr
 
 let private desugaredRootTyp (source: string) : MonoTyp =

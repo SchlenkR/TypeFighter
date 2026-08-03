@@ -40,7 +40,7 @@ module PureState.TypeFighter.Desugar
 open PureState.TypeFighter
 open PureState.TypeFighter.StepRecord
 
-type Oracle =
+type PreludeIndex =
     { kinds: StreamKinds
       // names that are callable (prelude fns); user fn-bindings are
       // discovered while walking
@@ -71,7 +71,7 @@ type private Scope =
       // inside a step-shaped record literal hoisting is disabled
       noHoist: bool }
 
-let run (oracle: Oracle) (expr: Expr<unit>) : Result =
+let run (preludeIndex: PreludeIndex) (expr: Expr<unit>) : Result =
     let remap = System.Collections.Generic.Dictionary<obj, obj>(HashIdentity.Reference)
     let mapNew (newNode: Expr<unit>) (oldNode: Expr<unit>) =
         if not (obj.ReferenceEquals(newNode, oldNode)) then
@@ -89,11 +89,11 @@ let run (oracle: Oracle) (expr: Expr<unit>) : Result =
         n
 
     let scope0 =
-        { kinds = oracle.kinds
-          callables = oracle.callables
-          streamParams = oracle.streamParams
+        { kinds = preludeIndex.kinds
+          callables = preludeIndex.callables
+          streamParams = preludeIndex.streamParams
           lifted = Set.empty
-          namespaces = oracle.namespaceMembers
+          namespaces = preludeIndex.namespaceMembers
           noHoist = false }
 
     // Is F a callable binding name in scope?

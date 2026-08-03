@@ -137,10 +137,9 @@ let ``ShowTyp: constrained polytype prints "where tv_N in (...)"`` () =
 
 
 // ============================================================================
-// Parser01 + operator-table integration: `+`, `-`, comparisons, logical
+// Parser + operator-table integration: `+`, `-`, comparisons, logical
 // ============================================================================
 
-open PureState.TypeFighter.Parser01
 
 let private prelude : (string * Typ) list =
     [

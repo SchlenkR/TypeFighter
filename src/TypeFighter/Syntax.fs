@@ -1,4 +1,4 @@
-module PureState.TypeFighter.Parser01.Syntax
+module PureState.TypeFighter.Syntax
 
 open TheBlunt
 open PureState.TypeFighter
@@ -69,89 +69,6 @@ let private withRange (range: Range) (expr: Expr<unit>) : Expr<unit> =
 //
 // The result is a TypeFighter Expr<unit> that can be fed into the
 // solver just like expressions built with the X DSL.
-// =================================================================
-
-
-// =================================================================
-// TODO — open design questions to revisit
-// -----------------------------------------------------------------
-// 1) Trivia handling.
-//
-//    "Trivia" = whitespace, comments, and anything else that sits
-//    *between* meaningful tokens but doesn't carry semantic value.
-//    TheBlunt has no built-in concept of trivia; today we sprinkle
-//    `ws` and `tok` ad-hoc through this file. That works, but:
-//
-//      • It's noisy and easy to forget at a single call site.
-//      • There is no support for line/block comments yet.
-//      • Trivia is silently dropped — we keep no record of it on
-//        the AST, so we can't round-trip source for tooling
-//        (formatter, refactoring, hover/quick-info) later.
-//
-//    Discuss:
-//      a) Push trivia into TheBlunt itself (a `ws` slot every
-//         combinator skips automatically), or keep it explicit
-//         here?  The implicit version is convenient but couples
-//         the combinator library to one notion of whitespace.
-//      b) If we ever want lossless ASTs, we need to *attach*
-//         leading/trailing trivia to each node instead of dropping
-//         it. That's a bigger model change (ranges grow into
-//         "leadingTrivia + token + trailingTrivia").
-//      c) Comments: `// line` and `/* block */` would be the JS
-//         baseline. Block comments raise the question of nesting,
-//         which TheBlunt's flat parsing model doesn't model
-//         elegantly today.
-//
-// 2) The Range relation / "what range do I return?".
-//
-//    Subtle TheBlunt quirk: parent combinators (`many`, `andThen`,
-//    `bind`, …) advance the cursor based on the *returned*
-//    `range.endIdx` of a child parser — NOT on where the child
-//    actually walked the cursor internally. If a `parse { … }`
-//    block returns a hand-crafted PVal whose range stops short of
-//    what was consumed, the outer parser silently re-parses (or
-//    fails) at the wrong position. We hit exactly this with
-//    `callArgs` / `propTail` initially: bind walked past `)` /
-//    past the property name, but the returned range stopped one
-//    token earlier, so `eoi` fired in the middle of valid input.
-//
-//    There is no compiler-checked contract for this anywhere. The
-//    rule we discovered is: a parser's returned `range.endIdx`
-//    MUST equal the cursor position the parser actually leaves
-//    behind (i.e. the endIdx of its last consumed sub-parser).
-//
-//    Discuss:
-//      a) Document this contract in TheBlunt (the unfinished
-//         `// TODO: make clear: Parsers that` line at line 372 of
-//         TheBlunt.fs hints Ronald started this thought already).
-//      b) Better: have the combinator library track the cursor
-//         itself, so user code can't get this wrong. The PVal's
-//         `range` would then be derived, not asserted.
-//      c) Even better for diagnostics: stop using `range.endIdx`
-//         as a cursor at all and pass an explicit cursor through
-//         every result. That removes a class of bugs at the cost
-//         of one extra field on every PVal.
-//
-// 3) Backtracking & "commit/fatal" errors.
-//
-//    `<|>` and `pchoice` are unconditionally backtracking — every
-//    failure resets to the original position and tries the next
-//    alternative. That's convenient for prototyping but means
-//    deep-down syntax errors (e.g. a malformed expression inside
-//    a record literal) bubble up as the *outer* "no alternative
-//    matched" error, with the real cause lost.
-//
-//    TheBlunt has no `commit` / "fatal" notion today. The TODO at
-//    line 267 of TheBlunt.fs ("this propably would be a fatal,
-//    most propably an unexpected error") is a related symptom.
-//
-//    Discuss whether we want a `pcommit` combinator: once a
-//    parser passes some "we are definitely in this branch now"
-//    point (e.g. saw the `{` of a record literal), subsequent
-//    failures are FATAL and propagate past `<|>` instead of
-//    triggering backtracking. This would dramatically improve
-//    parser error messages but changes the semantics of the
-//    combinator algebra.
 // =================================================================
 
 
@@ -287,7 +204,7 @@ let private boolLit =
 // emitted JS throw "expr used before initialization." at runtime. A `ref`
 // cell is a heap object whose `.contents` is read at call time.
 let private exprImpl : Parser<Expr<unit>> ref =
-    ref (mkParser (fun _ -> failwith "Parser01.Syntax.expr used before initialization."))
+    ref (mkParser (fun _ -> failwith "Syntax.expr used before initialization."))
 
 let private expr : Parser<Expr<unit>> =
     mkParser (fun inp -> getParser exprImpl.Value inp)
@@ -766,7 +683,7 @@ let private boolLitTyp =
 
 // Forward declaration: typExpr recurses into parens / applied args.
 let mutable private typExprImpl : Parser<MonoTyp> =
-    mkParser (fun _ -> failwith "Parser01.Syntax.typExpr used before initialization.")
+    mkParser (fun _ -> failwith "Syntax.typExpr used before initialization.")
 
 let private typExpr : Parser<MonoTyp> =
     mkParser (fun inp -> getParser typExprImpl inp)
@@ -775,7 +692,7 @@ let private typExpr : Parser<MonoTyp> =
 // inside `recordTypBraces`) and by `altTyp`, but its real definition
 // (which references `recordTypBraces` in turn) comes further below.
 let mutable private primTypImpl : Parser<MonoTyp> =
-    mkParser (fun _ -> failwith "Parser01.Syntax.primTyp used before initialization.")
+    mkParser (fun _ -> failwith "Syntax.primTyp used before initialization.")
 
 let private primTyp : Parser<MonoTyp> =
     mkParser (fun inp -> getParser primTypImpl inp)

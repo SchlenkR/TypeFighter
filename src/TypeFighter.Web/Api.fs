@@ -1,7 +1,6 @@
 module PureState.TypeFighter.Web.Api
 
 open PureState.TypeFighter
-open PureState.TypeFighter.Parser01
 
 // Hover types displayed for hugely-fielded records get truncated to keep
 // responses small (otherwise a 3k-field record blows the response to MB).
@@ -89,7 +88,7 @@ now = { __machine: { init: 0, step: s => { val: __nowSeconds(UnitValue), nextSta
 let private stdlibLen = stdlibSource.Length
 
 let private prependStdlib (source: string) =
-    stdlibSource + Parser01.Syntax.preprocessNewlines source
+    stdlibSource + Syntax.preprocessNewlines source
 
 // The stdlib prefix, PARSED: binding names and count come from the source
 // itself (single source of truth -- editors must not duplicate the list).
@@ -97,17 +96,17 @@ let private prependStdlib (source: string) =
 // superlinear in constraint count, so an unpruned stdlib costs whole
 // seconds per keystroke once the block library is in).
 let private stdlibBindingNames =
-    match Parser01.Syntax.parse (stdlibSource + "0") with
+    match Syntax.parse (stdlibSource + "0") with
     | Ok expr -> Desugar.topLetNames expr
     | Error err -> failwithf "stdlib does not parse: %s" err.message
 
 let private stdlibBindingCount = List.length stdlibBindingNames
 
-// Build the desugar oracle from the prelude: stream classification per
+// Build the desugar index from the prelude: stream classification per
 // binding, callable names (for UFCS), record bindings with known fields
 // (host records), and declared step-record parameter positions (the "don't hoist"
 // exception for stream-consuming prelude fns).
-let private mkOracle (prelude: (string * Typ) list) : Desugar.Oracle =
+let private mkPreludeIndex (prelude: (string * Typ) list) : Desugar.PreludeIndex =
     let monoOf typ = match typ with Mono m -> m | Poly p -> p.monoTyp
     let kinds =
         prelude
@@ -147,7 +146,7 @@ let private desugarAndPrune
     (expr: Expr<unit>)
     (resolveRange: Expr<unit> -> TheBlunt.Range option)
     =
-    let desugared = Desugar.run (mkOracle prelude) expr
+    let desugared = Desugar.run (mkPreludeIndex prelude) expr
     let pruned, keptStdlibCount =
         Desugar.pruneStdlibBindings stdlibBindingCount desugared.remap desugared.expr
     let resolveRange' (e: Expr<unit>) =
@@ -197,7 +196,7 @@ let preludeInfo (extraPrelude: (string * Typ) list) : PreludeEntry array =
 /// as the real compile pipeline -- multi-statement sources without explicit
 /// semicolons would otherwise fail the parse and silently yield [].
 let extractFieldsAccessedOn (bindingName: string) (source: string) : string list =
-    match Parser01.Syntax.parseWithSpans (Parser01.Syntax.preprocessNewlines source) with
+    match Syntax.parseWithSpans (Syntax.preprocessNewlines source) with
     | Error _ -> []
     | Ok (expr, _) ->
         IdentInfo.collectVarPropAccs expr
@@ -206,12 +205,12 @@ let extractFieldsAccessedOn (bindingName: string) (source: string) : string list
         |> List.distinct
 
 
-let private spanName (sk: Parser01.Syntax.SpanKind) =
+let private spanName (sk: Syntax.SpanKind) =
     match sk with
-    | Parser01.Syntax.VarRef n
-    | Parser01.Syntax.BindingDef n
-    | Parser01.Syntax.FunParam n
-    | Parser01.Syntax.PropField n -> n
+    | Syntax.VarRef n
+    | Syntax.BindingDef n
+    | Syntax.FunParam n
+    | Syntax.PropField n -> n
 
 
 type private AnalysisResult =
@@ -240,7 +239,7 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
     let inUserRegion (augIdx: int) = augIdx >= stdlibLen
     let augSource = prependStdlib source
 
-    match Parser01.Syntax.parseWithSpansAndRanges augSource with
+    match Syntax.parseWithSpansAndRanges augSource with
     | Error err ->
         // Parse error in the stdlib would be a compiler bug — surface it.
         let userIdx = toUserIdx err.idx
@@ -327,7 +326,7 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
             solution.tvarRanges
             |> Map.toList
             |> List.map (fun (tv, r) -> r.startIdx, r.endIdx, tv)
-        let typByRange (s: Parser01.Syntax.Span) =
+        let typByRange (s: Syntax.Span) =
             rangedTvars
             |> List.filter (fun (lo, hi, _) -> lo <= s.range.startIdx && s.range.endIdx <= hi)
             |> List.sortBy (fun (lo, hi, _) -> hi - lo)
@@ -340,10 +339,10 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
                 let name = spanName s.kind
                 let kindOpt =
                     match s.kind with
-                    | Parser01.Syntax.VarRef _ -> Some IdentInfo.Var
-                    | Parser01.Syntax.BindingDef _ -> Some IdentInfo.Binding
-                    | Parser01.Syntax.FunParam _ -> Some IdentInfo.Param
-                    | Parser01.Syntax.PropField _ -> Some IdentInfo.Field
+                    | Syntax.VarRef _ -> Some IdentInfo.Var
+                    | Syntax.BindingDef _ -> Some IdentInfo.Binding
+                    | Syntax.FunParam _ -> Some IdentInfo.Param
+                    | Syntax.PropField _ -> Some IdentInfo.Field
                 let solvedTyp =
                     match kindOpt |> Option.bind (pickOccurrence name) with
                     | Some occ -> tvarToTyp occ.tvar
@@ -353,7 +352,7 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
                     | Some t -> t
                     | None ->
                         match s.kind with
-                        | Parser01.Syntax.VarRef n ->
+                        | Syntax.VarRef n ->
                             defaultArg (Map.tryFind n preludeMap) ""
                         | _ -> defaultArg (typByRange s) ""
                 { startIdx = toUserIdx s.range.startIdx
@@ -366,7 +365,7 @@ let private analyze (extraPrelude: (string * Typ) list) (source: string) : Analy
             spans
             |> List.choose (fun s ->
                 match s.kind with
-                | Parser01.Syntax.BindingDef name -> Some name
+                | Syntax.BindingDef name -> Some name
                 | _ -> None)
             |> List.distinct
             |> List.filter (fun n -> not (Map.containsKey n preludeMap))
@@ -462,11 +461,11 @@ let completionAt
     // here -- only field names are returned.
     let synthSource =
         prependStdlib (sprintf "%s let __probe = %s; __probe" stmtPrefix baseExpr)
-    match Parser01.Syntax.parseWithSpans synthSource with
+    match Syntax.parseWithSpans synthSource with
     | Error _ -> [||]
     | Ok (expr, _) ->
         let prelude = fullPrelude extraPrelude
-        let desugared = Desugar.run (mkOracle prelude) expr
+        let desugared = Desugar.run (mkPreludeIndex prelude) expr
         let expr, _ =
             Desugar.pruneStdlibBindings stdlibBindingCount desugared.remap desugared.expr
         let env = [ for name, typ in prelude -> name, typ ]

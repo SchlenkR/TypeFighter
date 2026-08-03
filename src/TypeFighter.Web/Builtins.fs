@@ -486,7 +486,7 @@ let private namespacePrelude : (string * Typ) list =
     [ for ns, blocks in blocksByNamespace ->
         ns, Mono (TDef.RecordWith [ for _, m, typ, _ in blocks -> m, monoOf typ ]) ]
 
-/// ns -> member -> flat runtime name; feeds the desugar oracle that
+/// ns -> member -> flat runtime name; feeds the desugar index that
 /// rewrites `ns.member` to the flat prelude name.
 let namespaceMembers : Map<string, Map<string, string>> =
     Map.ofList [

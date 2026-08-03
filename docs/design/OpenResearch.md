@@ -136,6 +136,48 @@
   Fixing the first three is a breaking change to block signatures and
   behaviour, so it needs a decision, not a patch.
 
+- [ ] **Parser and combinator library: three open questions** *(added 2026-08-03, moved out of `Syntax.fs`)*
+
+  These sat as an 81-line comment block at the top of the parser. Moved here
+  verbatim in substance; one claim in the original was already outdated.
+
+  **1. Trivia handling.** "Trivia" = whitespace, comments, anything between
+  meaningful tokens that carries no semantic value. TheBlunt has no built-in
+  notion of it, so `ws` and `tok` are sprinkled ad-hoc through the parser:
+  noisy, and easy to forget at a single call site. Trivia is also silently
+  dropped — nothing is recorded on the AST, so source cannot be round-tripped
+  for tooling (formatter, refactoring, hover). Options: push trivia into
+  TheBlunt itself (a `ws` slot every combinator skips), or attach
+  leading/trailing trivia per node for a lossless AST — the bigger model
+  change, since ranges grow into `leadingTrivia + token + trailingTrivia`.
+  *(The original block claimed "there is no support for line/block comments
+  yet". Line comments exist — `lineComment`, wired into `ws`. Block comments
+  `/* … */` still do not, and would raise the nesting question TheBlunt's flat
+  model does not handle well.)*
+
+  **2. What range does a parser return?** A TheBlunt subtlety: parent
+  combinators (`many`, `andThen`, `bind`, …) advance the cursor from the
+  *returned* `range.endIdx` of a child — not from where the child actually
+  walked. A `parse { … }` block returning a hand-crafted PVal whose range stops
+  short of what was consumed makes the outer parser silently re-parse or fail
+  at the wrong position; `callArgs` / `propTail` hit exactly this. The rule
+  discovered: **a parser's returned `range.endIdx` must equal the cursor
+  position it actually leaves behind.** Nothing checks this. Options: document
+  the contract in TheBlunt; have the combinator library track the cursor itself
+  so the range is derived rather than asserted; or stop using `range.endIdx` as
+  a cursor at all and thread an explicit cursor through every result — removes
+  a class of bugs at the cost of one field per PVal.
+
+  **3. Backtracking, and the missing `commit`.** `<|>` and `pchoice`
+  backtrack unconditionally: every failure resets and tries the next
+  alternative. Deep syntax errors — a malformed expression inside a record
+  literal — therefore surface as the *outer* "no alternative matched", with the
+  real cause lost. TheBlunt has no `commit`/fatal notion. A `pcommit`
+  combinator (once a parser passes a "we are definitely in this branch" point,
+  e.g. the `{` of a record literal, later failures become fatal and propagate
+  past `<|>`) would improve error messages a lot, but changes the semantics of
+  the combinator algebra.
+
 ## Resolved
 
 *(Migrated to [DesignDecisions.md](DesignDecisions.md) as ADRs when decided.)*

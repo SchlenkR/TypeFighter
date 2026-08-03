@@ -27,7 +27,7 @@ type ExtraBinding =
       runtimeValue: obj }
 
 // Typed builtins library, compiled alongside every user program. The emitter's
-// typed fast-path (`Parser01.EmitCSharp`) routes fully-applied, type-resolved
+// typed fast-path (`EmitCSharp`) routes fully-applied, type-resolved
 // builtin calls straight to these named overloads (e.g. `TfBuiltins.op_add(
 // double, double)`) instead of the curried Func<object,object> closures.
 // AggressiveInlining lets the JIT fold them into the generated `Eval` body.
@@ -163,7 +163,7 @@ let evalExpr
     // in the prelude header. Keep the shim only when the name appears as a
     // first-class value (passed as an argument, returned, stored, etc.).
     let neededBuiltinRefs =
-        Parser01.EmitCSharp.collectFirstClassRefs tvarToMono expr
+        EmitCSharp.collectFirstClassRefs tvarToMono expr
     let prunedDefaults =
         defaultCsImports
         |> List.filter (fun (name, _) -> Set.contains name neededBuiltinRefs)
@@ -175,7 +175,7 @@ let evalExpr
     let userClass =
         match EmitStreamMachine.tryEmit className csImports extraParams rootType tvarToMono expr with
         | Some sm -> sm
-        | None -> Parser01.EmitCSharp.toCSharpClass className csImports extraParams tvarToMono expr
+        | None -> EmitCSharp.toCSharpClass className csImports extraParams tvarToMono expr
     // Append the typed builtins library so Roslyn compiles both classes into
     // the same assembly; the user class calls `TfBuiltins.op_*` directly on the
     // typed fast-path. Appended (not prepended) because C# disallows `using`
@@ -230,7 +230,7 @@ let compileSampler
     : CompiledSampler
     =
     let neededBuiltinRefs =
-        Parser01.EmitCSharp.collectFirstClassRefs tvarToMono expr
+        EmitCSharp.collectFirstClassRefs tvarToMono expr
     let prunedDefaults =
         defaultCsImports
         |> List.filter (fun (name, _) -> Set.contains name neededBuiltinRefs)

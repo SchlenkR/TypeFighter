@@ -15,9 +15,8 @@
         <Compile Include="Desugar.fs" />
         <Compile Include="ExpressionDsl.fs" />
         <Compile Include="Roslyn.fs" />
+        <Compile Include="Syntax.fs" />
         <Compile Include="EmitCSharp.fs" />
-        <Compile Include="Parser01/Syntax.fs" />
-        <Compile Include="Parser01/EmitCSharp.fs" />
         <Compile Include="EmitStreamMachine.fs" />
     </ItemGroup>
 
