@@ -1,0 +1,398 @@
+// The look of the dataflow picture: the visual language of the Repo Cockpit
+// canvas - a hard ink edge, a shadow that lifts the block off the paper, and a
+// footer strip that says what the block is. Every colour and measure is a custom
+// property, so a host retunes the whole picture without touching a rule.
+
+.tf-graph {
+  --tf-ink: oklch(0.18 0.01 260);
+  --tf-paper: oklch(0.985 0.003 250);
+  --tf-surface: oklch(1 0 0);
+  --tf-edge-width: 3px;
+  --tf-hairline: oklch(0.18 0.01 260 / 0.14);
+  --tf-hairline-strong: oklch(0.18 0.01 260 / 0.24);
+  --tf-shadow-color: oklch(0.34 0.02 260 / 0.22);
+  --tf-shadow-3d:
+    3px 5px 10px -4px var(--tf-shadow-color),
+    5px 9px 20px -10px var(--tf-shadow-color);
+  --tf-shadow-3d-hover:
+    5px 10px 20px -5px var(--tf-shadow-color),
+    9px 18px 38px -12px var(--tf-shadow-color);
+  --tf-shadow-ambient: 0 16px 32px -22px oklch(0.18 0.01 260 / 0.34);
+  --tf-shadow-ambient-hover: 0 22px 40px -24px oklch(0.18 0.01 260 / 0.38);
+  // One colour for everything that says "a value is named here".
+  --tf-value: oklch(0.5 0.15 300);
+  --tf-edge: oklch(0.72 0.012 260);
+  --tf-edge-lit: oklch(0.56 0.19 250);
+  --tf-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  position: relative;
+  height: 100%;
+  // A floor, so a frame whose height the page has not settled yet still gives
+  // the picture something to be fitted into.
+  min-height: 18rem;
+  overflow: hidden;
+  // No frame of its own: the picture IS the content of whatever panel holds it,
+  // and a border here would read as a panel inside a panel.
+  background-color: oklch(1 0 0 / 0.42);
+  background-image:
+    radial-gradient(var(--tf-hairline) 1.2px, transparent 1.2px),
+    radial-gradient(oklch(0.18 0.01 260 / 0.06) 1.2px, transparent 1.2px);
+  background-size: 32px 32px, 8px 8px;
+  color: var(--tf-ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  &__surface {
+    position: absolute;
+    inset: 0;
+    cursor: grab;
+    touch-action: none;
+    overflow: hidden;
+  }
+
+  &__world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    will-change: transform;
+  }
+
+  &__canvas {
+    position: relative;
+
+    // Das Bild gehoert zu einer aelteren Fassung des Textes - es steht noch da,
+    // aber es behauptet nicht mehr, aktuell zu sein.
+    &--stale {
+      opacity: 0.35;
+      filter: saturate(0.4);
+    }
+  }
+
+  &__wires {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  &__wire {
+    fill: none;
+    stroke: var(--tf-edge);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+
+    &--lit {
+      stroke: var(--tf-edge-lit);
+      stroke-width: 3.5;
+    }
+  }
+
+  &__head {
+    fill: var(--tf-edge);
+  }
+
+  // A lambda: the blocks that belong to it, fenced off from the rest.
+  &__group {
+    position: absolute;
+    border: 2px dashed var(--tf-hairline-strong);
+    border-radius: 1.5rem;
+    background: oklch(0.5 0.15 300 / 0.045);
+    pointer-events: none;
+  }
+
+  &__group-name {
+    position: absolute;
+    top: -0.72rem;
+    left: 1.1rem;
+    padding: 0 0.5rem;
+    border-radius: 0.3rem;
+    background: var(--tf-paper);
+    color: var(--tf-value);
+    font-family: var(--tf-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  &__slot {
+    position: absolute;
+    cursor: pointer;
+    transition: opacity 0.12s ease;
+
+    &--dimmed {
+      opacity: 0.3;
+    }
+  }
+
+  // The name a `let` put on what a block hands out. It belongs to the wire
+  // leaving the block, not inside it - so it rides on the block's upper edge.
+  &__binds {
+    position: absolute;
+    top: -0.7rem;
+    left: 50%;
+    z-index: 4;
+    transform: translateX(-50%);
+    max-width: 100%;
+    padding: 0.14rem 0.6rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: var(--tf-value);
+    box-shadow: 0 1px 3px oklch(0.18 0.01 260 / 0.25);
+    color: oklch(1 0 0);
+    font-family: var(--tf-mono);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__node {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    overflow: hidden;
+    border: var(--tf-edge-width) solid var(--tf-ink);
+    border-radius: 1rem;
+    background: var(--tf-surface);
+    box-shadow: var(--tf-shadow-3d), var(--tf-shadow-ambient);
+    transition: box-shadow 160ms;
+  }
+
+  &__slot:hover &__node {
+    box-shadow: var(--tf-shadow-3d-hover), var(--tf-shadow-ambient-hover);
+  }
+
+  &__label {
+    max-width: 100%;
+    padding: 0 0.9rem;
+    overflow: hidden;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // What the block is, in the strip along its foot: the namespace of a call, the
+  // number of items of a record. The block's own word stays above it.
+  &__footer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    height: 1.875rem;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid oklch(0.18 0.01 260 / 0.25);
+    background: oklch(0.18 0.01 260 / 0.045);
+    color: oklch(0.18 0.01 260 / 0.8);
+    font-family: var(--tf-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  // A block with a footer keeps its word clear of it.
+  &__node--footed &__label,
+  &__node--footed .tf-graph__label {
+    margin-bottom: 1.875rem;
+  }
+
+  // A token says a symbol, not a word - so it is drawn as one.
+  &__node--compact {
+    border-radius: 9999px;
+
+    .tf-graph__label {
+      padding: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+  }
+
+  &__node--compact.tf-graph__node--literal {
+    border-radius: 0.6rem;
+  }
+
+  // Eine Entscheidung ist keine Karte: das Polygon traegt Rand und Fuellung, der
+  // Kasten darum ist nur der Platz, den es einnimmt.
+  &__node--decision {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+
+    .tf-graph__label {
+      position: relative;
+      padding: 0;
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+  }
+
+  &__slot:hover &__node--decision {
+    box-shadow: none;
+  }
+
+  &__diamond {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(3px 5px 8px var(--tf-shadow-color));
+
+    polygon {
+      fill: var(--tf-surface);
+      stroke: var(--tf-ink);
+      stroke-width: var(--tf-edge-width);
+      stroke-linejoin: round;
+    }
+  }
+
+  // Ein Wert ist keine Marke, sondern das, was dasteht: so breit wie er liest,
+  // einzeilig, und was nicht mehr passt holt der Zeiger.
+  &__node--literal {
+    border-style: dashed;
+    border-radius: 0.6rem;
+
+    .tf-graph__label {
+      padding: 0 0.7rem;
+      font-family: var(--tf-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+  }
+
+  &__node--param {
+    border-color: var(--tf-value);
+
+    .tf-graph__label {
+      color: var(--tf-value);
+      font-family: var(--tf-mono);
+      font-size: 0.95rem;
+    }
+  }
+
+  // What the picture reads IN, as opposed to what it computes: written in the
+  // machine's own hand, because that is what stands in the source.
+  &__node--field .tf-graph__label,
+  &__node--source .tf-graph__label {
+    font-family: var(--tf-mono);
+    font-size: 0.875rem;
+  }
+
+  // The block the whole expression comes out of. A ring around the BOX would sit
+  // in the air beside a diamond, so that shape wears the mark on its own outline.
+  &__slot--root .tf-graph__node {
+    box-shadow:
+      0 0 0 5px oklch(0.5 0.15 160 / 0.2),
+      var(--tf-shadow-3d),
+      var(--tf-shadow-ambient);
+  }
+
+  &__slot--root .tf-graph__node--decision {
+    box-shadow: none;
+
+    .tf-graph__diamond polygon {
+      stroke: oklch(0.5 0.15 160);
+      stroke-width: calc(var(--tf-edge-width) + 2px);
+    }
+  }
+
+  // Ein Port mit Namen sitzt neben seinem Draht.
+  &__port {
+    position: absolute;
+    z-index: 3;
+    transform: translate(-50%, -50%);
+    padding: 0.06rem 0.42rem;
+    border: 1px solid var(--tf-hairline-strong);
+    border-radius: 9999px;
+    background: oklch(1 0 0 / 0.95);
+    color: oklch(0.18 0.01 260 / 0.7);
+    font-family: var(--tf-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  // Waehrend der Compiler liest, bleibt das alte Bild stehen - es ist noch fast
+  // richtig. Eine Glasscheibe darueber sagt, dass es nicht mehr der Stand ist.
+  &__working {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: oklch(1 0 0 / 0.45);
+    backdrop-filter: blur(2px) saturate(0.75);
+    animation: tf-graph-fade-in 0.16s ease both;
+  }
+
+  &__working-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.9rem 0.4rem 0.7rem;
+    border: 1px solid var(--tf-hairline-strong);
+    border-radius: 9999px;
+    background: oklch(1 0 0 / 0.94);
+    box-shadow: var(--tf-shadow-ambient);
+    color: oklch(0.18 0.01 260 / 0.66);
+    font-size: 0.78rem;
+    font-weight: 650;
+  }
+
+  &__spinner {
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2px solid var(--tf-hairline-strong);
+    border-top-color: var(--tf-edge-lit);
+    border-radius: 50%;
+    animation: tf-graph-spin 0.7s linear infinite;
+  }
+
+  // Ein Syntaxfehler legt sich mittig ueber das Bild: was darunter steht, gehoert
+  // zu einer Fassung des Textes, die es nicht mehr gibt.
+  &__notice {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 7;
+    max-width: min(34rem, calc(100% - 3rem));
+    transform: translate(-50%, -50%);
+    padding: 0.85rem 1.1rem;
+    border: 1px solid var(--tf-hairline-strong);
+    border-radius: 0.75rem;
+    background: oklch(1 0 0 / 0.96);
+    box-shadow: var(--tf-shadow-ambient);
+    color: oklch(0.18 0.01 260 / 0.7);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  &__notice--error {
+    border-color: oklch(0.55 0.21 24 / 0.45);
+    color: oklch(0.45 0.18 24);
+    font-family: var(--tf-mono);
+    font-weight: 650;
+  }
+}
+
+@keyframes tf-graph-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes tf-graph-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

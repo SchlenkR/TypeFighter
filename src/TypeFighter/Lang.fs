@@ -617,6 +617,13 @@ module BuiltinTypes =
         | RecordTyp r -> r.fields |> Seq.exists (fun f -> f.fname = StepFields.machine)
         | _ -> false
 
+    // Element type of an Array<...>, or None if the type isn't an array.
+    let arrayElement (typ: MonoTyp) : MonoTyp option =
+        match typ with
+        | SaturatedTyp app when app.name = Names.array ->
+            app.args |> List.tryExactlyOne
+        | _ -> None
+
     // Extract the V (val) component from a step-record's `step` return
     // type: used by the emit to type the result list.
     let stepRecordV (typ: MonoTyp) : MonoTyp option =
@@ -2037,6 +2044,27 @@ module IdentInfo =
                 | Expr.Let l -> skip (n - 1) l.body
                 | _ -> e
         collect (skip skipLets expr)
+
+    /// How often a name is used in expression position. Generic over the tvar tag,
+    /// so it answers on a freshly parsed tree without solving it first.
+    let varUses (name: string) (expr: Expr<'v>) : int =
+        let mutable count = 0
+        let rec walk (e: Expr<'v>) =
+            match e with
+            | Expr.Lit _ -> ()
+            | Expr.Var x -> if x.ident = name then count <- count + 1
+            | Expr.App x -> walk x.func; walk x.arg
+            | Expr.Fun x -> walk x.body
+            | Expr.Let x -> walk x.value; walk x.body
+            | Expr.Do x -> walk x.action; walk x.body
+            | Expr.PropAcc x -> walk x.source
+            | Expr.MkArray x -> for v in x.values do walk v
+            | Expr.MkRecord x -> for item in x.items do walk item.Value
+            | Expr.Match x ->
+                walk x.scrutinee
+                for arm in x.arms do walk arm.body
+        walk expr
+        count
 
     /// Every `<varName>.<field>` PropAcc in the expression. Skips PropAccs
     /// whose source isn't a bare Var (so `r.x.y` would yield `(r, x)` only).

@@ -2,34 +2,53 @@
 // an existing editor instance and returns a disposer -- the editor component
 // itself stays thin, hosts compose only what they need.
 import * as monaco from "monaco-editor";
-import { fetchCompileInfo, type CompileInfoResponse } from "./api";
+import {
+  defaultTypeFighterLanguageClient,
+  type CompileInfoResponse,
+  type TypeFighterLanguageClient,
+} from "./api";
 import { setModelCompletions, setModelHovers } from "./monaco";
 
 export type CompileInfoAttachmentOptions = {
   // Debounce after edits; a first check runs after initialDelayMs.
   debounceMs?: number;
   initialDelayMs?: number;
+  languageClient?: TypeFighterLanguageClient;
   // Full response per round trip -- for status lines, result types, etc.
   onInfo?: (info: CompileInfoResponse) => void;
+  onError?: (error: unknown) => void;
 };
 
 // Debounced compile-info loop: error squiggles + hover data on the model,
-// full response to the host. Transport failures are swallowed (IntelliSense
-// must never break the editor); the next edit simply retries.
+// full response to the host. Hosts can surface transport failures via onError.
 export function attachCompileInfo(
   editor: monaco.editor.IStandaloneCodeEditor,
-  opts: CompileInfoAttachmentOptions = {},
+  opts: CompileInfoAttachmentOptions = {}
 ): () => void {
   const debounceMs = opts.debounceMs ?? 300;
+  const languageClient =
+    opts.languageClient ?? defaultTypeFighterLanguageClient;
   let timer: number | undefined;
   let disposed = false;
+  let running = false;
+  let queued = false;
 
   const check = async () => {
+    if (running) {
+      queued = true;
+      return;
+    }
+
     const model = editor.getModel();
     if (!model) return;
+
+    const source = editor.getValue();
+    running = true;
+
     try {
-      const info = await fetchCompileInfo(editor.getValue());
-      if (disposed || model.isDisposed()) return;
+      const info = await languageClient.fetchCompileInfo(source);
+      if (disposed || model.isDisposed() || editor.getValue() !== source)
+        return;
       setModelHovers(model, info.hovers ?? []);
       setModelCompletions(model, info.completions ?? []);
       const markers: monaco.editor.IMarkerData[] = [];
@@ -47,8 +66,15 @@ export function attachCompileInfo(
       }
       monaco.editor.setModelMarkers(model, "typefighter", markers);
       opts.onInfo?.(info);
-    } catch {
-      /* retry on next edit */
+    } catch (error) {
+      queued = false;
+      if (!disposed) opts.onError?.(error);
+    } finally {
+      running = false;
+      if (queued && !disposed) {
+        queued = false;
+        schedule(0);
+      }
     }
   };
 

@@ -1,9 +1,12 @@
 import { CSSProperties, useEffect, useRef } from "react";
 import * as monaco from "monaco-editor";
+import { type TypeFighterLanguageClient } from "./api";
 import {
+  clearModelLanguageClient,
   ensureTypefighterLanguage,
   ensureTypefighterProviders,
   refreshTypefighterTokensFromPrelude,
+  setModelLanguageClient,
   typefighterOverflowWidgetsNode,
 } from "./monaco";
 
@@ -15,6 +18,7 @@ export type TypeFighterEditorInstance = monaco.editor.IStandaloneCodeEditor;
 
 export type TypeFighterEditorProps = {
   defaultValue?: string;
+  languageClient?: TypeFighterLanguageClient;
   onChange?: (value: string) => void;
   onMount?: (editor: TypeFighterEditorInstance) => void | (() => void);
   options?: monaco.editor.IStandaloneEditorConstructionOptions;
@@ -24,6 +28,7 @@ export type TypeFighterEditorProps = {
 
 export default function TypeFighterEditor({
   defaultValue = "",
+  languageClient,
   onChange,
   onMount,
   options,
@@ -36,7 +41,7 @@ export default function TypeFighterEditor({
     if (!containerRef.current) return;
     ensureTypefighterLanguage();
     ensureTypefighterProviders();
-    refreshTypefighterTokensFromPrelude();
+    refreshTypefighterTokensFromPrelude(languageClient);
 
     const editor = monaco.editor.create(containerRef.current, {
       value: defaultValue,
@@ -52,6 +57,8 @@ export default function TypeFighterEditor({
       overflowWidgetsDomNode: typefighterOverflowWidgetsNode(),
       ...options,
     });
+    const model = editor.getModel();
+    if (model) setModelLanguageClient(model, languageClient);
 
     const changeSub = onChange
       ? editor.onDidChangeModelContent(() => onChange(editor.getValue()))
@@ -61,6 +68,7 @@ export default function TypeFighterEditor({
     return () => {
       detach?.();
       changeSub?.dispose();
+      if (model) clearModelLanguageClient(model);
       editor.dispose();
     };
     // Mount-once by design: defaultValue/options are initial-only, hosts drive
@@ -68,5 +76,11 @@ export default function TypeFighterEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%", ...style }} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ width: "100%", height: "100%", ...style }}
+    />
+  );
 }

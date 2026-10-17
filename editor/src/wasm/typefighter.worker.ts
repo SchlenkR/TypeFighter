@@ -7,22 +7,30 @@
 
 // Native dynamic import, hidden from bundlers: the runtime is served as
 // static files, not importable through their transforms.
-const importNative = new Function("url", "return import(url)") as (url: string) => Promise<{ dotnet: any }>;
+const importNative = new Function("url", "return import(url)") as (
+  url: string
+) => Promise<{ dotnet: any }>;
 
 type TfWasmExports = {
-  Init(): string;
+  Init(numberRecordsJson: string): string;
   CompileInfo(source: string): string;
   Eval(source: string): string;
   Prelude(): string;
   CompletionAt(source: string, offset: number): string;
+  Graph(source: string): string;
 };
 
 export type TfWorkerRequestBody =
-  | { kind: "init"; dotnetUrl: string }
+  | {
+      kind: "init";
+      dotnetUrl: string;
+      numberRecords: { name: string; fields: string[] }[];
+    }
   | { kind: "compileInfo"; source: string }
   | { kind: "eval"; source: string }
   | { kind: "prelude" }
-  | { kind: "completionAt"; source: string; offset: number };
+  | { kind: "completionAt"; source: string; offset: number }
+  | { kind: "graph"; source: string };
 
 export type TfWorkerRequest = TfWorkerRequestBody & { seq: number };
 
@@ -33,15 +41,24 @@ export type TfWorkerResponse =
 const scope = self as unknown as Worker;
 let interop: TfWasmExports | null = null;
 
-async function boot(dotnetUrl: string): Promise<unknown> {
-  const { dotnet } = await importNative(new URL(dotnetUrl, self.location.origin).href);
+async function boot(
+  dotnetUrl: string,
+  numberRecords: { name: string; fields: string[] }[]
+): Promise<unknown> {
+  const { dotnet } = await importNative(
+    new URL(dotnetUrl, self.location.origin).href
+  );
   const { getAssemblyExports, getConfig } = await dotnet
     .withDiagnosticTracing(false)
     .create();
   const exports = await getAssemblyExports(getConfig().mainAssemblyName);
-  interop = exports.PureState.TypeFighter.Wasm.TypeFighterInterop as TfWasmExports;
-  const init = JSON.parse(interop.Init()) as { error?: string };
-  if (init.error) throw new Error("TypeFighter WASM init failed: " + init.error);
+  interop = exports.PureState.TypeFighter.Wasm
+    .TypeFighterInterop as TfWasmExports;
+  const init = JSON.parse(interop.Init(JSON.stringify(numberRecords))) as {
+    error?: string;
+  };
+  if (init.error)
+    throw new Error("TypeFighter WASM init failed: " + init.error);
   return init;
 }
 
@@ -56,7 +73,7 @@ scope.onmessage = async (e: MessageEvent<TfWorkerRequest>) => {
     let result: unknown;
     switch (req.kind) {
       case "init":
-        result = await boot(req.dotnetUrl);
+        result = await boot(req.dotnetUrl, req.numberRecords);
         break;
       case "compileInfo":
         result = JSON.parse(requireInterop().CompileInfo(req.source));
@@ -68,11 +85,24 @@ scope.onmessage = async (e: MessageEvent<TfWorkerRequest>) => {
         result = JSON.parse(requireInterop().Prelude());
         break;
       case "completionAt":
-        result = JSON.parse(requireInterop().CompletionAt(req.source, req.offset));
+        result = JSON.parse(
+          requireInterop().CompletionAt(req.source, req.offset)
+        );
+        break;
+      case "graph":
+        result = JSON.parse(requireInterop().Graph(req.source));
         break;
     }
-    scope.postMessage({ seq: req.seq, ok: true, result } satisfies TfWorkerResponse);
+    scope.postMessage({
+      seq: req.seq,
+      ok: true,
+      result,
+    } satisfies TfWorkerResponse);
   } catch (err) {
-    scope.postMessage({ seq: req.seq, ok: false, error: String(err) } satisfies TfWorkerResponse);
+    scope.postMessage({
+      seq: req.seq,
+      ok: false,
+      error: String(err),
+    } satisfies TfWorkerResponse);
   }
 };

@@ -2,147 +2,152 @@ module PureState.TypeFighter.Web.Tests.CompletionTests
 
 open NUnit.Framework
 open FsUnit
+open PureState.TypeFighter
 open PureState.TypeFighter.Web
 
-// Cursor position is written as `|` in the source and stripped before the
-// call, so the tests read like what a user actually types.
-let private completionsAt (marked: string) : string list =
+let private completionAt (marked: string) =
     let offset = marked.IndexOf '|'
     if offset < 0 then failwith "test source needs a | cursor marker"
-    Api.completionAtCursor [] (marked.Replace("|", "")) offset |> List.ofArray
+    Api.completionAtCursor [] (marked.Replace("|", "")) offset
 
+let private memberFieldsAt marked =
+    let completion = completionAt marked
+    completion.isMemberAccess |> should equal true
+    completion.fields |> List.ofArray
 
-// ============================================================================
-// Line-based source — what the editor actually sends
-// ============================================================================
+let private shouldNotBeMemberAccess marked =
+    let completion = completionAt marked
+    completion.isMemberAccess |> should equal false
+    completion.fields |> should be Empty
 
 [<Test>]
 let ``dot after a record binding lists its fields`` () =
-    completionsAt "p = { x: 1, y: 2 }\np.|" |> should equal [ "x"; "y" ]
+    memberFieldsAt "p = { x: 1, y: 2 }\np.|" |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``partial member keeps the full field list`` () =
     // Filtering by the typed prefix is the editor's job, not the solver's.
-    completionsAt "p = { x: 1, y: 2 }\np.x|" |> should equal [ "x"; "y" ]
+    memberFieldsAt "p = { x: 1, y: 2 }\np.x|" |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``opening a quoted member keeps completion active`` () =
+    memberFieldsAt "p = { `Field One`: 1, `Field Two`: 2 }\np.`|"
+    |> should equal [ "Field One"; "Field Two" ]
+
+[<Test>]
+let ``partial quoted member keeps the full field list`` () =
+    memberFieldsAt "p = { `Field One`: 1, `Field Two`: 2 }\np.`Field |"
+    |> should equal [ "Field One"; "Field Two" ]
 
 [<Test>]
 let ``nested chain resolves the inner record`` () =
-    completionsAt "u = { user: { id: 1, name: \"Ada\" } }\nu.user.|"
+    memberFieldsAt "u = { user: { id: 1, name: \"Ada\" } }\nu.user.|"
     |> should equal [ "id"; "name" ]
 
 [<Test>]
 let ``fields come back sorted`` () =
-    completionsAt "p = { zeta: 1, alpha: 2, mid: 3 }\np.|"
+    memberFieldsAt "p = { zeta: 1, alpha: 2, mid: 3 }\np.|"
     |> should equal [ "alpha"; "mid"; "zeta" ]
 
 [<Test>]
 let ``binding several lines above is still in scope`` () =
-    completionsAt "a = 1\nb = 2\np = { x: 1, y: 2 }\np.|" |> should equal [ "x"; "y" ]
-
-
-// ============================================================================
-// Everything after the cursor is discarded
-// ============================================================================
+    memberFieldsAt "a = 1\nb = 2\np = { x: 1, y: 2 }\np.|" |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``lines after the cursor are ignored`` () =
-    completionsAt "p = { x: 1, y: 2 }\np.|\nq = 5\nq" |> should equal [ "x"; "y" ]
+    memberFieldsAt "p = { x: 1, y: 2 }\np.|\nq = 5\nq" |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``a syntax error after the cursor does not break completion`` () =
-    completionsAt "p = { x: 1, y: 2 }\np.|\n???" |> should equal [ "x"; "y" ]
+    memberFieldsAt "p = { x: 1, y: 2 }\np.|\n???" |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``a binding defined after the cursor is not visible`` () =
-    // Consequence of cutting at the cursor: `q` does not exist yet.
-    completionsAt "p = { x: 1 }\nq.|\nq = { a: 1, b: 2 }" |> should be Empty
-
-
-// ============================================================================
-// Prelude namespaces
-// ============================================================================
+    memberFieldsAt "p = { x: 1 }\nq.|\nq = { a: 1, b: 2 }" |> should be Empty
 
 [<Test>]
 let ``namespace lists its members`` () =
-    let members = completionsAt "gen.|"
+    let members = memberFieldsAt "gen.|"
     members |> should contain "counter"
     members |> should contain "sineOsc"
 
 [<Test>]
 let ``namespace works with a statement prefix present`` () =
-    completionsAt "a = 1\nmath.|" |> should contain "ema"
+    memberFieldsAt "a = 1\nmath.|" |> should contain "ema"
 
-
-// ============================================================================
-// Non-completion positions return nothing
-// ============================================================================
+[<Test>]
+let ``host injected number record lists its fields`` () =
+    let fields = [
+        "CPU_LOAD", BuiltinTypes.number
+        "MEMORY_USED", BuiltinTypes.number
+    ]
+    let extraPrelude = [ "values", Mono (TDef.RecordWith fields) ]
+    let source = "values."
+    let completion = Api.completionAtCursor extraPrelude source source.Length
+    completion.isMemberAccess |> should equal true
+    completion.fields
+    |> List.ofArray
+    |> should equal [ "CPU_LOAD"; "MEMORY_USED" ]
 
 [<Test>]
 let ``no dot means no completion`` () =
-    completionsAt "p = { x: 1 }\np|" |> should be Empty
+    shouldNotBeMemberAccess "p = { x: 1 }\np|"
 
 [<Test>]
 let ``unknown receiver yields nothing`` () =
-    completionsAt "zzz.|" |> should be Empty
+    memberFieldsAt "zzz.|" |> should be Empty
 
 [<Test>]
 let ``dot without a receiver yields nothing`` () =
-    completionsAt ".|" |> should be Empty
+    shouldNotBeMemberAccess ".|"
 
 [<Test>]
 let ``empty source yields nothing`` () =
-    completionsAt "|" |> should be Empty
+    shouldNotBeMemberAccess "|"
+
+[<Test>]
+let ``unclosed quoted identifier without a receiver is not member access`` () =
+    shouldNotBeMemberAccess "`Field |"
 
 [<Test>]
 let ``non-record receiver yields nothing`` () =
-    completionsAt "n = 42\nn.|" |> should be Empty
+    memberFieldsAt "n = 42\nn.|" |> should be Empty
 
 [<Test>]
 let ``a lifted stream binding is a Number, not a record`` () =
-    // `count` is a step-record, but the let-lift makes `i` the per-tick
-    // value — so there are no protocol fields to offer.
-    completionsAt "i = count\ni.|" |> should be Empty
-
-
-// ============================================================================
-// Semicolon form (stdlib and host-synthesised source)
-// ============================================================================
+    memberFieldsAt "i = count\ni.|" |> should be Empty
 
 [<Test>]
 let ``semicolon-separated source works too`` () =
-    completionsAt "p = { x: 1, y: 2 };p.|" |> should equal [ "x"; "y" ]
+    memberFieldsAt "p = { x: 1, y: 2 };p.|" |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``mixed separators resolve against the nearest statement`` () =
-    completionsAt "a = 1;b = 2\np = { x: 1, y: 2 }\np.|" |> should equal [ "x"; "y" ]
-
-
-// ============================================================================
-// Cursor offset handling
-// ============================================================================
+    memberFieldsAt "a = 1;b = 2\np = { x: 1, y: 2 }\np.|" |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``offset zero yields nothing`` () =
-    Api.completionAtCursor [] "p = { x: 1 }\np." 0 |> should be Empty
+    let completion = Api.completionAtCursor [] "p = { x: 1 }\np." 0
+    completion.isMemberAccess |> should equal false
+    completion.fields |> should be Empty
 
 [<Test>]
 let ``offset past the end is clamped to the end`` () =
-    Api.completionAtCursor [] "p = { x: 1, y: 2 }\np." 9999
+    let completion = Api.completionAtCursor [] "p = { x: 1, y: 2 }\np." 9999
+    completion.isMemberAccess |> should equal true
+    completion.fields
     |> List.ofArray
     |> should equal [ "x"; "y" ]
 
 [<Test>]
 let ``negative offset is clamped to zero`` () =
-    Api.completionAtCursor [] "p = { x: 1 }\np." -5 |> should be Empty
+    let completion = Api.completionAtCursor [] "p = { x: 1 }\np." -5
+    completion.isMemberAccess |> should equal false
+    completion.fields |> should be Empty
 
 [<Test>]
 let ``cursor before the dot does not complete`` () =
-    completionsAt "p = { x: 1, y: 2 }\np|." |> should be Empty
-
-
-// ============================================================================
-// Caching — repeated calls must agree
-// ============================================================================
+    shouldNotBeMemberAccess "p = { x: 1, y: 2 }\np|."
 
 [<Test>]
 let ``repeated call returns the same result`` () =
@@ -154,21 +159,113 @@ let ``repeated call returns the same result`` () =
 [<Test>]
 let ``different receivers in the same source do not share a cache entry`` () =
     let src = "p = { x: 1 }\nq = { a: 1, b: 2 }\n"
-    let forP = Api.completionAtCursor [] (src + "p.") (src.Length + 2) |> List.ofArray
-    let forQ = Api.completionAtCursor [] (src + "q.") (src.Length + 2) |> List.ofArray
-    forP |> should equal [ "x" ]
-    forQ |> should equal [ "a"; "b" ]
-
-
-// ============================================================================
-// Known limits of the regex-based receiver detection
-// ============================================================================
-
-[<Test>]
-let ``call result as receiver is not supported`` () =
-    // The receiver pattern matches identifier chains only.
-    completionsAt "f = a => { m: 1, n: 2 }\nf(0).|" |> should be Empty
+    let forP = Api.completionAtCursor [] (src + "p.") (src.Length + 2)
+    let forQ = Api.completionAtCursor [] (src + "q.") (src.Length + 2)
+    forP.isMemberAccess |> should equal true
+    forQ.isMemberAccess |> should equal true
+    let forPFields = forP.fields |> List.ofArray
+    let forQFields = forQ.fields |> List.ofArray
+    forPFields |> should equal [ "x" ]
+    forQFields |> should equal [ "a"; "b" ]
 
 [<Test>]
-let ``record literal as receiver is not supported`` () =
-    completionsAt "{ a: 1, b: 2 }.|" |> should be Empty
+let ``call result as receiver resolves its fields`` () =
+    memberFieldsAt "f = a => { m: 1, n: 2 }\nf(0).|"
+    |> should equal [ "m"; "n" ]
+
+[<Test>]
+let ``record literal as receiver resolves its fields`` () =
+    memberFieldsAt "{ a: 1, b: 2 }.|" |> should equal [ "a"; "b" ]
+
+
+// The property being completed can sit anywhere in an expression, not just at
+// the end of a statement -- `values.A + values.` is the everyday case.
+
+let private p = "p = { x: 1, y: 2 }\n"
+
+[<Test>]
+let ``second operand of an operator completes`` () =
+    memberFieldsAt (p + "1 + p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``property after another property of the same record completes`` () =
+    memberFieldsAt (p + "p.x + p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``partial property in an operand keeps the full field list`` () =
+    memberFieldsAt (p + "p.x + p.y|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``argument of an unclosed call completes`` () =
+    memberFieldsAt (p + "f = a => a\nf(p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``second argument of an unclosed call completes`` () =
+    memberFieldsAt (p + "f = a => b => a\nf(1, p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``element of an unclosed array completes`` () =
+    memberFieldsAt (p + "[1, p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``value of an unclosed record completes`` () =
+    memberFieldsAt (p + "{ a: 1, b: p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``lambda body completes`` () =
+    memberFieldsAt (p + "g = a => p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``value of a binding that is an expression completes`` () =
+    memberFieldsAt (p + "q = 1 + p.|\nq") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``then branch of an if without an else completes`` () =
+    memberFieldsAt (p + "if true then p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``condition of an if without its branches completes`` () =
+    memberFieldsAt (p + "if p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``else branch completes`` () =
+    memberFieldsAt (p + "if true then 1 else p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``deeply nested position completes`` () =
+    memberFieldsAt (p + "f = a => a\nf(1 + f((2 * p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``chain in an operand resolves the inner record`` () =
+    memberFieldsAt "u = { user: { id: 1, name: \"Ada\" } }\n1 + u.user.|"
+    |> should equal [ "id"; "name" ]
+
+[<Test>]
+let ``quoted member in an operand keeps completion active`` () =
+    memberFieldsAt "p = { `Field One`: 1, `Field Two`: 2 }\n1 + p.`Field |"
+    |> should equal [ "Field One"; "Field Two" ]
+
+[<Test>]
+let ``a type error elsewhere in the line does not break completion`` () =
+    memberFieldsAt (p + "\"txt\" * 3 + p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``a bracket inside a string opens nothing`` () =
+    memberFieldsAt (p + "s = \"a(b\"\n1 + p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``a bracket inside a comment opens nothing`` () =
+    memberFieldsAt (p + "// f(x\n1 + p.|") |> should equal [ "x"; "y" ]
+
+[<Test>]
+let ``a bracket inside a quoted identifier opens nothing`` () =
+    memberFieldsAt "p = { `A(1)`: 1, `B`: 2 }\n1 + p.|" |> should equal [ "A(1)"; "B" ]
+
+[<Test>]
+let ``cursor behind a finished property does not complete`` () =
+    // The property ended a token ago -- what is being written there is new.
+    shouldNotBeMemberAccess (p + "1 + p.x |")
+
+[<Test>]
+let ``a plain identifier in an operand is not member access`` () =
+    shouldNotBeMemberAccess (p + "1 + p|")

@@ -10,4 +10,7 @@ export * from "./attachments";
 export { default as TypeFighterEditor } from "./TypeFighterEditor";
 export type { TypeFighterEditorInstance, TypeFighterEditorProps } from "./TypeFighterEditor";
 export { default as TypeFighterPlayground } from "./TypeFighterPlayground";
+export { default as TypeFighterGraph } from "./TypeFighterGraph";
+export type { TypeFighterGraphProps } from "./TypeFighterGraph";
+export type { LayoutMode } from "./graphLayout";
 export { default as Modal } from "./Modal";

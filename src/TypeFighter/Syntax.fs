@@ -1003,6 +1003,21 @@ type ParseError = { message: string; idx: int; line: int; col: int }
 /// `Expr<unit>` value won't match.
 type ExprRangeLookup = Expr<unit> -> Range option
 
+/// Stands in for the property still being typed. Bound fully polymorphic by
+/// the solver's caller, so the expression AROUND the cursor keeps checking:
+/// that context is what gives e.g. a lambda parameter its type.
+let completionHoleName = "__typeFighterCompletionHole"
+
+type CompletionReceiver =
+    {
+        /// The receiver bound where it stands, with everything around it kept.
+        inContext: Expr<unit>
+        /// The same binding with the surrounding expression cut away, so
+        /// nothing half-written next to the cursor can fail the solve.
+        standalone: Expr<unit>
+        probeName: string
+    }
+
 let private snapshotLookup () : ExprRangeLookup =
     let copy = System.Collections.Generic.Dictionary<obj, Range>(exprRangeDict, HashIdentity.Reference)
     fun e ->
@@ -1174,6 +1189,201 @@ let parseWithSpansAndRanges
     | PError err ->
         let pos = DocPos.create err.idx source
         Error { message = err.message; idx = err.idx; line = pos.ln; col = pos.col })
+
+/// `endIdx` with the whitespace a token's range swallowed taken back off.
+let private trimmedEnd (text: string) (endIdx: int) : int =
+    let mutable e = min endIdx text.Length
+    while e > 0 && System.Char.IsWhiteSpace text.[e - 1] do
+        e <- e - 1
+    e
+
+/// Closers for every bracket the text leaves open, innermost first. A source cut
+/// at the cursor is often no program at all - `avg(values.` is missing its `)` -
+/// and the parser has no error recovery, so completion has to hand it something
+/// parseable. Brackets inside strings, quoted identifiers and comments open
+/// nothing.
+let private openBracketClosers (text: string) : string =
+    let closers = System.Collections.Generic.Stack<char>()
+    let mutable inString = false
+    let mutable inQuotedIdent = false
+    let mutable inLineComment = false
+    let mutable i = 0
+
+    while i < text.Length do
+        let c = text.[i]
+        if inLineComment then
+            if c = '\n' then inLineComment <- false
+        elif inString then
+            if c = '\\' then i <- i + 1
+            elif c = '"' then inString <- false
+        elif inQuotedIdent then
+            if c = '`' then inQuotedIdent <- false
+        else
+            match c with
+            | '"' -> inString <- true
+            | '`' -> inQuotedIdent <- true
+            | '/' when i + 1 < text.Length && text.[i + 1] = '/' ->
+                inLineComment <- true
+                i <- i + 1
+            | '(' -> closers.Push ')'
+            | '[' -> closers.Push ']'
+            | '{' -> closers.Push '}'
+            | ')' | ']' | '}' -> if closers.Count > 0 then closers.Pop() |> ignore
+            | _ -> ()
+        i <- i + 1
+
+    System.String(closers.ToArray())
+
+let tryParseCompletionReceiver (source: string) : CompletionReceiver option =
+    let receiverProbeName = "__typeFighterCompletionReceiver"
+
+    let fieldProbeName = "__typeFighterCompletionField"
+
+    /// Binds the receiver of the property at the cursor - wherever in the
+    /// expression that property sits. Returns the two readings of the same spot:
+    /// with the surrounding expression kept, and with it cut away. Both keep
+    /// every binder that ENCLOSES the cursor (bindings above it, lambda
+    /// parameters, match arms), because the receiver may lean on those names.
+    ///
+    /// `endsAt` is the cursor, which is NOT the end of `text`: a source cut at
+    /// the cursor can need brackets closed and a body appended before it is a
+    /// program at all.
+    let rec probeFor text expectedName endsAt expr =
+        let isReceiverOf e =
+            match e with
+            | Expr.PropAcc x ->
+                let nameMatches =
+                    match expectedName with
+                    | Some name -> x.ident.identName = name
+                    | None -> true
+                let endsAtCursor =
+                    match exprRangeDict.TryGetValue(box e) with
+                    // A token's range swallows the whitespace behind it, which
+                    // an appended repair would put past the cursor.
+                    | true, range -> trimmedEnd text range.endIdx = endsAt
+                    | _ -> false
+
+                nameMatches && endsAtCursor
+            | _ -> false
+
+        // Around the cursor: only the in-context reading keeps the node.
+        let around child rebuild =
+            probeFor text expectedName endsAt child
+            |> Option.map (fun (inContext, standalone) -> rebuild inContext, standalone)
+
+        // A binder over the cursor: both readings have to keep it.
+        let over child rebuild =
+            probeFor text expectedName endsAt child
+            |> Option.map (fun (inContext, standalone) -> rebuild inContext, rebuild standalone)
+
+        let aroundFirst children rebuild =
+            children
+            |> List.indexed
+            |> List.tryPick (fun (hit, child) ->
+                around child (fun replaced ->
+                    children
+                    |> List.mapi (fun i c -> if i = hit then replaced else c)
+                    |> rebuild))
+
+        match expr with
+        | Expr.PropAcc x when isReceiverOf expr ->
+            Some (
+                X.Let (X.Ident receiverProbeName) x.source (X.Var completionHoleName),
+                X.Let (X.Ident receiverProbeName) x.source (X.Var receiverProbeName))
+        | Expr.Lit _ | Expr.Var _ -> None
+        | Expr.Let x ->
+            around x.value (fun value -> X.Let x.ident value x.body)
+            |> Option.orElseWith (fun () -> over x.body (X.Let x.ident x.value))
+        | Expr.Do x ->
+            around x.action (fun action -> X.Do action x.body)
+            |> Option.orElseWith (fun () -> over x.body (X.Do x.action))
+        | Expr.Fun x -> over x.body (X.Fun x.ident)
+        | Expr.App x ->
+            around x.func (fun func -> X.App func x.arg)
+            |> Option.orElseWith (fun () -> around x.arg (X.App x.func))
+        | Expr.PropAcc x ->
+            around x.source (fun source -> X.PropAcc source x.ident.identName)
+        | Expr.MkArray x -> aroundFirst x.values X.MkArray
+        | Expr.MkRecord x ->
+            let withValues values =
+                (x.items, values)
+                ||> List.map2 (fun item value ->
+                    match item with
+                    | RecordItem.Property p -> X.Property p.fname value
+                    | RecordItem.Positional _ -> X.Positional value)
+                |> X.MkRecord
+            aroundFirst [ for item in x.items -> item.Value ] withValues
+        | Expr.Match x ->
+            around x.scrutinee (fun scrutinee -> X.Match scrutinee x.arms)
+            |> Option.orElseWith (fun () ->
+                x.arms
+                |> List.indexed
+                |> List.tryPick (fun (hit, arm) ->
+                    // The arm's pattern may bind the receiver, so the cut
+                    // reading keeps that one arm rather than the expression.
+                    probeFor text expectedName endsAt arm.body
+                    |> Option.map (fun (inContext, standalone) ->
+                        let arms =
+                            x.arms
+                            |> List.mapi (fun i a -> if i = hit then { a with body = inContext } else a)
+                        X.Match x.scrutinee arms,
+                        X.Match x.scrutinee [ { arm with body = standalone } ])))
+
+    // `None` = did not parse (try the next repair), `Some probe` = parsed, and
+    // `probe` is what it holds at the cursor - possibly nothing.
+    let tryParse (candidate: string) endsAt expectedName =
+        spanCollector.Clear()
+        exprRangeDict.Clear()
+
+        match run candidate program with
+        | POk pval -> Some (probeFor candidate expectedName endsAt pval.result)
+        | PError _ -> None
+
+    // What the cursor may be sitting on: a finished property, one being typed, or
+    // a backtick just opened.
+    let cursorShapes =
+        [
+            source, None
+            source + fieldProbeName, Some fieldProbeName
+            source + "`", None
+        ]
+
+    // ... and what a source cut at the cursor may be missing to be a program at
+    // all: the branches of an `if` that is only half written, brackets left
+    // open, a body for the binding being written - `x = values.` binds nothing yet
+    // and is no program until something follows it. Cheapest repair first.
+    let repairsOf (candidate: string) =
+        let closers = openBracketClosers candidate
+        let branches = [ ""; " else 0"; " then 0 else 0" ]
+        let brackets = [ ""; if closers <> "" then closers ]
+        let bodies = [ ""; ";0" ]
+        [
+            for branch in branches do
+                for bracket in brackets do
+                    for body in bodies do
+                        candidate + branch + bracket + body
+        ]
+
+    // The first shape that parses AT ALL decides, and whatever it holds at the
+    // cursor is the answer: a shape that parses without a property there says
+    // there is none to complete - a dangling `.` or an open backtick would not
+    // have parsed. That stops the search after one or two parses for the many
+    // completion requests that have nothing to do with member access.
+    let probeAtCursor (candidate: string) expectedName =
+        let endsAt = candidate.Length
+        repairsOf candidate
+        |> List.tryPick (fun repaired -> tryParse repaired endsAt expectedName)
+
+    lock parseGate (fun () ->
+        cursorShapes
+        |> List.tryPick (fun (candidate, expectedName) -> probeAtCursor candidate expectedName)
+        |> Option.flatten
+        |> Option.map (fun (inContext, standalone) ->
+            {
+                inContext = inContext
+                standalone = standalone
+                probeName = receiverProbeName
+            }))
 
 /// Parse a TypeFighter type expression.
 let parseTyp (source: string) : Result<MonoTyp, string> =

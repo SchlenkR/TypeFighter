@@ -217,10 +217,14 @@ let evalExpr
 /// instant) and yields the emitted value (null = gap). State persists across
 /// calls in the underlying class instance, so each call is one tick at a real
 /// sample time. `Step` is null when `error` is non-empty.
+/// `stepMany` is the same tick for programs whose result is an ARRAY of streams:
+/// one value per element (NaN = gap). A single-stream program yields one value,
+/// so hosts that draw several curves can use `stepMany` exclusively.
 type CompiledSampler =
     {
         csharp: string
         step: Func<DateTimeOffset, IDictionary<string, obj>, Nullable<double>>
+        stepMany: Func<DateTimeOffset, IDictionary<string, obj>, double array>
         error: string
     }
 
@@ -246,6 +250,7 @@ let compileSampler
     let extraParams = [ for x in extras -> x.csParamName, x.csParamType ]
     let className = Roslyn.classNameFor "TfSampler" source
     let noStep : Func<DateTimeOffset, IDictionary<string, obj>, Nullable<double>> = null
+    let noStepMany : Func<DateTimeOffset, IDictionary<string, obj>, double array> = null
     // Step-record root -> stateful state-machine sampler; any other expression
     // -> stateless sampler that re-evaluates over the host values at each instant.
     let userClass =
@@ -257,17 +262,30 @@ let compileSampler
         let typ = Roslyn.compileType className csharp references.Value
         let instance = System.Activator.CreateInstance typ
         let stepMi = typ.GetMethod "Step"
-        let step =
-            Func<DateTimeOffset, IDictionary<string, obj>, Nullable<double>>(fun now hostValues ->
+        // NaN is the gap marker throughout, so one scalar conversion serves both
+        // the single-value and the array shape.
+        let toValue (o: obj) =
+            match o with
+            | :? double as d -> d
+            | :? int as i -> double i
+            | _ -> Double.NaN
+        let stepMany =
+            Func<DateTimeOffset, IDictionary<string, obj>, double array>(fun now hostValues ->
                 // A missing input / runtime error at one instant is a gap in the
                 // curve, not a crash of the whole sampling loop.
                 try
                     match stepMi.Invoke(instance, [| box now; box hostValues |]) with
-                    | :? double as d -> if Double.IsNaN d then Nullable() else Nullable d
-                    | :? int as i -> Nullable(double i)
-                    | _ -> Nullable()
-                with _ -> Nullable())
-        { csharp = csharp; step = step; error = "" }
+                    | :? (obj array) as values -> values |> Array.map toValue
+                    | o -> [| toValue o |]
+                with _ -> [| Double.NaN |])
+        let step =
+            Func<DateTimeOffset, IDictionary<string, obj>, Nullable<double>>(fun now hostValues ->
+                match stepMany.Invoke(now, hostValues) with
+                | [||] -> Nullable()
+                | values -> if Double.IsNaN values.[0] then Nullable() else Nullable values.[0])
+        { csharp = csharp; step = step; stepMany = stepMany; error = "" }
     with
-    | :? Roslyn.CompileException as ex -> { csharp = csharp; step = noStep; error = ex.Message }
-    | ex -> { csharp = csharp; step = noStep; error = ex.Message }
+    | :? Roslyn.CompileException as ex ->
+        { csharp = csharp; step = noStep; stepMany = noStepMany; error = ex.Message }
+    | ex ->
+        { csharp = csharp; step = noStep; stepMany = noStepMany; error = ex.Message }

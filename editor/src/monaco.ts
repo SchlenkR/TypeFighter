@@ -2,7 +2,13 @@
 // language config and the global hover/completion/signature providers.
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { fetchCompletionAt, fetchPrelude, type CompletionEntry, type HoverInfo, type PreludeEntry } from "./api";
+import {
+  defaultTypeFighterLanguageClient,
+  type CompletionEntry,
+  type HoverInfo,
+  type PreludeEntry,
+  type TypeFighterLanguageClient,
+} from "./api";
 
 declare global {
   interface Window {
@@ -21,18 +27,43 @@ export function setTypefighterTokens(builtins: string[]) {
   monaco.languages.setMonarchTokensProvider("typefighter", {
     keywords: ["let", "const", "true", "false", "if", "then", "else"],
     builtins,
-    operators: ["=>", "=", "+", "-", "*", "/", "<", ">", "<=", ">=", "==", "!=", "&&", "||", "!", "&", "|", ";", ",", ".", ":"],
+    operators: [
+      "=>",
+      "=",
+      "+",
+      "-",
+      "*",
+      "/",
+      "<",
+      ">",
+      "<=",
+      ">=",
+      "==",
+      "!=",
+      "&&",
+      "||",
+      "!",
+      "&",
+      "|",
+      ";",
+      ",",
+      ".",
+      ":",
+    ],
     tokenizer: {
       root: [
         [/\/\/.*$/, "comment"],
         [/__\w+/, "type"],
-        [/[a-zA-Z_][\w]*/, {
-          cases: {
-            "@keywords": "keyword",
-            "@builtins": "predefined",
-            "@default": "identifier",
+        [
+          /[a-zA-Z_][\w]*/,
+          {
+            cases: {
+              "@keywords": "keyword",
+              "@builtins": "predefined",
+              "@default": "identifier",
+            },
           },
-        }],
+        ],
         [/"([^"\\]|\\.)*"/, "string"],
         [/\d+(\.\d+)?/, "number"],
         [/[{}()\[\]]/, "@brackets"],
@@ -79,20 +110,24 @@ export function ensureTypefighterLanguage() {
     base: "vs-dark",
     inherit: true,
     rules: [
-      { token: "keyword",    foreground: "C586C0", fontStyle: "bold" },
+      { token: "keyword", foreground: "C586C0", fontStyle: "bold" },
       { token: "predefined", foreground: "4EC9B0" },
-      { token: "type",       foreground: "DCDCAA" },
-      { token: "string",     foreground: "CE9178" },
-      { token: "number",     foreground: "B5CEA8" },
-      { token: "comment",    foreground: "6A9955", fontStyle: "italic" },
-      { token: "operator",   foreground: "D4D4D4" },
-      { token: "delimiter",  foreground: "808080" },
+      { token: "type", foreground: "DCDCAA" },
+      { token: "string", foreground: "CE9178" },
+      { token: "number", foreground: "B5CEA8" },
+      { token: "comment", foreground: "6A9955", fontStyle: "italic" },
+      { token: "operator", foreground: "D4D4D4" },
+      { token: "delimiter", foreground: "808080" },
     ],
     colors: {},
   });
   monaco.languages.setLanguageConfiguration("typefighter", {
     comments: { lineComment: "//" },
-    brackets: [["{", "}"], ["[", "]"], ["(", ")"]],
+    brackets: [
+      ["{", "}"],
+      ["[", "]"],
+      ["(", ")"],
+    ],
     autoClosingPairs: [
       { open: "{", close: "}" },
       { open: "[", close: "]" },
@@ -109,12 +144,45 @@ export function ensureTypefighterLanguage() {
 // user-binding completions are SOLVER results -- never scraped from text.
 const modelHovers = new Map<string, HoverInfo[]>();
 const modelCompletions = new Map<string, CompletionEntry[]>();
+const modelLanguageClients = new Map<string, TypeFighterLanguageClient>();
 
-export function setModelHovers(model: monaco.editor.ITextModel, hovers: HoverInfo[]) {
+export function setModelLanguageClient(
+  model: monaco.editor.ITextModel,
+  languageClient?: TypeFighterLanguageClient
+) {
+  modelLanguageClients.set(
+    model.uri.toString(),
+    languageClient ?? defaultTypeFighterLanguageClient
+  );
+}
+
+export function clearModelLanguageClient(model: monaco.editor.ITextModel) {
+  const key = model.uri.toString();
+  modelLanguageClients.delete(key);
+  modelHovers.delete(key);
+  modelCompletions.delete(key);
+}
+
+function languageClientForModel(
+  model: monaco.editor.ITextModel
+): TypeFighterLanguageClient {
+  return (
+    modelLanguageClients.get(model.uri.toString()) ??
+    defaultTypeFighterLanguageClient
+  );
+}
+
+export function setModelHovers(
+  model: monaco.editor.ITextModel,
+  hovers: HoverInfo[]
+) {
   modelHovers.set(model.uri.toString(), hovers ?? []);
 }
 
-export function setModelCompletions(model: monaco.editor.ITextModel, completions: CompletionEntry[]) {
+export function setModelCompletions(
+  model: monaco.editor.ITextModel,
+  completions: CompletionEntry[]
+) {
   modelCompletions.set(model.uri.toString(), completions ?? []);
 }
 
@@ -133,13 +201,27 @@ export function ensureTypefighterProviders() {
       const hovers = modelHovers.get(model.uri.toString());
       if (!hovers) return null;
       const offset = model.getOffsetAt(position);
-      const hit = hovers.find((h) => offset >= h.startIdx && offset <= h.endIdx);
+      const hit = hovers.find(
+        (h) => offset >= h.startIdx && offset <= h.endIdx
+      );
       if (!hit) return null;
       const start = model.getPositionAt(hit.startIdx);
       const end = model.getPositionAt(hit.endIdx);
       return {
-        range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column),
-        contents: [{ value: "```typefighter\n" + (hit.typ ? hit.name + " : " + hit.typ : hit.name) + "\n```" }],
+        range: new monaco.Range(
+          start.lineNumber,
+          start.column,
+          end.lineNumber,
+          end.column
+        ),
+        contents: [
+          {
+            value:
+              "```typefighter\n" +
+              (hit.typ ? hit.name + " : " + hit.typ : hit.name) +
+              "\n```",
+          },
+        ],
       };
     },
   });
@@ -152,14 +234,20 @@ export function ensureTypefighterProviders() {
     async provideCompletionItems(model, position) {
       const word = model.getWordUntilPosition(position);
       const range = new monaco.Range(
-        position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
+        position.lineNumber,
+        word.startColumn,
+        position.lineNumber,
+        word.endColumn
+      );
       const offset = model.getOffsetAt(position);
-      const before = model.getValue().slice(0, offset);
+      const languageClient = languageClientForModel(model);
+      const completion = await languageClient
+        .fetchCompletionAt(model.getValue(), offset)
+        .catch(() => ({ isMemberAccess: false, fields: [] }));
 
-      if (/\.\s*[\w`]*$/.test(before)) {
-        const fields = await fetchCompletionAt(model.getValue(), offset).catch(() => []);
+      if (completion.isMemberAccess) {
         return {
-          suggestions: fields.map((n) => ({
+          suggestions: completion.fields.map((n) => ({
             label: n,
             kind: monaco.languages.CompletionItemKind.Field,
             // Field names may carry spaces/specials -> backtick-quote those.
@@ -169,28 +257,75 @@ export function ensureTypefighterProviders() {
         };
       }
 
-      const prelude = await preludeForCompletion();
+      const prelude = await preludeForCompletion(languageClient);
       const seen = new Set<string>();
       const suggestions: monaco.languages.CompletionItem[] = [];
-      const push = (label: string, kind: monaco.languages.CompletionItemKind, detail: string, sort: string) => {
+      const push = (
+        label: string,
+        kind: monaco.languages.CompletionItemKind,
+        detail: string,
+        sort: string
+      ) => {
         if (seen.has(label)) return;
         seen.add(label);
-        suggestions.push({ label, kind, detail, insertText: label, sortText: sort + label, range });
+        suggestions.push({
+          label,
+          kind,
+          detail,
+          insertText: label,
+          sortText: sort + label,
+          range,
+        });
       };
       for (const p of prelude) {
         if (p.name.startsWith("op_") || p.name.startsWith("__")) continue;
         const isNamespace = p.fields.length > 0 && p.name !== "values";
-        if (p.name === "values") push(p.name, monaco.languages.CompletionItemKind.Struct, "host values (values.`NAME`)", "0");
-        else if (isNamespace) push(p.name, monaco.languages.CompletionItemKind.Module, p.fields.join(", "), "0");
-        else if (p.typ === "(stdlib)") push(p.name, monaco.languages.CompletionItemKind.Function, "stdlib", "1");
-        else if (p.typ.includes("->")) push(p.name, monaco.languages.CompletionItemKind.Function, p.typ, "2");
-        else push(p.name, monaco.languages.CompletionItemKind.Constant, p.typ, "2");
+        if (p.name === "values")
+          push(
+            p.name,
+            monaco.languages.CompletionItemKind.Struct,
+            "host values (values.`NAME`)",
+            "0"
+          );
+        else if (isNamespace)
+          push(
+            p.name,
+            monaco.languages.CompletionItemKind.Module,
+            p.fields.join(", "),
+            "0"
+          );
+        else if (p.typ === "(stdlib)")
+          push(
+            p.name,
+            monaco.languages.CompletionItemKind.Function,
+            "stdlib",
+            "1"
+          );
+        else if (p.typ.includes("->"))
+          push(
+            p.name,
+            monaco.languages.CompletionItemKind.Function,
+            p.typ,
+            "2"
+          );
+        else
+          push(
+            p.name,
+            monaco.languages.CompletionItemKind.Constant,
+            p.typ,
+            "2"
+          );
       }
       // User bindings: solver results from the last compile-info round trip
       // (pushed per model via setModelCompletions) -- never text-scraped.
       for (const c of modelCompletions.get(model.uri.toString()) ?? []) {
         if (c.kind === "binding") {
-          push(c.name, monaco.languages.CompletionItemKind.Variable, c.typ || "binding", "1");
+          push(
+            c.name,
+            monaco.languages.CompletionItemKind.Variable,
+            c.typ || "binding",
+            "1"
+          );
         }
       }
       return { suggestions };
@@ -211,7 +346,9 @@ export function ensureTypefighterProviders() {
       const hovers = modelHovers.get(model.uri.toString()) ?? [];
       let typ = hovers.find((h) => h.name === ctx.name && h.typ)?.typ;
       if (!typ) {
-        const prelude = await preludeForCompletion();
+        const prelude = await preludeForCompletion(
+          languageClientForModel(model)
+        );
         const flat = ctx.ns ? "__" + ctx.ns + "_" + ctx.name : ctx.name;
         typ = prelude.find((p) => p.name === flat)?.typ;
       }
@@ -219,14 +356,20 @@ export function ensureTypefighterProviders() {
       const sig = parseFunctionType(typ);
       return {
         value: {
-          signatures: [{
-            label: `${ctx.name} : ${typ}`,
-            parameters: sig.params.length > 0
-              ? sig.params.map((p) => ({ label: p }))
-              : [{ label: typ }],
-          }],
+          signatures: [
+            {
+              label: `${ctx.name} : ${typ}`,
+              parameters:
+                sig.params.length > 0
+                  ? sig.params.map((p) => ({ label: p }))
+                  : [{ label: typ }],
+            },
+          ],
           activeSignature: 0,
-          activeParameter: Math.min(ctx.activeParam, Math.max(sig.params.length - 1, 0)),
+          activeParameter: Math.min(
+            ctx.activeParam,
+            Math.max(sig.params.length - 1, 0)
+          ),
         },
         dispose() {},
       };
@@ -235,10 +378,15 @@ export function ensureTypefighterProviders() {
 }
 
 // Innermost open call at the cursor: callee name + active parameter index.
-function findCallContext(model: monaco.editor.ITextModel, position: monaco.IPosition) {
+function findCallContext(
+  model: monaco.editor.ITextModel,
+  position: monaco.IPosition
+) {
   const text = model.getValueInRange({
-    startLineNumber: 1, startColumn: 1,
-    endLineNumber: position.lineNumber, endColumn: position.column,
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: position.lineNumber,
+    endColumn: position.column,
   });
   let depth = 0;
   let activeParam = 0;
@@ -263,18 +411,29 @@ function findCallContext(model: monaco.editor.ITextModel, position: monaco.IPosi
 // Parse a TypeFighter function type string into params + return. Handles
 // right-associative `A -> B -> C`, outer parens, the `<tv_...>.` poly prefix,
 // and angle brackets (Stream<...>).
-export function parseFunctionType(typ: string): { params: string[]; ret: string } {
+export function parseFunctionType(typ: string): {
+  params: string[];
+  ret: string;
+} {
   let s = typ.replace(/^<[^>]*>\./, "").trim();
   if (s.startsWith("(") && s.endsWith(")")) {
-    let depth = 0, ok = true;
+    let depth = 0,
+      ok = true;
     for (let i = 0; i < s.length - 1; i++) {
       if (s[i] === "(") depth++;
-      else if (s[i] === ")") { depth--; if (depth === 0) { ok = false; break; } }
+      else if (s[i] === ")") {
+        depth--;
+        if (depth === 0) {
+          ok = false;
+          break;
+        }
+      }
     }
     if (ok) s = s.slice(1, -1).trim();
   }
   const parts: string[] = [];
-  let depth = 0, last = 0;
+  let depth = 0,
+    last = 0;
   for (let i = 0; i < s.length - 3; i++) {
     if (s[i] === "(" || s[i] === "<") depth++;
     else if (s[i] === ")" || s[i] === ">") depth--;
@@ -292,30 +451,41 @@ export function parseFunctionType(typ: string): { params: string[]; ret: string 
 // Re-register syntax highlighting from the live prelude, once per page life:
 // new backend builtins light up without a frontend edit.
 let tokensRefreshed = false;
-export function refreshTypefighterTokensFromPrelude() {
+export function refreshTypefighterTokensFromPrelude(
+  languageClient = defaultTypeFighterLanguageClient
+) {
   if (tokensRefreshed) return;
   tokensRefreshed = true;
-  preludeForCompletion().then((p) => {
+  preludeForCompletion(languageClient).then((p) => {
     if (p.length > 0) setTypefighterTokens(editorBuiltinsFromPrelude(p));
     else tokensRefreshed = false;
   });
 }
 
-// Process-lifetime prelude cache for identifier completion (the prelude only
-// changes when the host re-registers its values, i.e. on service restart).
-let preludeCachePromise: Promise<PreludeEntry[]> | undefined;
-function preludeForCompletion(): Promise<PreludeEntry[]> {
-  if (!preludeCachePromise) {
-    preludeCachePromise = fetchPrelude().then((p) => {
-      // Cold start: values may arrive without fields -- don't memoize that.
-      const values = p.find((e) => e.name === "values");
-      if (values && values.fields.length === 0) preludeCachePromise = undefined;
-      return p;
-    }).catch(() => {
-      preludeCachePromise = undefined;
-      return [] as PreludeEntry[];
-    });
+// Process-lifetime prelude cache per language client.
+const preludeCachePromises = new WeakMap<
+  TypeFighterLanguageClient,
+  Promise<PreludeEntry[]>
+>();
+function preludeForCompletion(
+  languageClient: TypeFighterLanguageClient
+): Promise<PreludeEntry[]> {
+  let promise = preludeCachePromises.get(languageClient);
+  if (!promise) {
+    promise = languageClient
+      .fetchPrelude()
+      .then((p) => {
+        // Cold start: values may arrive without fields -- don't memoize that.
+        const values = p.find((e) => e.name === "values");
+        if (values && values.fields.length === 0)
+          preludeCachePromises.delete(languageClient);
+        return p;
+      })
+      .catch(() => {
+        preludeCachePromises.delete(languageClient);
+        return [] as PreludeEntry[];
+      });
+    preludeCachePromises.set(languageClient, promise);
   }
-  return preludeCachePromise;
+  return promise;
 }
-

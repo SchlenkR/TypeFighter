@@ -12,6 +12,7 @@
         <Compile Include="TheBlunt.fs" />
         <Compile Include="Utils.fs" />
         <Compile Include="Lang.fs" />
+        <Compile Include="Graph.fs" />
         <Compile Include="Desugar.fs" />
         <Compile Include="ExpressionDsl.fs" />
         <Compile Include="Roslyn.fs" />

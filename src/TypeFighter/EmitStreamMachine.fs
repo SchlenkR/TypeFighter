@@ -35,6 +35,14 @@ let private nTicks = 10
 let isStepRecordRoot (rootType: MonoTyp) : bool =
     BuiltinTypes.isStepRecord rootType
 
+/// `Array<Stream<_>>`: a program whose result is several streams at once.
+/// Sampler mode emits one value per element, so the host can draw one curve
+/// per element. Not supported in the fixed-tick preview mode.
+let isStepRecordArrayRoot (rootType: MonoTyp) : bool =
+    BuiltinTypes.arrayElement rootType
+    |> Option.map BuiltinTypes.isStepRecord
+    |> Option.defaultValue false
+
 let private emitExprText (tvarToMono: VarNum -> MonoTyp option) (e: Expr<VarNum>) =
     EmitCSharp.toCSharp tvarToMono e
 
@@ -104,7 +112,10 @@ let private emitCore
     (expr: Expr<VarNum>)
     : string option
     =
-    if not (isStepRecordRoot rootType) then None else
+    // Multi-stream roots only make sense where one call yields one sample per
+    // stream; the fixed-tick preview keeps its single-value contract.
+    let isMultiRoot = mode = Sampler && isStepRecordArrayRoot rootType
+    if not (isStepRecordRoot rootType || isMultiRoot) then None else
     let emitText = emitExprText tvarToMono
 
     let entries, finalExpr = collectChain expr
@@ -226,7 +237,40 @@ let private emitCore
     // is evaluated directly.
     let finalResolved = resolve finalExpr
     let finalSpliced = finalResolved.spliced |> List.collect flattenEntry
+
+    // One element of a multi-stream root: the steps it needs, plus the C#
+    // expression holding its value for this tick. An element that is merely a
+    // reference to a chain binding already has its slot (the chain emitted it),
+    // so it contributes no steps and reads the alias local instead.
+    let elementOf (e: Expr<VarNum>) =
+        let resolved = resolve e
+        let spliced = resolved.spliced |> List.collect flattenEntry
+        match resolved.final with
+        | FRecord items ->
+            let idx = newSlot (machineFieldOf SF.init items)
+            Some (spliced @ [ FSlot (idx, None, items) ], sprintf "__step_val_%d" idx)
+        | FPlain (OpaqueStream valType & inner) ->
+            let idx = newSlot None
+            Some (spliced @ [ FOpaque (idx, None, inner, valType) ], sprintf "__step_val_%d" idx)
+        | FPlain (Expr.Var v as inner) when kinds.ContainsKey v.ident ->
+            Some (spliced, emitText inner)
+        | _ -> None
+
+    // Multi-stream root: every element of the literal array yields its own
+    // value per tick, so each stream keeps its own state and the host can draw
+    // one curve per element.
+    let multiFinal =
+        if not isMultiRoot then None else
+        match finalResolved.final with
+        | FPlain (Expr.MkArray a) ->
+            let elements = a.values |> List.map elementOf
+            if elements |> List.forall Option.isSome
+            then Some (elements |> List.map Option.get)
+            else None
+        | _ -> None
+
     let finalStep =
+        if Option.isSome multiFinal then None else
         match finalResolved.final with
         | FRecord items ->
             let idx = newSlot (machineFieldOf SF.init items)
@@ -365,11 +409,19 @@ let private emitCore
     let emitStepsAndFinal (emitFinal: string -> unit) =
         for step in flatSteps do emitFlatStep step
         for step in finalSpliced do emitFlatStep step
-        match finalStep with
-        | Some (idx, step) ->
+        match multiFinal, finalStep with
+        | Some elements, _ ->
+            for steps, _ in elements do
+                for step in steps do emitFlatStep step
+            let values =
+                elements
+                |> List.map (fun (_, value) -> sprintf "(object)(%s)" value)
+                |> String.concat ", "
+            emitFinal (sprintf "new object[] { %s }" values)
+        | None, Some (idx, step) ->
             emitFlatStep step
             emitFinal (sprintf "__step_val_%d" idx)
-        | None ->
+        | None, None ->
             match finalResolved.final with
             | FPlain e -> emitFinal (sprintf "(%s)(%s)" vType (emitText e))
             | FRecord _ -> ()

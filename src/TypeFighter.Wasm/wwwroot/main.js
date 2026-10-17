@@ -13,7 +13,7 @@ window.tf = interop;
 
 el('status').textContent = 'Runtime loaded, running Init (reference pool + warm-up compile) ...';
 const t0 = performance.now();
-const init = JSON.parse(interop.Init());
+const init = JSON.parse(interop.Init("[]"));
 const initMs = performance.now() - t0;
 if (init.error) {
     el('status').textContent = `Init FAILED: ${init.error}`;
